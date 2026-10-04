@@ -1,0 +1,122 @@
+.tabs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.tabList {
+  display: flex;
+  gap: var(--space-1);
+  border-block-end: var(--border-width) solid var(--border-subtle);
+  overflow-x: auto;
+}
+
+.tab {
+  padding: var(--space-2) var(--space-3);
+  color: var(--fg-2);
+  font-weight: var(--weight-medium);
+  position: relative;
+  outline: none;
+  white-space: nowrap;
+  cursor: default;
+  display: flex;
+  gap: var(--space-1_5);
+  align-items: baseline;
+}
+
+.tab[data-hovered] {
+  color: var(--fg-1);
+}
+
+.tab[data-selected] {
+  color: var(--fg-1);
+}
+
+.tab[data-selected]::after {
+  content: '';
+  position: absolute;
+  inset-inline: var(--space-2);
+  inset-block-end: -1px;
+  block-size: 2px;
+  background: var(--fg-1);
+}
+
+.tab[data-focus-visible] {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.tabCount {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--fg-3);
+}
+
+.bulk {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  min-block-size: var(--control-md);
+}
+
+.bulk strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.row[data-selected='true'] td {
+  background: var(--bg-selected);
+}
+
+.row[data-selected='true'] td:first-child {
+  box-shadow: inset 2px 0 0 var(--key);
+}
+
+.fileCell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-inline-size: 0;
+  max-inline-size: 320px;
+}
+
+.fileCell img {
+  inline-size: 48px;
+  block-size: 27px;
+  object-fit: contain;
+  background: var(--bg-letterbox);
+  border-radius: var(--radius-xs);
+  flex: none;
+}
+
+.fileCell a {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.small {
+  font-size: var(--text-xs);
+  color: var(--fg-2);
+}
+
+.statement {
+  border-inline-start: 2px solid var(--fg-1);
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-md);
+  line-height: var(--leading-md);
+  max-inline-size: var(--measure-prose);
+}
+
+.form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+  max-inline-size: 640px;
+}
+
+@media (width < 720px) {
+  .form {
+    grid-template-columns: 1fr;
+  }
+}

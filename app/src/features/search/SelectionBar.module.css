@@ -1,0 +1,48 @@
+.bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  block-size: var(--selectionbar-height);
+  padding-inline: var(--space-4);
+  background: var(--bg-panel);
+  border-block-start: var(--border-width) solid var(--border-default);
+  min-inline-size: 0;
+  animation: bar-in var(--dur-3) var(--ease-enter);
+}
+
+@keyframes bar-in {
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+}
+
+.count {
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.count b {
+  color: var(--key);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  min-inline-size: 0;
+  padding-block: 4px;
+}
+
+@media (width < 1024px) {
+  .hideNarrow {
+    display: none;
+  }
+}

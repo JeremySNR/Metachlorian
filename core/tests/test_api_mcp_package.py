@@ -57,6 +57,9 @@ def test_package_rejects_bad_in_out(processed):
     uid = db.q1("SELECT uid FROM shots WHERE asset_id=? ORDER BY idx", (a["id"],))["uid"]
     with pytest.raises(ValueError):
         build_package(db, s, [{"shot_uid": uid, "in": 0.0, "out": 99.0}], "bad")
+    # Inserts over an A-roll need an A-roll item (was an IndexError -> HTTP 500).
+    with pytest.raises(ValueError, match="A-roll"):
+        build_package(db, s, [{"shot_uid": uid, "role": "broll"}], "no a-roll", media_policy="none", mode="a_roll_with_inserts")
 
 
 def _team_app(s, db):

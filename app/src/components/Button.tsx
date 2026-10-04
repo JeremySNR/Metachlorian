@@ -1,4 +1,5 @@
-import { forwardRef, useEffect, useState, type ReactNode } from 'react'
+import { forwardRef, type ReactNode } from 'react'
+import { useDelayedFlag } from '../hooks/useDebounced'
 import { Button as RacButton, TooltipTrigger, type ButtonProps as RacButtonProps } from 'react-aria-components'
 import { LoaderCircle, type LucideIcon } from 'lucide-react'
 import { Ic } from './Icon'
@@ -21,24 +22,11 @@ export interface ButtonProps extends Omit<RacButtonProps, 'children' | 'classNam
   disabledReason?: string
 }
 
-function useDelayed(flag: boolean, ms = 400) {
-  const [show, setShow] = useState(false)
-  useEffect(() => {
-    if (!flag) {
-      setShow(false)
-      return
-    }
-    const t = window.setTimeout(() => setShow(true), ms)
-    return () => window.clearTimeout(t)
-  }, [flag, ms])
-  return show
-}
-
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
   { variant = 'secondary', size = 'md', icon, iconEnd, shortcut, busy, className, children, disabledReason, isDisabled, onPress, ...rest },
   ref,
 ) {
-  const showBusy = useDelayed(Boolean(busy))
+  const showBusy = useDelayedFlag(Boolean(busy))
   const iconSize = size === 'sm' ? 14 : 16
   const softDisabled = Boolean(disabledReason) && isDisabled
   const btn = (

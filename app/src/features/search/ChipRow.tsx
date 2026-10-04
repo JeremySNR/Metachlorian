@@ -61,7 +61,19 @@ export function ChipRow({ query, state, vocabs, label, onChange, extra = [] }: P
 
   return (
     <div className={s.chipRow}>
-      <div className={s.chipScroller}>
+      <div
+        className={s.chipScroller}
+        onKeyDownCapture={(e) => {
+          if (e.key !== 'Enter' || !e.altKey) return
+          const key = (e.target as HTMLElement).closest<HTMLElement>('[data-chip]')?.dataset.chip
+          const c = key ? byKey.get(key) : undefined
+          if (c?.vocab && c.term) {
+            e.preventDefault()
+            e.stopPropagation()
+            exclude(c)
+          }
+        }}
+      >
         <TagGroup
           ref={groupRef}
           aria-label="Search interpretation"
@@ -98,12 +110,7 @@ export function ChipRow({ query, state, vocabs, label, onChange, extra = [] }: P
                   data-testid="query-chip"
                   data-kind={c.kind}
                   onAction={isTerm ? () => promote(c) : undefined}
-                  onKeyDown={(e: React.KeyboardEvent) => {
-                    if (e.key === 'Enter' && e.altKey && isTerm) {
-                      e.preventDefault()
-                      exclude(c)
-                    }
-                  }}
+                  data-chip={c.key}
                   onPointerDown={(e: React.PointerEvent) => {
                     if (e.altKey && isTerm) {
                       e.preventDefault()
@@ -114,9 +121,9 @@ export function ChipRow({ query, state, vocabs, label, onChange, extra = [] }: P
                   <span className={s.chipSlate}>{c.slate}</span>
                   <span className={s.chipValue}>{c.label}</span>
                   {isTerm && c.kind !== 'exclude' && (
-                    <RacButton className={`${s.chipBtn} ${s.chipPin}`} aria-label={required ? `Make ${c.label} preferred, not required` : `Require ${c.label}`} onPress={() => promote(c)}>
+                    <button type="button" tabIndex={-1} className={`${s.chipBtn} ${s.chipPin}`} aria-label={required ? `Make ${c.label} preferred, not required` : `Require ${c.label}`} onClick={() => promote(c)}>
                       <Ic icon={required ? PinOff : Pin} size={14} />
-                    </RacButton>
+                    </button>
                   )}
                   <RacButton slot="remove" className={s.chipBtn} aria-label={`Remove ${c.label}`}>
                     <Ic icon={X} size={14} />

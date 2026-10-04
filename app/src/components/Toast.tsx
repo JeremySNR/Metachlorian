@@ -38,7 +38,7 @@ export function Toaster() {
       {({ toast: t }) => {
         const tone = t.content.tone ?? 'success'
         return (
-          <RacToast toast={t} className={s.toast} role={tone === 'error' ? 'alert' : 'status'}>
+          <RacToast toast={t} className={s.toast}>
             <Ic icon={ICONS[tone]} className={`${s.toastIcon} ${s[`tone-${tone}`]}`} />
             <ToastContent className={s.toastContent}>
               <Text slot="title">{t.content.title}</Text>

@@ -376,3 +376,10 @@
     block-size: var(--target-coarse);
   }
 }
+
+.checkbox[data-disabled] .box,
+.checkbox[data-disabled][data-selected] .box {
+  background: transparent;
+  border-color: var(--border-subtle);
+  color: var(--fg-disabled);
+}

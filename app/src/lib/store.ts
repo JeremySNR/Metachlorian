@@ -102,18 +102,21 @@ interface UiState {
   /** Ordered result ids of the last search, for [ / ] in Shot detail. */
   resultOrder: string[]
   resultCache: Map<string, SearchResult>
+  lastQuery: string
   example: ExampleSearch | null
   railDrawer: boolean
+  /** ⌘Enter in the search bar: focus the first result once it arrives. */
+  focusResultsPending: string | null
   commandOpen: boolean
   shortcutsOpen: boolean
-  sendDialog: { kind: 'collection'; uid: string } | { kind: 'shots'; uids: string[] } | null
-  rightsDialog: { assetUid: string; shotUid?: string; title?: string } | null
+  sendDialog: ({ kind: 'collection'; uid: string } | { kind: 'shots'; uids: string[] }) & { consumer?: 'cutawan' | 'nle' } | null
+  rightsDialog: { assetUids: string[]; shotUid?: string; title?: string } | null
   addToDialog: string[] | null
   setSelection: (s: Set<string>) => void
   toggleSelected: (uid: string) => void
   clearSelection: () => void
   inspect: (uid: string | null) => void
-  rememberResults: (results: SearchResult[]) => void
+  rememberResults: (results: SearchResult[], query?: string) => void
   set: (p: Partial<UiState>) => void
 }
 
@@ -122,8 +125,10 @@ export const useUi = create<UiState>()((set, get) => ({
   inspected: null,
   resultOrder: [],
   resultCache: new Map(),
+  lastQuery: '',
   example: null,
   railDrawer: false,
+  focusResultsPending: null,
   commandOpen: false,
   shortcutsOpen: false,
   sendDialog: null,
@@ -138,10 +143,10 @@ export const useUi = create<UiState>()((set, get) => ({
   },
   clearSelection: () => set({ selection: new Set() }),
   inspect: (uid) => set({ inspected: uid }),
-  rememberResults: (results) => {
+  rememberResults: (results, query = '') => {
     const cache = get().resultCache
     for (const r of results) cache.set(r.uid, r)
-    set({ resultOrder: results.map((r) => r.uid) })
+    set({ resultOrder: results.map((r) => r.uid), lastQuery: query })
   },
   set: (p) => set(p),
 }))

@@ -5,6 +5,7 @@ import {
 import { IconButton } from '../../components/Button'
 import { Ic } from '../../components/Icon'
 import { isTyping } from '../../hooks/useHotkeys'
+import { useLatest } from '../../hooks/useDebounced'
 import { formatDuration, formatTimecode, parseTimecode, splitLeadingZeros, timecodeAriaLabel } from '../../lib/timecode'
 import { usePrefs } from '../../lib/store'
 import s from './Player.module.css'
@@ -64,8 +65,7 @@ export const Player = forwardRef<PlayerHandle, PlayerProps>(function Player(prop
   const format = usePrefs((p) => p.timecodeFormat)
   const [a, b] = range
   const span = Math.max(0.001, b - a)
-  const latest = useRef(props)
-  latest.current = props
+  const latest = useLatest(props)
 
   const paint = (t: number) => {
     const tc = formatTimecode(t, fps, format)

@@ -178,7 +178,7 @@ export function filterLabel(group: FilterGroup, f: SearchFilters, label?: LabelF
   }
 }
 
-export function useLabel(use: IntendedUse | null | undefined, label?: LabelFn): string | null {
+export function intendedUseLabel(use: IntendedUse | null | undefined, label?: LabelFn): string | null {
   if (!use) return null
   const parts: string[] = []
   if (use.use) parts.push(label ? label('usage', use.use) : humanise(use.use))
@@ -436,7 +436,7 @@ export function chipsFromQuery(query: SearchResponse['query'], state: SearchStat
   for (const place of parsed?.place ?? []) {
     chips.push({ key: `place:${place}`, kind: 'place', slate: 'PLACE', label: place, inferred: true, words: place })
   }
-  const ul = useLabel(query.intended_use, label)
+  const ul = intendedUseLabel(query.intended_use, label)
   if (ul) chips.push({ key: 'use', kind: 'use', slate: 'RIGHTS', label: ul, inferred: !state.use })
   return chips
 }

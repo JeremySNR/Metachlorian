@@ -180,7 +180,7 @@ export function SearchBar() {
       setOpen(false)
       saveRecent(draft)
       commit(draft, false)
-      if (e.metaKey || e.ctrlKey) window.setTimeout(() => window.dispatchEvent(new Event('mc:focus-results')), 50)
+      if (e.metaKey || e.ctrlKey) useUi.getState().set({ focusResultsPending: draft })
     } else if (e.key === 'Escape') {
       if (showSuggest) {
         setOpen(false)
@@ -244,7 +244,7 @@ export function SearchBar() {
           <FileTrigger acceptedFileTypes={['image/*', 'video/*']} onSelect={(files) => { const f = files?.[0]; if (f) runExample(f) }}>
             <IconButton icon={ImageUp} label="Search by example image or clip" size="sm" />
           </FileTrigger>
-          <kbd className={s.hint} aria-hidden="true">{MOD.trim()}K</kbd>
+          <kbd className={s.hint} aria-hidden="true">{MOD}K</kbd>
         </div>
         {dropping && <div className={s.dropHint}>Drop an image or clip to find similar shots</div>}
         <ProgressLine visible={showProgress} />

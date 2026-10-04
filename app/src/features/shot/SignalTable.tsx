@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { Check, PenLine, Undo2, X } from 'lucide-react'
 import type { CorrectionKind, FieldValue, ShotDoc, Vocabulary } from '../../api/types'
 import { useCorrect, useCorrections, useRevertCorrection, type CorrectionInput } from '../../api/queries'
@@ -37,12 +37,14 @@ export function SignalTable({ shot, vocabs, label, editField, groups }: Props) {
   const correct = useCorrect()
   const revert = useRevertCorrection()
 
-  useEffect(() => {
+  const [seenEdit, setSeenEdit] = useState(editField)
+  if (editField !== seenEdit) {
+    setSeenEdit(editField)
     if (editField) {
       setEditing(editField)
       setFocusField(editField)
     }
-  }, [editField])
+  }
 
   const flat: SignalRow[] = SIGNAL_GROUPS.flatMap((g) => (groups && !groups.includes(g) ? [] : rows.get(g) ?? []))
   const current = focusField ?? flat[0]?.field
@@ -214,17 +216,25 @@ function Row({ row, focused, editing, vocabs, label, onFocus, onEdit, onCancel, 
         {row.label}
       </span>
       <span className={s.rowValue} role="gridcell">
-        {r.kind === 'terms' &&
-          r.items.map((i, k) => (
-            <span key={i.term} className={`${s.term} ${k < r.items.length - 1 || removedTerms.length ? s.termSep : ''}`} title={i.confidence !== null && i.confidence < 1 ? `Confidence ${Math.round(i.confidence * 100)}` : undefined}>
-              {termLabel(i.term)}
-            </span>
-          ))}
-        {removedTerms.map((term) => (
-          <span key={term} className={s.removed} aria-label={`${termLabel(term)}, removed`}>
-            {termLabel(term)}
+        {(r.kind === 'terms' || removedTerms.length > 0) && (
+          <span>
+            {r.kind === 'terms' &&
+              r.items.map((i, k) => (
+                <span key={i.term} title={i.confidence !== null && i.confidence < 1 ? `Confidence ${Math.round(i.confidence * 100)}` : undefined}>
+                  {k > 0 ? ', ' : ''}
+                  {termLabel(i.term)}
+                </span>
+              ))}
+            {removedTerms.map((term, k) => (
+              <span key={term}>
+                {k > 0 || (r.kind === 'terms' && r.items.length) ? ', ' : ''}
+                <span className={s.removed} aria-label={`${termLabel(term)}, removed`}>
+                  {termLabel(term)}
+                </span>
+              </span>
+            ))}
           </span>
-        ))}
+        )}
         {r.kind === 'text' && <span>{r.text}</span>}
         {r.kind === 'colours' && <Swatches colours={r.colours} />}
         {r.kind === 'empty' && <span className={s.empty}>None</span>}
@@ -238,7 +248,7 @@ function Row({ row, focused, editing, vocabs, label, onFocus, onEdit, onCancel, 
         ) : (
           <>
             <span>{sourceLabel(fv)}</span>
-            <ConfidenceMeter value={fv.confidence} label={row.label} />
+            {r.kind !== 'empty' && <ConfidenceMeter value={fv.confidence} label={row.label} />}
           </>
         )}
       </span>

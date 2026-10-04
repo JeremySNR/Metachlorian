@@ -13,14 +13,14 @@ export function useDebounced<T>(value: T, ms: number): T {
 export function useDelayedFlag(flag: boolean, ms = 400): boolean {
   const [show, setShow] = useState(false)
   useEffect(() => {
-    if (!flag) {
-      setShow(false)
-      return
-    }
+    if (!flag) return
     const t = window.setTimeout(() => setShow(true), ms)
-    return () => window.clearTimeout(t)
+    return () => {
+      window.clearTimeout(t)
+      setShow(false)
+    }
   }, [flag, ms])
-  return show
+  return flag && show
 }
 
 /** Latest value in a ref, for event handlers registered once. */

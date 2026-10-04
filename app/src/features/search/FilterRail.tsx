@@ -30,6 +30,7 @@ const VERDICT_LABEL: Record<Verdict, string> = { allowed: 'Cleared', restricted:
 /** Filter rail (system.md §3.4). Each facet maps 1:1 to a search filter. */
 export function FilterRail({ params, facets, excludedByRights, vocabs, label, onChange, onCollapse, drawer }: Props) {
   const state = toState(params)
+  const [showAllEdit, setShowAllEdit] = useState(false)
   const active = activeFilterCount(state)
   const f: SearchFilters = params.f ?? {}
 
@@ -107,7 +108,7 @@ export function FilterRail({ params, facets, excludedByRights, vocabs, label, on
       <div className={s.scroll}>
         <Section title="Edit stage" count={editSelected.length} defaultExpanded>
           <div className={s.group}>
-            {editTerms.map((term) => {
+            {editTerms.filter((term) => showAllEdit || (editCounts.get(term.id) ?? 0) > 0 || editSelected.includes(term.id)).map((term) => {
               const n = editCounts.get(term.id) ?? 0
               const on = editSelected.includes(term.id)
               return (
@@ -119,6 +120,12 @@ export function FilterRail({ params, facets, excludedByRights, vocabs, label, on
                 </div>
               )
             })}
+            {!editTerms.some((term) => (editCounts.get(term.id) ?? 0) > 0) && !showAllEdit && <span className={s.note}>No file has been classified yet.</span>}
+            {editTerms.length > 0 && (
+              <Button variant="quiet" size="sm" className={s.more} onPress={() => setShowAllEdit(!showAllEdit)}>
+                {showAllEdit ? 'Hide empty stages' : `Show all ${editTerms.length}`}
+              </Button>
+            )}
           </div>
         </Section>
 

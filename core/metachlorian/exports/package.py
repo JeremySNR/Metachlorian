@@ -231,6 +231,9 @@ def build_package(db: Database, settings: Settings, items: list[dict[str, Any]],
     b_items = [r for r in resolved if r["role"] not in A_ROLES]
     if mode is None:
         mode = "a_roll_with_inserts" if a_items and b_items else "stringout"
+    if mode == "a_roll_with_inserts" and not a_items:
+        raise ValueError("a_roll_with_inserts needs at least one A-roll item (role interview, piece_to_camera, a_roll or vox_pop);"
+                         " use stringout or broll_library instead")
     if media_policy == "none" and mode != "broll_library":
         mode = mode if mode in ("stringout", "a_roll_with_inserts") else "stringout"
     clips: list[T.Clip] = []
@@ -255,9 +258,7 @@ def build_package(db: Database, settings: Settings, items: list[dict[str, Any]],
                 r["media_out"] = r["media_in"] + dur
             clips.append(_clip(r, asset_docs, start, 2, seq_rate))
             r["record_in"] = start
-            trig = (_words(db, a_items[0]["doc"]["asset_id"], 0, 1e9) or [{}])
             inserts.append({"item_id": r["item_id"], "start": round(start, 3), "end": round(start + dur, 3), "mode": "fullscreen"})
-            _ = trig
     seq = T.Sequence(name=name, rate=seq_rate, width=width, height=height, clips=clips)
     # ------------------------------------------------------------ stringout + transcript
     stringout = None

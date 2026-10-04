@@ -1,6 +1,10 @@
 /* Timecode (§3.7) */
 .tc {
-  composes: timecode from '../styles/type.module.css';
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: var(--font-mono-features);
+  font-weight: var(--weight-regular);
+  white-space: nowrap;
   color: var(--fg-1);
 }
 

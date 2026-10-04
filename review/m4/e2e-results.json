@@ -1,0 +1,546 @@
+{
+  "config": {
+    "configFile": "/home/user/Metachlorian/app/playwright.config.ts",
+    "rootDir": "/home/user/Metachlorian/app/e2e",
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "../review/m4/e2e-results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "quiet": false,
+    "projects": [
+      {
+        "outputDir": "/home/user/Metachlorian/app/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "review",
+        "name": "review",
+        "testDir": "/home/user/Metachlorian/app/e2e",
+        "testIgnore": [
+          "/\\.electron\\.spec\\.ts$/"
+        ],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 180000
+      },
+      {
+        "outputDir": "/home/user/Metachlorian/app/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "electron",
+        "name": "electron",
+        "testDir": "/home/user/Metachlorian/app/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/\\.electron\\.spec\\.ts$/"
+        ],
+        "timeout": 180000
+      }
+    ],
+    "shard": null,
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.56.1",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "journeys.spec.ts",
+      "file": "journeys.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "01 search: natural language to shot results with previews",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 180000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "review",
+              "projectName": "review",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 13902,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T04:02:09.774Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "video",
+                      "contentType": "video/webm",
+                      "path": "/home/user/Metachlorian/app/test-results/journeys-01-search-natural-97412--shot-results-with-previews-review/video.webm"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "aa09586c1d16412a1f00-ada4f1582277f09ef2ce",
+          "file": "journeys.spec.ts",
+          "line": 19,
+          "column": 1
+        },
+        {
+          "title": "02 select a shot and find similar",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 180000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "review",
+              "projectName": "review",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 29194,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T04:02:23.864Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "video",
+                      "contentType": "video/webm",
+                      "path": "/home/user/Metachlorian/app/test-results/journeys-02-select-a-shot-and-find-similar-review/video.webm"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "aa09586c1d16412a1f00-397e973a10d1ac47b445",
+          "file": "journeys.spec.ts",
+          "line": 53,
+          "column": 1
+        },
+        {
+          "title": "03 filter by resolution, fps, orientation, log and duration",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 180000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "review",
+              "projectName": "review",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 13452,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T04:02:53.075Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "video",
+                      "contentType": "video/webm",
+                      "path": "/home/user/Metachlorian/app/test-results/journeys-03-filter-by-reso-47abb-rientation-log-and-duration-review/video.webm"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "aa09586c1d16412a1f00-9761febd41a0dd2ebd5d",
+          "file": "journeys.spec.ts",
+          "line": 92,
+          "column": 1
+        },
+        {
+          "title": "04 see whether a file is raw, selects or finished",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 180000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "review",
+              "projectName": "review",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 9884,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T04:03:06.545Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "video",
+                      "contentType": "video/webm",
+                      "path": "/home/user/Metachlorian/app/test-results/journeys-04-see-whether-a-file-is-raw-selects-or-finished-review/video.webm"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "aa09586c1d16412a1f00-cce209c30a7caee066cc",
+          "file": "journeys.spec.ts",
+          "line": 134,
+          "column": 1
+        },
+        {
+          "title": "05 rights, releases and expiry respected by intended-use search",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 180000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "review",
+              "projectName": "review",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 24165,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T04:03:16.441Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "video",
+                      "contentType": "video/webm",
+                      "path": "/home/user/Metachlorian/app/test-results/journeys-05-rights-release-a6bd5-cted-by-intended-use-search-review/video.webm"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "aa09586c1d16412a1f00-f64533f2f26a96ac47d0",
+          "file": "journeys.spec.ts",
+          "line": 148,
+          "column": 1
+        },
+        {
+          "title": "06 build a Cutawan package from a collection",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 180000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "review",
+              "projectName": "review",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 105289,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T04:03:40.618Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "video",
+                      "contentType": "video/webm",
+                      "path": "/home/user/Metachlorian/app/test-results/journeys-06-build-a-Cutawan-package-from-a-collection-review/video.webm"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "aa09586c1d16412a1f00-47ace95718f839be83b8",
+          "file": "journeys.spec.ts",
+          "line": 195,
+          "column": 1
+        },
+        {
+          "title": "07 correct a wrong tag; it is marked human and survives reload",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 180000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "review",
+              "projectName": "review",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 14375,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T04:05:25.921Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "video",
+                      "contentType": "video/webm",
+                      "path": "/home/user/Metachlorian/app/test-results/journeys-07-correct-a-wron-79706-d-human-and-survives-reload-review/video.webm"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "aa09586c1d16412a1f00-b0e88f2938296439a216",
+          "file": "journeys.spec.ts",
+          "line": 245,
+          "column": 1
+        },
+        {
+          "title": "08 processing status is visible",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 180000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "review",
+              "projectName": "review",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 9656,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T04:05:40.311Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "video",
+                      "contentType": "video/webm",
+                      "path": "/home/user/Metachlorian/app/test-results/journeys-08-processing-status-is-visible-review/video.webm"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "aa09586c1d16412a1f00-399664eb2bb38ffc5827",
+          "file": "journeys.spec.ts",
+          "line": 288,
+          "column": 1
+        },
+        {
+          "title": "09 keyboard only: search to inspector to shot detail",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 180000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "review",
+              "projectName": "review",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 14403,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T04:05:49.979Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "video",
+                      "contentType": "video/webm",
+                      "path": "/home/user/Metachlorian/app/test-results/journeys-09-keyboard-only-search-to-inspector-to-shot-detail-review/video.webm"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "aa09586c1d16412a1f00-3e0ee6cb4812a57d8ca1",
+          "file": "journeys.spec.ts",
+          "line": 305,
+          "column": 1
+        },
+        {
+          "title": "10 grid scroll smoothness",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 180000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "review",
+              "projectName": "review",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 12446,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "text": "grid scroll {\"idleFrameMs\":16.7,\"firstPass\":{\"p50\":25.3,\"p95\":109.7,\"max\":364},\"secondPass\":{\"p50\":26.3,\"p95\":78.9,\"max\":130},\"cardsInDom\":28,\"total\":\"74\"}\n"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T04:06:04.396Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "video",
+                      "contentType": "video/webm",
+                      "path": "/home/user/Metachlorian/app/test-results/journeys-10-grid-scroll-smoothness-review/video.webm"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "aa09586c1d16412a1f00-76a68c5b44311d255bdd",
+          "file": "journeys.spec.ts",
+          "line": 351,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "preview.electron.spec.ts",
+      "file": "preview.electron.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "11 preview starts in under 300 ms (Electron, H.264)",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 180000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "electron",
+              "projectName": "electron",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 23503,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "text": "preview start (Electron): {\"samples\":[104,179,123,370,441,77,225,928,467,54,36,92],\"median\":179,\"p90\":467,\"max\":928,\"videoElements\":5}\n"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T04:06:18.397Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "6b503b821472aeb45cbc-3d459a428bf3176dcab1",
+          "file": "preview.electron.spec.ts",
+          "line": 13,
+          "column": 1
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-04T04:02:08.247Z",
+    "duration": 273717.365,
+    "expected": 11,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { memo, useEffect, useRef } from 'react'
 import { Check, Ellipsis, LoaderCircle, PenLine, Play, Plus, ScanSearch } from 'lucide-react'
 import type { SearchResult, Sprites } from '../../api/types'
 import { ensureSprites, queryClient, shotQuery } from '../../api/queries'
@@ -62,7 +62,7 @@ function aspectFromResolution(res: string | null): number | null {
  * Shot card with sprite scrubbing and pooled video preview (system.md §3.6).
  * Per-frame work (sprite position, scrub bar) goes through refs, never React state.
  */
-export function ShotCard({ r, index, colIndex, focused, selected, rights, onFocusIndex, onActivate, onToggleSelect, onMenu, onSimilar, onAdd, dragUids, register }: ShotCardProps) {
+export const ShotCard = memo(function ShotCard({ r, index, colIndex, focused, selected, rights, onFocusIndex, onActivate, onToggleSelect, onMenu, onSimilar, onAdd, dragUids, register }: ShotCardProps) {
   const cardRef = useRef<HTMLDivElement>(null)
   const innerRef = useRef<HTMLDivElement>(null)
   const spriteRef = useRef<HTMLDivElement>(null)
@@ -135,8 +135,12 @@ export function ShotCard({ r, index, colIndex, focused, selected, rights, onFocu
     const done = () => {
       if (cardRef.current && st.current.preview === handle) cardRef.current.dataset.previewing = 'playing'
     }
+    el.addEventListener('error', () => {
+      if (cardRef.current && st.current.preview === handle) delete cardRef.current.dataset.previewing
+    }, { once: true })
+    if (el.error && cardRef.current) delete cardRef.current.dataset.previewing
     if ('requestVideoFrameCallback' in el) el.requestVideoFrameCallback(done)
-    else el.addEventListener('playing', done, { once: true })
+    else (el as HTMLVideoElement).addEventListener('playing', done, { once: true })
   }
 
   const endScrub = () => {
@@ -196,9 +200,7 @@ export function ShotCard({ r, index, colIndex, focused, selected, rights, onFocu
   useEffect(
     () => () => {
       window.clearTimeout(st.current.intent)
-      // eslint-disable-next-line react-hooks/exhaustive-deps
       window.clearTimeout(st.current.dwell)
-      // eslint-disable-next-line react-hooks/exhaustive-deps
       st.current.preview?.stop()
     },
     [],
@@ -359,7 +361,7 @@ export function ShotCard({ r, index, colIndex, focused, selected, rights, onFocu
       </div>
     </div>
   )
-}
+})
 
 export function PlaceholderCard({ index, colIndex, focused }: { index: number; colIndex: number; focused: boolean }) {
   return (

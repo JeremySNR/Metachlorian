@@ -4,7 +4,8 @@ import { useQueries } from '@tanstack/react-query'
 import { ChevronDown, Download, Layers, Plus, ShieldCheck } from 'lucide-react'
 import type { IntendedUse, Moment, SearchResult, ShotDoc, TranscriptSegment, Verdict, Vocabulary, WhyItem } from '../../api/types'
 import { api, mediaUrl, ApiError } from '../../api/client'
-import { checkRights, exportClip, useAddToCollection, useCollections, useSimilar } from '../../api/queries'
+import { checkRights, exportClip, useAddToCollection, useCollections, useSimilar, useVocabularies } from '../../api/queries'
+import { buildPhraseIndex, locateTerm } from '../../lib/chips'
 import type { Collection } from '../../api/types'
 import { Button } from '../../components/Button'
 import { ConfidenceMeter } from '../../components/ConfidenceMeter'
@@ -46,6 +47,9 @@ const SIGNAL_NAME: Record<string, string> = {
 }
 
 export function WhyMatched({ why, label, query }: { why: WhyItem[]; label: (v: string, t: string) => string; query?: string }) {
+  const { vocabs } = useVocabularies()
+  const index = useMemo(() => buildPhraseIndex(vocabs), [vocabs])
+  const words = (vocab: string, term?: string) => (query && term ? locateTerm(query, index, vocab, term)?.text : undefined)
   if (!why.length) return <p className={s.empty}>Open this shot from a search to see why it matched.</p>
   return (
     <div className={s.why} data-testid="why">
@@ -58,9 +62,11 @@ export function WhyMatched({ why, label, query }: { why: WhyItem[]; label: (v: s
         const field = SIGNAL_NAME[w.signal] ?? w.signal.replace(/_/g, ' ')
         const isVocab = Boolean(w.term)
         const value = w.term ? label(w.signal, w.term) : null
+        const from = words(w.signal, w.term)
         return (
           <div key={i} className={s.whyRow}>
             <span className={w.missing ? s.whyMissing : s.whyText}>
+              {from && <span style={{ color: 'var(--fg-2)' }}>“{from}” → </span>}
               {isVocab ? (
                 w.missing ? (
                   <>
@@ -81,6 +87,14 @@ export function WhyMatched({ why, label, query }: { why: WhyItem[]; label: (v: s
                     </>
                   )}
                 </>
+              ) : w.signal === 'visual similarity' ? (
+                <>
+                  <em>looks like:</em> the description, visual match {(w.detail.match(/rank (\d+)/) ?? [])[1] ? `#${(w.detail.match(/rank (\d+)/) ?? [])[1]}` : ''}
+                </>
+              ) : w.signal === 'similar shot' ? (
+                <>
+                  <em>looks like:</em> the example shot
+                </>
               ) : (
                 <>
                   <em>{w.signal}:</em> {w.detail}
@@ -92,7 +106,7 @@ export function WhyMatched({ why, label, query }: { why: WhyItem[]; label: (v: s
             ) : typeof w.confidence === 'number' ? (
               <ConfidenceMeter value={w.confidence} label={field} />
             ) : typeof w.score === 'number' && w.signal !== 'keywords' ? (
-              <ConfidenceMeter value={Math.max(0, Math.min(1, (w.score + 0.05) * 6))} label={`${field} similarity`} />
+              <span className={t.slate}>Vision model</span>
             ) : null}
           </div>
         )
@@ -129,7 +143,7 @@ export function RightsBlock({ shot, vocabs, intended }: { shot: ShotDoc; vocabs:
         reasons={shot.rights_check?.reasons}
         lines={lines}
         action={
-          <Button variant="quiet" size="sm" shortcut="R" onPress={() => useUi.getState().set({ rightsDialog: { assetUid: shot.asset_uid, shotUid: shot.uid, title: `${shot.filename} · shot ${shot.idx + 1}` } })}>
+          <Button variant="quiet" size="sm" shortcut="R" onPress={() => useUi.getState().set({ rightsDialog: { assetUids: [shot.asset_uid], shotUid: shot.uid, title: `${shot.filename} · shot ${shot.idx + 1}` } })}>
             Change
           </Button>
         }

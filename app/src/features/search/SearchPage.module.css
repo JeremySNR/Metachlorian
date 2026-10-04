@@ -154,6 +154,7 @@
   border-radius: 0 var(--radius-xs) var(--radius-xs) 0;
 }
 
+.chipBtn:hover,
 .chipBtn[data-hovered] {
   color: var(--fg-1);
   background: var(--bg-pressed);

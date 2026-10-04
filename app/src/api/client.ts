@@ -47,7 +47,7 @@ async function request<T>(method: string, path: string, body?: Json | FormData, 
     throw new ApiError(0, navigator.onLine ? "Metachlorian didn't respond. Check that the core is running." : "You're offline.")
   }
   if (!res.ok) {
-    let detail = ''
+    let detail: string
     try {
       const j = await res.json()
       detail = typeof j.detail === 'string' ? j.detail : JSON.stringify(j.detail)

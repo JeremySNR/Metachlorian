@@ -25,6 +25,12 @@
   white-space: nowrap;
 }
 
+.scroll > *,
+.left > *,
+.right > * {
+  flex: none;
+}
+
 .scroll {
   overflow-y: auto;
   flex: 1;
@@ -230,7 +236,13 @@
 }
 
 .techTable dt {
-  composes: slate from '../../styles/type.module.css';
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-medium);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  color: var(--fg-3);
   padding-block-start: 2px;
 }
 
@@ -431,7 +443,13 @@
 }
 
 .kv dt {
-  composes: slate from '../../styles/type.module.css';
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-medium);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  color: var(--fg-3);
   padding-block-start: 2px;
 }
 
@@ -469,7 +487,10 @@
 }
 
 .crumbs h1 {
-  composes: title from '../../styles/type.module.css';
+  font-size: var(--text-xl);
+  line-height: var(--leading-xl);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-tight);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

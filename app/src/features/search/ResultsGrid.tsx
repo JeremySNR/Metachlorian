@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
+import { useIsFetching } from '@tanstack/react-query'
 import { Popover } from 'react-aria-components'
 import {
   Copy, ExternalLink, FileVideoCamera, Film, FolderOpen, Layers, PenLine, Play, Plus, ScanSearch, ShieldCheck,
@@ -48,6 +49,8 @@ export interface ResultsGridProps {
   onToggleGroup: () => void
   activeName: string
   label: string
+  /** Query text of the results shown (for ⌘Enter focus). */
+  queryText: string
 }
 
 export function shotReference(r: SearchResult): string {
@@ -146,10 +149,13 @@ export function ResultsGrid(props: ResultsGridProps) {
     return idx
   }
 
+  const focusPending = useUi((u) => u.focusResultsPending)
+  const fetching = useIsFetching({ queryKey: ['search'] }) > 0
   useEffect(() => {
-    const h = () => focusItem(0)
-    window.addEventListener('mc:focus-results', h)
-    return () => window.removeEventListener('mc:focus-results', h)
+    if (focusPending !== null && focusPending === props.queryText && results.length && !fetching) {
+      useUi.getState().set({ focusResultsPending: null })
+      focusItem(0)
+    }
   })
 
   const ui = useUi.getState
@@ -302,6 +308,32 @@ export function ResultsGrid(props: ResultsGridProps) {
     else controllers.current.delete(i)
   }
 
+  // Stable callbacks so memoised cards skip re-rendering while the grid scrolls.
+  const latest = useRef({ toggleAt, register, results, onOpen, props, targetUids })
+  latest.current = { toggleAt, register, results, onOpen, props, targetUids }
+  const stable = useMemo(
+    () => ({
+      onFocusIndex: (idx: number) => setFocusIndex(idx),
+      onActivate: (idx: number, how: 'click' | 'double') => {
+        setFocusIndex(idx)
+        anchor.current = idx
+        const rr = latest.current.results[idx]
+        if (rr) latest.current.onOpen(rr, how)
+      },
+      onToggleSelect: (i: number, mode: 'toggle' | 'range') => latest.current.toggleAt(i, mode),
+      onMenu: (idx: number, el: HTMLElement) => {
+        menuAnchor.current = el
+        setFocusIndex(idx)
+        setMenu({ index: idx })
+      },
+      onSimilar: (uid: string) => latest.current.props.onSimilar([uid]),
+      onAdd: (uid: string) => latest.current.props.onAddToActive([uid]),
+      dragUids: (uid: string) => latest.current.targetUids(latest.current.results.find((x) => x.uid === uid)),
+      register: (i: number, c: CardController | null) => latest.current.register(i, c),
+    }),
+    [],
+  )
+
   const menuResult = menu ? results[menu.index] : undefined
   const totalSize = virtualizer.getTotalSize()
 
@@ -346,13 +378,8 @@ export function ResultsGrid(props: ResultsGridProps) {
                 focused: focusedCell,
                 selected: selection.has(r.uid),
                 rights: rightsOf(r),
-                onFocusIndex: (idx: number) => setFocusIndex(idx),
-                onActivate: (idx: number, how: 'click' | 'double') => {
-                  setFocusIndex(idx)
-                  anchor.current = idx
-                  const rr = results[idx]
-                  if (rr) onOpen(rr, how)
-                },
+                onFocusIndex: stable.onFocusIndex,
+                onActivate: stable.onActivate,
               }
               if (view === 'grid') {
                 cells.push(
@@ -360,19 +387,15 @@ export function ResultsGrid(props: ResultsGridProps) {
                     key={r.uid}
                     {...common}
                     colIndex={c}
-                    onToggleSelect={toggleAt}
-                    onMenu={(idx, el) => {
-                      menuAnchor.current = el
-                      setFocusIndex(idx)
-                      setMenu({ index: idx })
-                    }}
-                    onSimilar={(uid) => props.onSimilar([uid])}
-                    onAdd={(uid) => props.onAddToActive([uid])}
-                    dragUids={(uid) => targetUids(results.find((x) => x.uid === uid))}
-                    register={register}
+                    onToggleSelect={stable.onToggleSelect}
+                    onMenu={stable.onMenu}
+                    onSimilar={stable.onSimilar}
+                    onAdd={stable.onAdd}
+                    dragUids={stable.dragUids}
+                    register={stable.register}
                   />,
                 )
-              } else cells.push(<ListItem key={r.uid} {...common} view={view} onToggleSelect={toggleAt} />)
+              } else cells.push(<ListItem key={r.uid} {...common} view={view} onToggleSelect={stable.onToggleSelect} />)
             }
             return (
               <div

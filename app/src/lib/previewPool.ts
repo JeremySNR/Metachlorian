@@ -161,6 +161,12 @@ class PreviewPool {
       logPreviewStart(performance.now() - t0)
       container.dataset.previewing = 'playing'
     }
+    const onError = () => {
+      // Proxy cannot be decoded here (e.g. a browser build without H.264): keep the sprite.
+      slot.base = null
+      if (!stopped) delete container.dataset.previewing
+    }
+    el.addEventListener('error', onError, { once: true })
     const startPlayback = () => {
       if (stopped) return
       if (Math.abs(el.currentTime - inS) > 0.04) el.currentTime = inS
@@ -168,7 +174,7 @@ class PreviewPool {
       const p = el.play()
       if (p) p.catch(() => undefined)
       if ('requestVideoFrameCallback' in el) el.requestVideoFrameCallback(() => markFirstFrame())
-      else el.addEventListener('playing', markFirstFrame, { once: true })
+      ;(el as HTMLVideoElement).addEventListener('playing', () => window.setTimeout(markFirstFrame, 34), { once: true })
     }
     el.addEventListener('timeupdate', onTime)
     container.dataset.previewing = 'loading'
@@ -185,6 +191,7 @@ class PreviewPool {
       stopReverse()
       el.removeEventListener('timeupdate', onTime)
       el.removeEventListener('loadedmetadata', startPlayback)
+      el.removeEventListener('error', onError)
       el.pause()
       delete container.dataset.previewing
       this.detach(slot)
