@@ -378,3 +378,14 @@
 .or {
   margin-inline: var(--space-0_5);
 }
+
+/* Touch: 44 px targets in the top bar (system.md §1.4 --target-coarse). */
+@media (pointer: coarse) {
+  .navLink,
+  .brand {
+    min-block-size: var(--target-coarse);
+    min-inline-size: var(--target-coarse);
+    margin-block: var(--space-1);
+    justify-content: center;
+  }
+}

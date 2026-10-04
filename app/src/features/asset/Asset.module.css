@@ -25,7 +25,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  min-inline-size: 240px;
+  min-inline-size: min(240px, 100%);
   flex: 1;
 }
 
@@ -45,7 +45,7 @@
 
 .top {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 1fr);
+  grid-template-columns: minmax(0, 1.4fr) minmax(min(280px, 100%), 1fr);
   gap: var(--space-6);
   padding: var(--space-4);
   align-items: start;
@@ -104,7 +104,7 @@
 
 .stats {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(120px, 100%), 1fr));
   gap: var(--space-3) var(--space-4);
 }
 
@@ -170,7 +170,7 @@
 
 .cols {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
   gap: var(--space-6);
   padding: var(--space-4);
   border-block-start: var(--border-width) solid var(--border-subtle);
@@ -414,4 +414,10 @@
 .track:has([role='slider']:focus-visible) {
   outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: 2px;
+}
+
+@media (width < 640px) {
+  .head {
+    flex-wrap: wrap;
+  }
 }

@@ -230,3 +230,9 @@
     gap: var(--space-1);
   }
 }
+
+@media (pointer: coarse) {
+  .rowButton {
+    min-block-size: var(--target-coarse);
+  }
+}

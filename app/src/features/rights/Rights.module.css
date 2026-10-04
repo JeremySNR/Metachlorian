@@ -120,3 +120,10 @@
     grid-template-columns: 1fr;
   }
 }
+
+@media (width < 640px) {
+  .tabList {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
+}

@@ -69,7 +69,7 @@
 
 .figures {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(160px, 100%), 1fr));
   gap: var(--space-6);
 }
 
@@ -125,7 +125,7 @@
 
 .two {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr));
   gap: var(--space-8);
 }
 
@@ -224,7 +224,7 @@ a.barRow:hover {
 
 .mRow {
   display: grid;
-  grid-template-columns: 120px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 120px) minmax(0, 1fr);
   gap: var(--space-3);
   align-items: start;
 }
@@ -378,4 +378,16 @@ a.barRow:hover {
 
 .muted {
   color: var(--fg-2);
+}
+
+/* Touch: 44 px targets for tabs, legend links and links in table rows (system.md §1.4). */
+@media (pointer: coarse) {
+  .tab,
+  .legend a,
+  .table td a,
+  .sectionHead a {
+    display: inline-flex;
+    align-items: center;
+    min-block-size: var(--target-coarse);
+  }
 }

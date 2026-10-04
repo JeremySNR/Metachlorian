@@ -490,6 +490,12 @@
 
 .blockedNote {
   align-items: flex-start;
+  white-space: normal;
+}
+
+.blockedNote svg {
+  flex: none;
+  margin-block-start: 1px;
 }
 
 .menuNote {

@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQueries, useQueryClient } from '@tanstack/react-query'
 import { DropZone, FileTrigger } from 'react-aria-components'
 import { Check, ChevronRight, CircleAlert, CircleCheck, CircleDashed, CircleX, Cloud, Cpu, FolderOpen, HardDrive, LoaderCircle, RefreshCw, Trash2, Upload } from 'lucide-react'
-import type { AnalyserInfo, ProcessingAsset, QueueJob } from '../../api/types'
+import type { QueueJob } from '../../api/types'
 import { api, ApiError, upload } from '../../api/client'
-import { useAsset, useHealth, useProcessing, useSources } from '../../api/queries'
+import { assetQuery, useAsset, useHealth, useProcessing, useSources } from '../../api/queries'
 import { Button } from '../../components/Button'
 import { Bar, EmptyState, StatusText } from '../../components/EmptyState'
 import { Checkbox, TextField } from '../../components/Field'
@@ -16,63 +16,8 @@ import { formatDateTime, formatNumber, formatRelative, humanise, plural } from '
 import { formatLength } from '../../lib/timecode'
 import l from '../library/Library.module.css'
 import s from './Ingest.module.css'
+import { STEPS, stepStates, updatingText } from '../../lib/processing'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
-
-const STEPS: { label: string; analysers: string[] }[] = [
-  { label: 'Probe', analysers: ['technical'] },
-  { label: 'Proxies', analysers: ['proxy'] },
-  { label: 'Shots', analysers: ['shots', 'keyframes'] },
-  { label: 'Vision', analysers: ['embed', 'visual_tags', 'motion', 'quality', 'ocr', 'people', 'caption'] },
-  { label: 'Audio', analysers: ['audio', 'speech'] },
-  { label: 'Index', analysers: ['fusion', 'rollup', 'text_embed'] },
-]
-
-type StepState = 'done' | 'active' | 'waiting' | 'failed'
-
-/** Analysers being refreshed for an "updating" file: its running jobs, plus the queued ones when the core lists them. */
-export function updatingAnalysers(a: ProcessingAsset, running: QueueJob[]): string[] {
-  const names = [...running.filter((j) => j.uid === a.uid).map((j) => j.analyser), ...(a.pending ?? [])]
-  return [...new Set(names)]
-}
-
-/** "Updating: rollup, fusion" / "Updating: fusion + 2 queued" / "Updating: 2 steps queued". */
-export function updatingText(a: ProcessingAsset, running: QueueJob[]): string {
-  const names = updatingAnalysers(a, running).map((n) => humanise(n).toLowerCase())
-  const listed = new Set(updatingAnalysers(a, running))
-  const extra = Math.max(0, a.queued + a.running - listed.size)
-  if (names.length) return `Updating: ${names.join(', ')}${extra ? ` + ${extra} queued` : ''}`
-  return extra ? `Updating: ${plural(extra, 'step')} queued` : 'Updating'
-}
-
-/** Step states for a queue row from its counts, running and failed jobs (approximate between polls). */
-export function stepStates(a: ProcessingAsset, available: AnalyserInfo[], running: QueueJob[], failed: QueueJob[]): StepState[] {
-  const order = available.filter((x) => x.available).map((x) => x.name)
-  if (a.status === 'updating') {
-    // Analysed and searchable: steps stay done except the ones being refreshed.
-    const runningSet = new Set(running.filter((j) => j.uid === a.uid).map((j) => j.analyser))
-    const pendingSet = new Set(a.pending ?? [])
-    const failedSet = new Set(failed.filter((j) => j.uid === a.uid).map((j) => j.analyser))
-    return STEPS.map((st) => {
-      const names = st.analysers.filter((n) => order.includes(n))
-      if (names.some((n) => failedSet.has(n))) return 'failed'
-      if (names.some((n) => runningSet.has(n))) return 'active'
-      if (names.some((n) => pendingSet.has(n))) return 'waiting'
-      return 'done'
-    })
-  }
-  const ready = a.status === 'ready'
-  const doneSet = new Set(ready ? order : order.slice(0, a.done))
-  const runningSet = new Set(running.filter((j) => j.uid === a.uid).map((j) => j.analyser))
-  const failedSet = new Set(failed.filter((j) => j.uid === a.uid).map((j) => j.analyser))
-  // Only a step with a running job is active (magenta); queued work is waiting.
-  return STEPS.map((st) => {
-    const names = st.analysers.filter((n) => order.includes(n))
-    if (names.some((n) => failedSet.has(n))) return 'failed'
-    if (names.some((n) => runningSet.has(n))) return 'active'
-    if (names.every((n) => doneSet.has(n))) return 'done'
-    return 'waiting'
-  })
-}
 
 const STEP_ICON = { done: Check, active: LoaderCircle, waiting: CircleDashed, failed: CircleX }
 
@@ -91,7 +36,12 @@ export function IngestPage() {
   const [announce, setAnnounce] = useState('')
   const lastAnnounce = useRef(0)
   const d = proc.data
-  const assets = d?.assets ?? []
+  // /api/processing counts queued jobs per file but doesn't name them; for files being updated,
+  // read the names from the file's job list (first 12 such files) so the row can say what is refreshing.
+  const updatingUids = (d?.assets ?? []).filter((a) => a.status === 'updating' && !a.pending).slice(0, 12).map((a) => a.uid)
+  const jobDocs = useQueries({ queries: updatingUids.map((uid) => ({ ...assetQuery(uid), refetchInterval: 4000, staleTime: 2000 })) })
+  const pendingOf = new Map(jobDocs.map((q, i) => [updatingUids[i], (q.data?.jobs ?? []).filter((j) => j.status === 'queued' || j.status === 'running').map((j) => j.analyser)]))
+  const assets = (d?.assets ?? []).map((a) => (a.pending || !pendingOf.has(a.uid) ? a : { ...a, pending: pendingOf.get(a.uid) }))
   const ready = assets.filter((a) => a.status === 'ready' || a.status === 'updating').length
   const processing = assets.filter((a) => a.status === 'processing').length
   const updating = assets.filter((a) => a.status === 'updating').length
@@ -165,7 +115,7 @@ export function IngestPage() {
           <div className={l.figure}>
             <span className={l.figureLabel}>Not yet searchable</span>
             <strong>{formatNumber(processing)}</strong>
-            <span className={l.figureSub}>{formatNumber(d?.queue.by_status.running ?? 0)} steps running · {formatNumber(d?.queue.by_status.queued ?? 0)} queued</span>
+            <span className={l.figureSub}>{plural(d?.queue.by_status.running ?? 0, 'step')} running · {formatNumber(d?.queue.by_status.queued ?? 0)} queued</span>
           </div>
           <div className={l.figure}>
             <span className={l.figureLabel}>Failed steps</span>

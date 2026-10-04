@@ -128,3 +128,12 @@
 .suggestMeta {
   margin-inline-start: auto;
 }
+
+@media (pointer: coarse) {
+  .field {
+    block-size: var(--target-coarse);
+  }
+  .input {
+    align-self: stretch;
+  }
+}

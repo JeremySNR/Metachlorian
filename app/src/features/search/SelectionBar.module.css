@@ -46,3 +46,16 @@
     display: none;
   }
 }
+
+/* Narrow (< 640 px): the bar wraps instead of scrolling sideways (WCAG 1.4.10). */
+@media (width < 640px) {
+  .bar {
+    flex-wrap: wrap;
+    block-size: auto;
+    padding-block: var(--space-2);
+  }
+  .actions {
+    flex-wrap: wrap;
+    overflow: visible;
+  }
+}

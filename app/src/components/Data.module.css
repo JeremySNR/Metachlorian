@@ -321,7 +321,8 @@
 
 @media (pointer: coarse) {
   .segmented {
-    block-size: var(--target-coarse);
+    /* + the 1 px border on each side, so each segment is a full 44 px */
+    block-size: calc(var(--target-coarse) + 2 * var(--border-width));
   }
   .segment,
   .iconSeg {

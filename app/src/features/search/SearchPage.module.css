@@ -202,11 +202,11 @@
 /* Touch: 44 px chip targets (system.md §1.4 --target-coarse) */
 @media (pointer: coarse) {
   .chip {
-    block-size: var(--target-coarse);
+    block-size: calc(var(--target-coarse) + 2 * var(--border-width));
   }
   .chipBtn {
     inline-size: var(--target-coarse);
-    block-size: calc(var(--target-coarse) - 2px);
+    block-size: var(--target-coarse);
   }
 }
 

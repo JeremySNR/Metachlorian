@@ -3,20 +3,21 @@
 > PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers xvfb-run -a --server-args='-screen 0 1600x1000x24' playwright test --project=review --project=electron
 
 
-Running 11 tests using 1 worker
+Running 12 tests using 1 worker
 
-  ✓   1 [review] › e2e/journeys.spec.ts:19:1 › 01 search: natural language to shot results with previews (13.9s)
-  ✓   2 [review] › e2e/journeys.spec.ts:53:1 › 02 select a shot and find similar (29.2s)
-  ✓   3 [review] › e2e/journeys.spec.ts:92:1 › 03 filter by resolution, fps, orientation, log and duration (13.5s)
-  ✓   4 [review] › e2e/journeys.spec.ts:134:1 › 04 see whether a file is raw, selects or finished (9.9s)
-  ✓   5 [review] › e2e/journeys.spec.ts:148:1 › 05 rights, releases and expiry respected by intended-use search (24.2s)
-  ✓   6 [review] › e2e/journeys.spec.ts:195:1 › 06 build a Cutawan package from a collection (1.8m)
-  ✓   7 [review] › e2e/journeys.spec.ts:245:1 › 07 correct a wrong tag; it is marked human and survives reload (14.4s)
-  ✓   8 [review] › e2e/journeys.spec.ts:288:1 › 08 processing status is visible (9.7s)
-  ✓   9 [review] › e2e/journeys.spec.ts:305:1 › 09 keyboard only: search to inspector to shot detail (14.4s)
-grid scroll {"idleFrameMs":16.7,"firstPass":{"p50":25.3,"p95":109.7,"max":364},"secondPass":{"p50":26.3,"p95":78.9,"max":130},"cardsInDom":28,"total":"74"}
-  ✓  10 [review] › e2e/journeys.spec.ts:351:1 › 10 grid scroll smoothness (12.4s)
-preview start (Electron): {"samples":[104,179,123,370,441,77,225,928,467,54,36,92],"median":179,"p90":467,"max":928,"videoElements":5}
-  ✓  11 [electron] › e2e/preview.electron.spec.ts:13:1 › 11 preview starts in under 300 ms (Electron, H.264) (23.5s)
+  ✓   1 [review] › e2e/journeys.spec.ts:19:1 › 01 search: natural language to shot results with previews (9.2s)
+  ✓   2 [review] › e2e/journeys.spec.ts:53:1 › 02 select a shot and find similar (14.3s)
+  ✓   3 [review] › e2e/journeys.spec.ts:92:1 › 03 filter by resolution, fps, orientation, log and duration (9.3s)
+  ✓   4 [review] › e2e/journeys.spec.ts:134:1 › 04 see whether a file is raw, selects or finished (7.5s)
+  ✓   5 [review] › e2e/journeys.spec.ts:148:1 › 05 rights, releases and expiry respected by intended-use search (18.5s)
+  ✓   6 [review] › e2e/journeys.spec.ts:207:1 › 06 build a Cutawan package from a collection (19.5s)
+  ✓   7 [review] › e2e/journeys.spec.ts:276:1 › 07 correct a wrong tag; it is marked human and survives reload (10.0s)
+  ✓   8 [review] › e2e/journeys.spec.ts:319:1 › 08 processing status is visible (11.1s)
+  ✓   9 [review] › e2e/journeys.spec.ts:362:1 › 09 keyboard only: search to inspector to shot detail (8.9s)
+grid scroll {"idleFrameMs":16.7,"firstPass":{"p50":19.2,"p95":54.5,"max":81},"secondPass":{"p50":17.9,"p95":29.2,"max":35},"cardsInDom":28,"total":"68"}
+  ✓  10 [review] › e2e/journeys.spec.ts:408:1 › 10 grid scroll smoothness (7.3s)
+  ✓  11 [review] › e2e/journeys.spec.ts:452:1 › 12 narrow screens, forced colours and match strength (12.6s)
+preview start (Electron): {"samples":[70,54,36,128,37,78,112,69,91,14,29,55],"median":69,"p90":112,"max":128,"videoElements":5}
+  ✓  12 [electron] › e2e/preview.electron.spec.ts:13:1 › 11 preview starts in under 300 ms (Electron, H.264) (19.5s)
 
-  11 passed (4.6m)
+  12 passed (2.5m)

@@ -167,21 +167,33 @@ test('05 rights, releases and expiry respected by intended-use search', async ({
     await snapAll(page, '05-rights-editor', { only: 'desktop' })
     await page.getByTestId('save-rights').click()
     await expect(page.getByText(/Rights saved/)).toBeVisible()
-    await expect(page.getByText(/Expires/).first()).toBeVisible()
+    // The most restrictive fact first: "Editorial only · expires 24 Oct".
+    await expect(page.getByText(/Editorial only · expires/).first()).toBeVisible()
     await snapAll(page, '05-asset-expiring')
 
     // Search for marketing use: this file's shots are blocked and hidden.
     await page.goto(`/search?q=street&use=marketing&terr=GB`)
     await waitForResults(page)
-    await expect(page.getByText(/hidden by rights/)).toBeVisible()
+    // Shown in the results status line at every breakpoint, not only in the rail.
+    await expect(page.getByTestId('result-count')).toContainText(/hidden by rights/)
     await expect(page.locator(`[role=gridcell][data-uid^="${asset}-"]`)).toHaveCount(0)
     await snapAll(page, '05-search-intended-use-marketing')
     // Editorial use: the file's shots are cleared again.
     const ed = await searchApi(page.request, { q: 'street', intended_use: { use: 'editorial', include: ['allowed'] }, limit: 120 })
     expect(ed.results.some((r: { asset_uid: string }) => r.asset_uid === asset)).toBeTruthy()
-    // Show blocked too: hatched cards.
-    await page.goto(`/search?q=street&use=marketing&terr=GB&inc=all`)
+    // Blocked footage is hidden whatever the intended use: with Any use, no blocked card shows.
+    await page.goto('/search?q=street')
     await waitForResults(page)
+    const rail = page.getByRole('complementary', { name: 'Filters' })
+    const hide = rail.getByRole('switch', { name: 'Hide blocked' })
+    await expect(hide).toBeChecked()
+    await expect(page.locator('[role=gridcell][data-uid][aria-label*="Blocked"], [role=gridcell][data-uid][aria-label*="expired"]')).toHaveCount(0)
+    // Turning Hide blocked off shows them, hatched (and it is in the URL).
+    await page.goto(`/search?q=street&use=marketing&terr=GB`)
+    await waitForResults(page)
+    await rail.getByRole('switch', { name: 'Hide blocked' }).click({ force: true })
+    await expect(page).toHaveURL(/blocked=show/)
+    await expect(page.locator(`[role=gridcell][data-uid^="${asset}-"]`).first()).toBeVisible()
     await snap(page, '05-search-blocked-visible--desktop-dark')
     await page.goto('/rights?tab=expiring')
     await expect(page.getByTestId('rights-table')).toBeVisible()
@@ -193,6 +205,23 @@ test('05 rights, releases and expiry respected by intended-use search', async ({
 })
 
 test('06 build a Cutawan package from a collection', async ({ page }) => {
+  // A blocked shot can't be exported as media: the items are disabled with the reason up front.
+  const all = await searchApi(page.request, { q: '', hide_blocked: false, limit: 500, facets: false })
+  const blockedShot = all.results.find((r: { rights_badge: string }) => r.rights_badge === 'not_cleared' || r.rights_badge === 'expired')
+  expect(blockedShot).toBeTruthy()
+  await page.goto(`/shot/${blockedShot.uid}`)
+  await expect(page.getByText(/no media export/).first()).toBeVisible()
+  await page.getByTestId('export-clip').first().click()
+  await expect(page.getByTestId('export-blocked-reason')).toBeVisible()
+  await expect(page.getByRole('menuitem', { name: /Proxy clip/ })).toHaveAttribute('aria-disabled', 'true')
+  await expect(page.getByRole('menuitem', { name: /Trimmed original/ })).toHaveAttribute('aria-disabled', 'true')
+  await expect(page.getByRole('menuitem', { name: /FCPXML/ })).not.toHaveAttribute('aria-disabled', 'true')
+  await snap(page, '06-export-blocked-shot--desktop-dark')
+  await page.keyboard.press('Escape')
+  // The core refuses it too (403), whatever the client does.
+  const refused = await page.request.post('/api/export/clip', { data: { shot_uid: blockedShot.uid, mode: 'proxy' }, headers: H })
+  expect(refused.status()).toBe(403)
+
   const name = `E2E selects ${Date.now().toString(36)}`
   await page.goto('/collections')
   await page.getByRole('textbox', { name: 'New collection name' }).fill(name)
@@ -224,6 +253,8 @@ test('06 build a Cutawan package from a collection', async ({ page }) => {
     await snapAll(page, '06-collection')
     await page.getByTestId('send-to-cutawan').click()
     await expect(page.getByTestId('rights-summary')).toContainText('cleared')
+    // The intended use says where it came from (no search use here: workspace default or none).
+    await expect(page.getByTestId('use-source')).toBeVisible()
     await snapAll(page, '06-send-to-cutawan-dialog', { only: 'desktop' })
     const send = page.getByTestId('send-package')
     if (await send.isDisabled()) {
@@ -289,15 +320,41 @@ test('08 processing status is visible', async ({ page }) => {
   const assets = await (await page.request.get('/api/assets?limit=200')).json()
   const small = [...assets.assets].sort((a, b) => (a.duration ?? 0) - (b.duration ?? 0))[0]
   await page.request.post(`/api/assets/${small.uid}/reprocess`, { data: { analysers: ['rollup'] }, headers: H })
+  // Re-analysis of analysed files: they stay searchable and each row says what is refreshing.
+  // (Re-running the embedder recomputes the same vectors; it takes a few seconds on six short files.)
+  const some = [...assets.assets].filter((a) => (a.duration ?? 0) >= 10).sort((a, b) => (a.duration ?? 0) - (b.duration ?? 0)).slice(0, 6)
+  for (const a of some) await page.request.post(`/api/assets/${a.uid}/reprocess`, { data: { analysers: ['embed'] }, headers: H })
   await page.goto('/ingest')
   await expect(page.getByTestId('processing-summary')).toBeVisible()
   await expect(page.getByTestId('queue-table')).toBeVisible()
+  // Timing-dependent on a fast machine, so the capture is taken when the state is caught (logic: lib/processing.test.ts).
+  const caught = await page.getByText(/^Updating: /).first().waitFor({ timeout: 8_000 }).then(() => true, () => false)
+  if (caught) {
+    await expect(page.getByText(/Searchable · \d+ steps? left/).first()).toBeVisible()
+    await expect(page.getByTestId('processing-summary')).toContainText('updating')
+    await snap(page, '08-ingest-updating--desktop-dark')
+  } else console.log('re-analysis finished before the ingest page polled; no updating capture this run')
   await expect(page.getByText('Analysers')).toBeVisible()
   await expect(page.getByText(/vision-language model|CPU-tier/i).first()).toBeVisible()
   await snapAll(page, '08-ingest-processing')
   await page.goto('/settings/adapters')
   await expect(page.getByText(/Local: nothing leaves this machine|Leaves this machine/).first()).toBeVisible()
+  // Locality is the core's call from the host: a public endpoint never reads "Local" (not saved).
+  const vlm = page.getByRole('textbox', { name: 'Endpoint (OpenAI-compatible)' }).first()
+  await expect(page.getByRole('switch', { name: 'Runs on this machine or our own network' }).first()).not.toBeChecked()
+  await vlm.fill('https://api.openai.com/v1')
+  const badge = page.getByTestId('locality-badge').first()
+  await expect(badge).toHaveAttribute('data-state', /remote|refused/)
+  await expect(badge).not.toContainText('Local')
+  await page.getByRole('switch', { name: 'Runs on this machine or our own network' }).first().click({ force: true })
+  await expect(badge).toHaveAttribute('data-state', /remote|refused/)
   await snapAll(page, '08-model-adapters-egress', { only: 'desktop' })
+  await page.getByRole('button', { name: 'Save' }).first().click()
+  await expect(page.getByTestId('egress-confirm')).toContainText('api.openai.com')
+  await snap(page, '08-model-adapters-confirm--desktop-dark')
+  await page.getByRole('button', { name: 'Cancel' }).click()
+  await vlm.fill('http://127.0.0.1:8080/v1')
+  await expect(badge).toHaveAttribute('data-state', 'local')
   await page.goto('/settings/tokens')
   await snapAll(page, '08-api-tokens', { only: 'desktop' })
 })
@@ -390,4 +447,75 @@ test('10 grid scroll smoothness', async ({ page }) => {
   // Video recording runs alongside; 100 ms p95 here corresponds to ~45 ms without recording (see perf-web.json).
   expect(result.secondPass.p95).toBeLessThan(100)
   expect(result.cardsInDom).toBeLessThan(80)
+})
+
+test('12 narrow screens, forced colours and match strength', async ({ page }) => {
+  // WCAG 1.4.10: at 320 CSS px the search field keeps its width and nothing scrolls sideways.
+  await page.setViewportSize({ width: 320, height: 640 })
+  await page.goto(`/search?q=${encodeURIComponent('street at night')}`)
+  await waitForResults(page)
+  const field = await page.locator('#mc-search').boundingBox()
+  expect(field!.width).toBeGreaterThan(150)
+  for (const route of ['/search?q=street', '/library', '/collections', '/ingest', '/rights', '/settings/appearance']) {
+    await page.goto(route)
+    await page.waitForTimeout(800)
+    const overflow = await page.evaluate(() => {
+      const W = window.innerWidth
+      const clippedBy = (el: Element) => {
+        for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+          if (getComputedStyle(p).overflowX !== 'visible' && p.getBoundingClientRect().right <= W + 1) return true
+        }
+        return false
+      }
+      return [...document.querySelectorAll('body *')].filter((el) => {
+        const r = el.getBoundingClientRect()
+        return r.width > 0 && r.right > W + 1 && getComputedStyle(el).position !== 'fixed' && !clippedBy(el)
+      }).length
+    })
+    expect(overflow, `${route} overflows at 320 px`).toBe(0)
+  }
+  await page.goto(`/search?q=${encodeURIComponent('street at night')}`)
+  await waitForResults(page)
+  for (const theme of ['dark', 'light'] as const) {
+    await page.emulateMedia({ colorScheme: theme, reducedMotion: 'reduce' })
+    await page.waitForTimeout(300)
+    await snap(page, `12-reflow-search--320-${theme}`)
+  }
+  await page.locator('#mc-search').click()
+  await page.getByRole('button', { name: 'Sections' }).click()
+  await expect(page.getByRole('menuitem', { name: /Library/ })).toBeVisible()
+  await snap(page, '12-reflow-sections-menu--320-dark')
+  await page.keyboard.press('Escape')
+
+  // Forced colours: the selection ring and the primary button stay visible.
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'reduce', forcedColors: 'active' })
+  await page.goto('/search?q=street')
+  const card = await waitForResults(page)
+  await card.focus()
+  await page.keyboard.press('x')
+  await page.keyboard.press('ArrowRight')
+  await page.keyboard.press('ArrowRight')
+  await page.keyboard.press('x')
+  await expect(page.getByTestId('selection-bar')).toContainText('2')
+  const ring = await page.locator('[role=gridcell][aria-selected=true] > div').first().evaluate((el) => getComputedStyle(el).outlineStyle)
+  expect(ring).toBe('solid')
+  const send = page.getByTestId('selection-bar').getByRole('button', { name: /Send to Cutawan/ })
+  const colours = await send.evaluate((el) => ({ bg: getComputedStyle(el).backgroundColor, fg: getComputedStyle(el).color }))
+  expect(colours.bg).not.toBe(colours.fg)
+  await snap(page, '12-forced-colours-selection--desktop')
+  await page.keyboard.press('Escape')
+  await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'no-preference', forcedColors: 'none' })
+
+  // Match strength is absolute: a nonsense query has no strong matches, at any strictness.
+  await page.goto(`/search?q=${encodeURIComponent('zzqxv underwater penguin ballet')}&strict=strict`)
+  await expect(page.getByTestId('no-strong-matches')).toBeVisible()
+  await expect(page.getByTestId('result-count')).toContainText('0 strong (strict)')
+  await snap(page, '12-no-strong-matches--desktop-dark')
+  // Strictness lives in the URL and moves the divider by the core's threshold.
+  await page.goto(`/search?q=${encodeURIComponent('close-up at night')}`)
+  await waitForResults(page)
+  await page.getByRole('radiogroup', { name: 'Match strictness' }).getByRole('radio', { name: 'Strict' }).click()
+  await expect(page).toHaveURL(/strict=strict/)
+  await expect(page.getByTestId('result-count')).toContainText('strong (strict)')
 })

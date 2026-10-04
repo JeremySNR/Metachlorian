@@ -301,3 +301,19 @@
     block-size: 45px;
   }
 }
+
+/* Narrow (< 640 px): the collection list stacks above the collection (WCAG 1.4.10 reflow). */
+@media (width < 640px) {
+  .page {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+  .side {
+    max-block-size: 40vh;
+    border-inline-end: 0;
+    border-block-end: var(--border-width) solid var(--border-default);
+  }
+  .head {
+    padding-inline: var(--space-4);
+  }
+}

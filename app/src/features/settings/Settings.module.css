@@ -194,3 +194,39 @@
 .muted {
   color: var(--fg-2);
 }
+
+/* Narrow (< 640 px): section links wrap above the content (WCAG 1.4.10 reflow). */
+@media (width < 640px) {
+  .page {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+  .nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+    border-inline-end: 0;
+    border-block-end: var(--border-width) solid var(--border-default);
+    overflow: visible;
+  }
+  .navHead {
+    flex-basis: 100%;
+  }
+}
+
+@media (width < 640px) {
+  .form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .adapterHead {
+    flex-wrap: wrap;
+  }
+}
+
+/* Data tables keep their columns and scroll inside themselves, not the page. */
+@media (width < 1024px) {
+  .inner table {
+    display: block;
+    max-inline-size: 100%;
+    overflow-x: auto;
+  }
+}
