@@ -23,7 +23,6 @@ class EmbedAnalyser(Analyser):
     version = "1.0.0"
     requires = ("keyframes",)
     priority = 80
-    resource = "model"
     description = "SigLIP (multilingual, Apache-2.0) image embeddings per keyframe and per shot, for semantic and similarity search."
 
     def config(self, settings) -> dict[str, Any]:

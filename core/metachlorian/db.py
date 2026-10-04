@@ -297,6 +297,11 @@ MIGRATIONS: list[str] = [
         PRIMARY KEY (vocab, term)
     );
     """,
+    # ---------------------------------------------------------------- v2: search performance at scale
+    """
+    CREATE INDEX st_conf ON shot_terms(vocab, term, confidence DESC);
+    CREATE VIRTUAL TABLE shot_fts_vocab USING fts5vocab(shot_fts, 'row');
+    """,
 ]
 
 

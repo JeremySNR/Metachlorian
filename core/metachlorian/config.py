@@ -63,6 +63,8 @@ class Settings:
     sprite_interval: float = 1.0
     # Segment long single takes into parts no longer than this (seconds).
     max_segment_s: float = 20.0
+    # ANN index precision: f16 (default) or i8 (half the memory, for very large libraries).
+    vector_dtype: str = field(default_factory=lambda: os.environ.get("METACHLORIAN_VECTOR_DTYPE", "f16"))
     # Watch folders (local paths) and object storage sources (s3://bucket/prefix).
     sources: list[str] = field(default_factory=list)
     # VLM for captioning and LLM for fusion / query parsing.

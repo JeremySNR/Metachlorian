@@ -1,0 +1,89 @@
+/* Type roles (system.md §1.2). Compose these from component modules:
+ *   .title { composes: title from '../../styles/type.module.css'; }
+ */
+
+.slate {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-medium);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  color: var(--fg-3);
+  font-feature-settings: var(--font-mono-features);
+}
+
+.ui {
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  font-weight: var(--weight-regular);
+  font-stretch: var(--stretch-normal);
+}
+
+.uiStrong {
+  composes: ui;
+  font-weight: var(--weight-semibold);
+}
+
+.cardTitle {
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  font-weight: var(--weight-medium);
+  font-stretch: var(--stretch-dense);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.prose {
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
+  line-height: var(--leading-md);
+  font-weight: var(--weight-regular);
+  max-inline-size: var(--measure-prose);
+  text-wrap: pretty;
+}
+
+.title {
+  font-family: var(--font-sans);
+  font-size: var(--text-xl);
+  line-height: var(--leading-xl);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-tight);
+}
+
+.panelTitle {
+  font-family: var(--font-sans);
+  font-size: var(--text-lg);
+  line-height: var(--leading-lg);
+  font-weight: var(--weight-semibold);
+}
+
+.timecode {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: var(--font-mono-features);
+  font-weight: var(--weight-regular);
+  white-space: nowrap;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-feature-settings: var(--font-mono-features);
+  font-variant-numeric: tabular-nums;
+}
+
+.numeric {
+  font-variant-numeric: tabular-nums;
+}
+
+.figure {
+  font-family: var(--font-sans);
+  font-size: var(--text-2xl);
+  line-height: var(--leading-2xl);
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--tracking-tight);
+}

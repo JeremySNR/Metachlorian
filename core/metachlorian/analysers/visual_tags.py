@@ -93,7 +93,6 @@ class VisualTagAnalyser(Analyser):
     version = "1.1.0"
     requires = ("embed",)
     priority = 75
-    resource = "model"
     description = "Zero-shot vocabulary labels (setting, time of day, weather, shot size, angle, concepts) from SigLIP similarity."
 
     def config(self, settings) -> dict[str, Any]:

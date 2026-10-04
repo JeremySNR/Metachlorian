@@ -1,0 +1,32 @@
+/* Lightweight hover tooltip for non-focusable glyphs inside cards and rows.
+   Their text is always also in the accessible name. */
+.tip {
+  position: relative;
+}
+
+.tip[data-tip]:hover::after {
+  content: attr(data-tip);
+  position: absolute;
+  inset-block-end: calc(100% + 6px);
+  inset-inline-end: 0;
+  background: var(--bg-inverse);
+  color: var(--fg-inverse);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  font-weight: var(--weight-regular);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1_5) var(--space-2);
+  white-space: nowrap;
+  max-inline-size: 280px;
+  box-shadow: var(--shadow-popover);
+  z-index: var(--z-tooltip);
+  pointer-events: none;
+  animation: tip-in var(--dur-1) var(--ease-enter) var(--delay-tooltip) both;
+}
+
+@keyframes tip-in {
+  from {
+    opacity: 0;
+  }
+}

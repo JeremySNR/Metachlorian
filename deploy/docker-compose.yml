@@ -1,0 +1,28 @@
+# Team mode on a server or NAS:  docker compose -f deploy/docker-compose.yml up -d
+# Then open http://<host>:8765 and sign in with the admin below.
+services:
+  metachlorian:
+    image: ghcr.io/jeremysnr/metachlorian:latest
+    build: ..
+    restart: unless-stopped
+    ports: ["8765:8765"]
+    environment:
+      METACHLORIAN_ADMIN_USER: admin
+      METACHLORIAN_ADMIN_PASSWORD: ${METACHLORIAN_ADMIN_PASSWORD:?set a password of at least 10 characters}
+      METACHLORIAN_WORKERS: ${METACHLORIAN_WORKERS:-2}
+      # Optional local VLM (e.g. the llama-cpp service below or Ollama):
+      # METACHLORIAN_VLM_BASE_URL: http://vlm:8080/v1
+      # METACHLORIAN_VLM_MODEL: qwen3.5
+    volumes:
+      - metachlorian-data:/data
+      - metachlorian-models:/models
+      - ${FOOTAGE_DIR:-./footage}:/footage:ro
+  # Optional: a local vision-language model on a GPU (uncomment and adjust).
+  # vlm:
+  #   image: ghcr.io/ggml-org/llama.cpp:server-cuda
+  #   command: ["-m", "/models/Qwen3.5-9B-Q4_K_M.gguf", "--mmproj", "/models/mmproj-F16.gguf", "--host", "0.0.0.0", "--port", "8080", "-ngl", "99"]
+  #   volumes: ["./llm:/models:ro"]
+  #   deploy: { resources: { reservations: { devices: [{ capabilities: [gpu] }] } } }
+volumes:
+  metachlorian-data:
+  metachlorian-models:

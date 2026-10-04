@@ -1,0 +1,909 @@
+{
+ "clips": 40,
+ "accuracy": 1.0,
+ "per_class": {
+  "handheld": "4/4",
+  "handheld+pan_right": "4/4",
+  "pan_left": "8/8",
+  "pan_right": "4/4",
+  "static": "4/4",
+  "tilt_down": "4/4",
+  "tilt_up": "4/4",
+  "zoom_in": "4/4",
+  "zoom_out": "4/4"
+ },
+ "rows": [
+  {
+   "file": "motion_0_static.mp4",
+   "gold": [
+    "static"
+   ],
+   "pred": {
+    "static": 0.99
+   },
+   "correct": true,
+   "stats": {
+    "vx": -0.0,
+    "vy": 0.0,
+    "zoom": -0.0,
+    "roll_dps": 0.002,
+    "jitter": 0.0,
+    "parallax_px": 0.002,
+    "subject_motion": 0.0,
+    "flow": 0.0002,
+    "tracked_points": 56.8,
+    "steps": 59
+   }
+  },
+  {
+   "file": "motion_0_pan_left.mp4",
+   "gold": [
+    "pan_left"
+   ],
+   "pred": {
+    "pan_left": 0.977
+   },
+   "correct": true,
+   "stats": {
+    "vx": 0.1211,
+    "vy": 0.0,
+    "zoom": -0.0002,
+    "roll_dps": 0.0,
+    "jitter": 0.00227,
+    "parallax_px": 0.024,
+    "subject_motion": 0.001,
+    "flow": 0.1235,
+    "tracked_points": 86.0,
+    "steps": 59
+   }
+  },
+  {
+   "file": "motion_0_pan_right.mp4",
+   "gold": [
+    "pan_right"
+   ],
+   "pred": {
+    "pan_right": 0.978
+   },
+   "correct": true,
+   "stats": {
+    "vx": -0.1215,
+    "vy": 0.0002,
+    "zoom": 0.0007,
+    "roll_dps": 0.086,
+    "jitter": 0.00225,
+    "parallax_px": 0.03,
+    "subject_motion": 0.006,
+    "flow": 0.1234,
+    "tracked_points": 41.5,
+    "steps": 59
+   }
+  },
+  {
+   "file": "motion_0_tilt_up.mp4",
+   "gold": [
+    "tilt_up"
+   ],
+   "pred": {
+    "tilt_up": 0.969
+   },
+   "correct": true,
+   "stats": {
+    "vx": 0.0,
+    "vy": 0.1012,
+    "zoom": -0.0003,
+    "roll_dps": 0.015,
+    "jitter": 0.00184,
+    "parallax_px": 0.033,
+    "subject_motion": 0.003,
+    "flow": 0.1052,
+    "tracked_points": 54.9,
+    "steps": 59
+   }
+  },
+  {
+   "file": "motion_0_tilt_down.mp4",
+   "gold": [
+    "tilt_down"
+   ],
+   "pred": {
+    "tilt_down": 0.968
+   },
+   "correct": true,
+   "stats": {
+    "vx": -0.0001,
+    "vy": -0.101,
+    "zoom": 0.0008,
+    "roll_dps": -0.067,
+    "jitter": 0.00184,
+    "parallax_px": 0.032,
+    "subject_motion": 0.004,
+    "flow": 0.1021,
+    "tracked_points": 53.6,
+    "steps": 59
+   }
+  },
+  {
+   "file": "motion_0_zoom_in.mp4",
+   "gold": [
+    "zoom_in"
+   ],
+   "pred": {
+    "zoom_in": 0.842
+   },
+   "correct": true,
+   "stats": {
+    "vx": -0.0001,
+    "vy": 0.0,
+    "zoom": 0.1196,
+    "roll_dps": 0.083,
+    "jitter": 4e-05,
+    "parallax_px": 0.047,
+    "subject_motion": 0.0,
+    "flow": 0.0311,
+    "tracked_points": 59.7,
+    "steps": 59
+   }
+  },
+  {
+   "file": "motion_0_zoom_out.mp4",
+   "gold": [
+    "zoom_out"
+   ],
+   "pred": {
+    "zoom_out": 0.842
+   },
+   "correct": true,
+   "stats": {
+    "vx": -0.0004,
+    "vy": 0.0002,
+    "zoom": -0.1211,
+    "roll_dps": 0.038,
+    "jitter": 3e-05,
+    "parallax_px": 0.052,
+    "subject_motion": 0.0,
+    "flow": 0.0349,
+    "tracked_points": 65.7,
+    "steps": 59
+   }
+  },
+  {
+   "file": "motion_0_handheld.mp4",
+   "gold": [
+    "handheld"
+   ],
+   "pred": {
+    "handheld": 0.99
+   },
+   "correct": true,
+   "stats": {
+    "vx": -0.003,
+    "vy": 0.0017,
+    "zoom": 0.0001,
+    "roll_dps": 0.035,
+    "jitter": 0.01761,
+    "parallax_px": 0.036,
+    "subject_motion": 0.004,
+    "flow": 0.2412,
+    "tracked_points": 58.6,
+    "steps": 59
+   }
+  },
+  {
+   "file": "motion_0_handheld_pan_right.mp4",
+   "gold": [
+    "handheld",
+    "pan_right"
+   ],
+   "pred": {
+    "pan_right": 0.821,
+    "handheld": 0.99
+   },
+   "correct": true,
+   "stats": {
+    "vx": -0.1137,
+    "vy": 0.001,
+    "zoom": -0.001,
+    "roll_dps": 0.136,
+    "jitter": 0.0197,
+    "parallax_px": 0.045,
+    "subject_motion": 0.024,
+    "flow": 0.2784,
+    "tracked_points": 40.6,
+    "steps": 59
+   }
+  },
+  {
+   "file": "motion_0_slow_pan_left.mp4",
+   "gold": [
+    "pan_left"
+   ],
+   "pred": {
+    "pan_left": 0.476,
+    "gimbal": 0.566
+   },
+   "correct": true,
+   "stats": {
+    "vx": 0.0506,
+    "vy": -0.0,
+    "zoom": -0.0007,
+    "roll_dps": 0.011,
+    "jitter": 0.00098,
+    "parallax_px": 0.026,
+    "subject_motion": 0.0,
+    "flow": 0.0507,
+    "tracked_points": 71.6,
+    "steps": 59
+   }
+  },
+  {
+   "file": "motion_1_static.mp4",
+   "gold": [
+    "static"
+   ],
+   "pred": {
+    "static": 0.99
+   },
+   "correct": true,
+   "stats": {
+    "vx": 0.0,
+    "vy": -0.0,
+    "zoom": -0.0,
+    "roll_dps": -0.0,
+    "jitter": 0.0,
+    "parallax_px": 0.004,
+    "subject_motion": 0.0,
+    "flow": 0.0002,
+    "tracked_points": 400.0,
+    "steps": 59
+   }
+  },
+  {
+   "file": "motion_1_pan_left.mp4",
+   "gold": [
+    "pan_left"
+   ],
+   "pred": {
+    "pan_left": 0.978
+   },
+   "correct": true,
+   "stats": {
+    "vx": 0.1215,
+    "vy": 0.0001,
+    "zoom": 0.0004,
+    "roll_dps": 0.012,
+    "jitter": 0.00228,
+    "parallax_px": 0.02,
+    "subject_motion": 0.0,
+    "flow": 0.1215,
+    "tracked_points": 400.0,
+    "steps": 59
+   }
+  },
+  {
+   "file": "motion_1_pan_right.mp4",
+   "gold": [
+    "pan_right"
+   ],
+   "pred": {
+    "pan_right": 0.978
+   },
+   "correct": true,
+   "stats": {
+    "vx": -0.1214,
+    "vy": -0.0001,
+    "zoom": 0.0001,
+    "roll_dps": 0.012,
+    "jitter": 0.00228,
+    "parallax_px": 0.019,
+    "subject_motion": 0.0,
+    "flow": 0.1214,
+    "tracked_points": 400.0,
+    "steps": 59
+   }
+  },
+  {
+   "file": "motion_1_tilt_up.mp4",
+   "gold": [
+    "tilt_up"
+   ],
+   "pred": {
+    "tilt_up": 0.968
+   },
+   "correct": true,
+   "stats": {
+    "vx": 0.0003,
+    "vy": 0.101,
+    "zoom": 0.0003,
+    "roll_dps": -0.018,
+    "jitter": 0.00181,
+    "parallax_px": 0.029,
+    "subject_motion": 0.0,
+    "flow": 0.1011,
+    "tracked_points": 257.0,
+    "steps": 59
+   }
+  },
+  {
+   "file": "motion_1_tilt_down.mp4",
+   "gold": [
+    "tilt_down"
+   ],
+   "pred": {
+    "tilt_down": 0.968
+   },
+   "correct": true,
+   "stats": {
+    "vx": 0.0,
+    "vy": -0.101,
+    "zoom": 0.0,
+    "roll_dps": -0.005,
+    "jitter": 0.0018,
+    "parallax_px": 0.02,
+    "subject_motion": 0.001,
+    "flow": 0.1011,
+    "tracked_points": 400.0,
+    "steps": 59
+   }
+  },
+  {
+   "file": "motion_1_zoom_in.mp4",
+   "gold": [
+    "zoom_in"
+   ],
+   "pred": {
+    "zoom_in": 0.842
+   },
+   "correct": true,
+   "stats": {
+    "vx": 0.0003,
+    "vy": 0.0002,
+    "zoom": 0.1205,
+    "roll_dps": 0.007,
+    "jitter": 2e-05,
+    "parallax_px": 0.044,
+    "subject_motion": 0.0,
+    "flow": 0.0358,
+    "tracked_points": 400.0,
+    "steps": 59
+   }
+  },
+  {
+   "file": "motion_1_zoom_out.mp4",
+   "gold": [
+    "zoom_out"
+   ],
+   "pred": {
+    "zoom_out": 0.842
+   },
+   "correct": true,
+   "stats": {
+    "vx": -0.0002,
+    "vy": -0.0003,
+    "zoom": -0.1205,
+    "roll_dps": -0.005,
+    "jitter": 3e-05,
+    "parallax_px": 0.045,
+    "subject_motion": 0.0,
+    "flow": 0.0358,
+    "tracked_points": 364.1,
+    "steps": 59
+   }
+  },
+  {
+   "file": "motion_1_handheld.mp4",
+   "gold": [
+    "handheld"
+   ],
+   "pred": {
+    "handheld": 0.99
+   },
+   "correct": true,
+   "stats": {
+    "vx": -0.0012,
+    "vy": -0.0031,
+    "zoom": 0.0006,
+    "roll_dps": -0.004,
+    "jitter": 0.01868,
+    "parallax_px": 0.025,
+    "subject_motion": 0.001,
+    "flow": 0.2557,
+    "tracked_points": 399.5,
+    "steps": 59
+   }
+  },
+  {
+   "file": "motion_1_handheld_pan_right.mp4",
+   "gold": [
+    "handheld",
+    "pan_right"
+   ],
+   "pred": {
+    "pan_right": 0.782,
+    "handheld": 0.99
+   },
+   "correct": true,
+   "stats": {
+    "vx": -0.0964,
+    "vy": -0.0025,
+    "zoom": 0.0007,
+    "roll_dps": 0.005,
+    "jitter": 0.01757,
+    "parallax_px": 0.025,
+    "subject_motion": 0.001,
+    "flow": 0.2523,
+    "tracked_points": 398.7,
+    "steps": 59
+   }
+  },
+  {
+   "file": "motion_1_slow_pan_left.mp4",
+   "gold": [
+    "pan_left"
+   ],
+   "pred": {
+    "pan_left": 0.485,
+    "gimbal": 0.565
+   },
+   "correct": true,
+   "stats": {
+    "vx": 0.0509,
+    "vy": 0.0001,
+    "zoom": 0.0002,
+    "roll_dps": 0.008,
+    "jitter": 0.001,
+    "parallax_px": 0.019,
+    "subject_motion": 0.0,
+    "flow": 0.0509,
+    "tracked_points": 400.0,
+    "steps": 59
+   }
+  },
+  {
+   "file": "motion_2_static.mp4",
+   "gold": [
+    "static"
+   ],
+   "pred": {
+    "static": 0.99
+   },
+   "correct": true,
+   "stats": {
+    "vx": -0.0,
+    "vy": -0.0,
+    "zoom": 0.0,
+    "roll_dps": -0.0,
+    "jitter": 0.0,
+    "parallax_px": 0.003,
+    "subject_motion": 0.0,
+    "flow": 0.0001,
+    "tracked_points": 364.2,
+    "steps": 59
+   }
+  },
+  {
+   "file": "motion_2_pan_left.mp4",
+   "gold": [
+    "pan_left"
+   ],
+   "pred": {
+    "pan_left": 0.977
+   },
+   "correct": true,
+   "stats": {
+    "vx": 0.1213,
+    "vy": 0.0,
+    "zoom": 0.0008,
+    "roll_dps": -0.008,
+    "jitter": 0.00226,
+    "parallax_px": 0.022,
+    "subject_motion": 0.0,
+    "flow": 0.1214,
+    "tracked_points": 321.4,
+    "steps": 59
+   }
+  },
+  {
+   "file": "motion_2_pan_right.mp4",
+   "gold": [
+    "pan_right"
+   ],
+   "pred": {
+    "pan_right": 0.977
+   },
+   "correct": true,
+   "stats": {
+    "vx": -0.1212,
+    "vy": 0.0,
+    "zoom": 0.0007,
+    "roll_dps": -0.005,
+    "jitter": 0.00226,
+    "parallax_px": 0.021,
+    "subject_motion": 0.001,
+    "flow": 0.1215,
+    "tracked_points": 307.5,
+    "steps": 59
+   }
+  },
+  {
+   "file": "motion_2_tilt_up.mp4",
+   "gold": [
+    "tilt_up"
+   ],
+   "pred": {
+    "tilt_up": 0.968
+   },
+   "correct": true,
+   "stats": {
+    "vx": -0.0,
+    "vy": 0.1009,
+    "zoom": 0.0006,
+    "roll_dps": 0.001,
+    "jitter": 0.00185,
+    "parallax_px": 0.029,
+    "subject_motion": 0.002,
+    "flow": 0.1031,
+    "tracked_points": 374.3,
+    "steps": 59
+   }
+  },
+  {
+   "file": "motion_2_tilt_down.mp4",
+   "gold": [
+    "tilt_down"
+   ],
+   "pred": {
+    "tilt_down": 0.968
+   },
+   "correct": true,
+   "stats": {
+    "vx": 0.0001,
+    "vy": -0.101,
+    "zoom": 0.0006,
+    "roll_dps": -0.001,
+    "jitter": 0.00184,
+    "parallax_px": 0.027,
+    "subject_motion": 0.004,
+    "flow": 0.1051,
+    "tracked_points": 367.9,
+    "steps": 59
+   }
+  },
+  {
+   "file": "motion_2_zoom_in.mp4",
+   "gold": [
+    "zoom_in"
+   ],
+   "pred": {
+    "zoom_in": 0.842
+   },
+   "correct": true,
+   "stats": {
+    "vx": 0.0002,
+    "vy": 0.0003,
+    "zoom": 0.1206,
+    "roll_dps": 0.008,
+    "jitter": 2e-05,
+    "parallax_px": 0.037,
+    "subject_motion": 0.003,
+    "flow": 0.0382,
+    "tracked_points": 390.5,
+    "steps": 59
+   }
+  },
+  {
+   "file": "motion_2_zoom_out.mp4",
+   "gold": [
+    "zoom_out"
+   ],
+   "pred": {
+    "zoom_out": 0.842
+   },
+   "correct": true,
+   "stats": {
+    "vx": -0.0001,
+    "vy": -0.0002,
+    "zoom": -0.1204,
+    "roll_dps": -0.007,
+    "jitter": 2e-05,
+    "parallax_px": 0.036,
+    "subject_motion": 0.0,
+    "flow": 0.0356,
+    "tracked_points": 306.7,
+    "steps": 59
+   }
+  },
+  {
+   "file": "motion_2_handheld.mp4",
+   "gold": [
+    "handheld"
+   ],
+   "pred": {
+    "handheld": 0.99
+   },
+   "correct": true,
+   "stats": {
+    "vx": -0.0005,
+    "vy": -0.0086,
+    "zoom": 0.0015,
+    "roll_dps": 0.011,
+    "jitter": 0.02049,
+    "parallax_px": 0.036,
+    "subject_motion": 0.003,
+    "flow": 0.2694,
+    "tracked_points": 370.3,
+    "steps": 59
+   }
+  },
+  {
+   "file": "motion_2_handheld_pan_right.mp4",
+   "gold": [
+    "handheld",
+    "pan_right"
+   ],
+   "pred": {
+    "pan_right": 0.843,
+    "handheld": 0.99
+   },
+   "correct": true,
+   "stats": {
+    "vx": -0.1022,
+    "vy": -0.001,
+    "zoom": 0.0015,
+    "roll_dps": 0.008,
+    "jitter": 0.01751,
+    "parallax_px": 0.035,
+    "subject_motion": 0.003,
+    "flow": 0.2466,
+    "tracked_points": 321.4,
+    "steps": 59
+   }
+  },
+  {
+   "file": "motion_2_slow_pan_left.mp4",
+   "gold": [
+    "pan_left"
+   ],
+   "pred": {
+    "pan_left": 0.478,
+    "gimbal": 0.568
+   },
+   "correct": true,
+   "stats": {
+    "vx": 0.0506,
+    "vy": 0.0001,
+    "zoom": 0.0001,
+    "roll_dps": -0.007,
+    "jitter": 0.00096,
+    "parallax_px": 0.021,
+    "subject_motion": 0.0,
+    "flow": 0.0506,
+    "tracked_points": 344.6,
+    "steps": 59
+   }
+  },
+  {
+   "file": "motion_3_static.mp4",
+   "gold": [
+    "static"
+   ],
+   "pred": {
+    "static": 0.99
+   },
+   "correct": true,
+   "stats": {
+    "vx": -0.0,
+    "vy": 0.0,
+    "zoom": -0.0,
+    "roll_dps": -0.0,
+    "jitter": 0.0,
+    "parallax_px": 0.002,
+    "subject_motion": 0.0,
+    "flow": 0.0001,
+    "tracked_points": 122.0,
+    "steps": 59
+   }
+  },
+  {
+   "file": "motion_3_pan_left.mp4",
+   "gold": [
+    "pan_left"
+   ],
+   "pred": {
+    "pan_left": 0.977
+   },
+   "correct": true,
+   "stats": {
+    "vx": 0.1212,
+    "vy": -0.0,
+    "zoom": 0.0002,
+    "roll_dps": -0.003,
+    "jitter": 0.00227,
+    "parallax_px": 0.019,
+    "subject_motion": 0.001,
+    "flow": 0.1216,
+    "tracked_points": 154.6,
+    "steps": 59
+   }
+  },
+  {
+   "file": "motion_3_pan_right.mp4",
+   "gold": [
+    "pan_right"
+   ],
+   "pred": {
+    "pan_right": 0.977
+   },
+   "correct": true,
+   "stats": {
+    "vx": -0.1213,
+    "vy": -0.0002,
+    "zoom": 0.0008,
+    "roll_dps": 0.037,
+    "jitter": 0.00226,
+    "parallax_px": 0.03,
+    "subject_motion": 0.003,
+    "flow": 0.1226,
+    "tracked_points": 172.1,
+    "steps": 59
+   }
+  },
+  {
+   "file": "motion_3_tilt_up.mp4",
+   "gold": [
+    "tilt_up"
+   ],
+   "pred": {
+    "tilt_up": 0.968
+   },
+   "correct": true,
+   "stats": {
+    "vx": -0.0001,
+    "vy": 0.101,
+    "zoom": 0.0011,
+    "roll_dps": -0.02,
+    "jitter": 0.00186,
+    "parallax_px": 0.034,
+    "subject_motion": 0.001,
+    "flow": 0.1017,
+    "tracked_points": 96.6,
+    "steps": 59
+   }
+  },
+  {
+   "file": "motion_3_tilt_down.mp4",
+   "gold": [
+    "tilt_down"
+   ],
+   "pred": {
+    "tilt_down": 0.968
+   },
+   "correct": true,
+   "stats": {
+    "vx": -0.0001,
+    "vy": -0.1011,
+    "zoom": 0.0008,
+    "roll_dps": -0.022,
+    "jitter": 0.00185,
+    "parallax_px": 0.027,
+    "subject_motion": 0.001,
+    "flow": 0.1017,
+    "tracked_points": 131.7,
+    "steps": 59
+   }
+  },
+  {
+   "file": "motion_3_zoom_in.mp4",
+   "gold": [
+    "zoom_in"
+   ],
+   "pred": {
+    "zoom_in": 0.842
+   },
+   "correct": true,
+   "stats": {
+    "vx": -0.0001,
+    "vy": -0.0001,
+    "zoom": 0.1197,
+    "roll_dps": -0.042,
+    "jitter": 3e-05,
+    "parallax_px": 0.045,
+    "subject_motion": 0.001,
+    "flow": 0.0367,
+    "tracked_points": 126.7,
+    "steps": 59
+   }
+  },
+  {
+   "file": "motion_3_zoom_out.mp4",
+   "gold": [
+    "zoom_out"
+   ],
+   "pred": {
+    "zoom_out": 0.842
+   },
+   "correct": true,
+   "stats": {
+    "vx": -0.0001,
+    "vy": -0.0004,
+    "zoom": -0.1205,
+    "roll_dps": -0.014,
+    "jitter": 2e-05,
+    "parallax_px": 0.047,
+    "subject_motion": 0.0,
+    "flow": 0.039,
+    "tracked_points": 159.6,
+    "steps": 59
+   }
+  },
+  {
+   "file": "motion_3_handheld.mp4",
+   "gold": [
+    "handheld"
+   ],
+   "pred": {
+    "handheld": 0.99
+   },
+   "correct": true,
+   "stats": {
+    "vx": -0.0002,
+    "vy": -0.0005,
+    "zoom": 0.0012,
+    "roll_dps": -0.002,
+    "jitter": 0.01838,
+    "parallax_px": 0.031,
+    "subject_motion": 0.011,
+    "flow": 0.2418,
+    "tracked_points": 119.9,
+    "steps": 59
+   }
+  },
+  {
+   "file": "motion_3_handheld_pan_right.mp4",
+   "gold": [
+    "handheld",
+    "pan_right"
+   ],
+   "pred": {
+    "pan_right": 0.744,
+    "handheld": 0.99
+   },
+   "correct": true,
+   "stats": {
+    "vx": -0.0969,
+    "vy": 0.0019,
+    "zoom": 0.0012,
+    "roll_dps": 0.027,
+    "jitter": 0.02192,
+    "parallax_px": 0.036,
+    "subject_motion": 0.009,
+    "flow": 0.3017,
+    "tracked_points": 168.7,
+    "steps": 59
+   }
+  },
+  {
+   "file": "motion_3_slow_pan_left.mp4",
+   "gold": [
+    "pan_left"
+   ],
+   "pred": {
+    "pan_left": 0.477,
+    "gimbal": 0.567
+   },
+   "correct": true,
+   "stats": {
+    "vx": 0.0506,
+    "vy": 0.0,
+    "zoom": -0.0004,
+    "roll_dps": -0.01,
+    "jitter": 0.00097,
+    "parallax_px": 0.02,
+    "subject_motion": 0.0,
+    "flow": 0.0507,
+    "tracked_points": 135.5,
+    "steps": 59
+   }
+  }
+ ]
+}

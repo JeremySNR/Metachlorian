@@ -37,6 +37,7 @@ def track_steps(frames: list[np.ndarray]) -> list[dict[str, float]]:
 
     steps = []
     prev = frames[0]
+    cy, cx = prev.shape[0] / 2.0, prev.shape[1] / 2.0
     for cur in frames[1:]:
         pts = cv2.goodFeaturesToTrack(prev, maxCorners=400, qualityLevel=0.01, minDistance=7, blockSize=7)
         rec = {"n": 0, "tx": 0.0, "ty": 0.0, "s": 1.0, "r": 0.0, "inl": 0.0, "par": 0.0, "obj": 0.0, "mag": 0.0, "ok": 0.0}
@@ -56,7 +57,9 @@ def track_steps(frames: list[np.ndarray]) -> list[dict[str, float]]:
                     # Parallax: residual structure among near-inliers (depth-dependent motion).
                     near = res < 6.0
                     rec.update({
-                        "n": int(len(p0)), "tx": float(M[0, 2]), "ty": float(M[1, 2]), "s": float(math.hypot(a, b)),
+                        # Translation of the frame centre, so zooming about the centre is not read as a pan.
+                        "n": int(len(p0)), "tx": float(a * cx - b * cy + M[0, 2] - cx), "ty": float(b * cx + a * cy + M[1, 2] - cy),
+                        "s": float(math.hypot(a, b)),
                         "r": float(math.degrees(math.atan2(b, a))), "inl": float(inl.mean()),
                         "par": float(np.median(res[near])) if near.any() else 0.0,
                         "obj": float(np.mean(res > 3.0)), "mag": float(np.mean(flow)), "ok": 1.0,

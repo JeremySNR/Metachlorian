@@ -27,7 +27,9 @@ from ..vocab import registry
 from .parse import Parsed, parse
 from .vectors import VectorStore
 
-SELECTIVE = 50_000
+SELECTIVE = 20_000
+POOL_CAP = 4000
+COMMON_DF = 0.08  # keyword tokens in more than 8% of shots carry little signal and cost the most
 POOL = 600
 RRF_K = 60
 WEIGHTS = {"vector": 1.0, "keyword": 0.9, "terms": 1.1, "people": 0.5, "quality": 0.15, "example": 1.4}
@@ -87,7 +89,7 @@ class SearchEngine:
     def __init__(self, db: Database, settings: Settings, vectors: VectorStore | None = None):
         self.db = db
         self.settings = settings
-        self.vectors = vectors or VectorStore(db, settings.index_dir)
+        self.vectors = vectors or VectorStore(db, settings.index_dir, settings.vector_dtype)
 
     # ------------------------------------------------------------------ helpers
     def _text_vector(self, text: str) -> np.ndarray | None:
@@ -227,6 +229,7 @@ class SearchEngine:
             kw += [w for w in re.findall(r"\w+", parsed.context) if len(w) > 2]
         if not req.parse_query and req.q:
             kw = req.q.split()
+        kw = self._prune_common(kw)
         fq = fts_query(kw)
         snippets: dict[int, dict[str, str]] = {}
         if fq:
@@ -264,10 +267,16 @@ class SearchEngine:
                                        f" GROUP BY shot_id, vocab", (*pargs, *chunk)):
                         score[r[0]] = score.get(r[0], 0) + r[2]
             else:
+                # Broad: best-confidence shots per preferred term via the (vocab, term, confidence) index.
+                per_vocab: dict[tuple[int, str], float] = {}
+                for v, t in expanded:
+                    for r in self.db.q("SELECT shot_id, confidence FROM shot_terms WHERE vocab=? AND term=? AND confidence >= ?"
+                                       " ORDER BY confidence DESC LIMIT ?", (v, t, TERM_MIN_CONF, POOL * 4)):
+                        key = (r[0], v)
+                        per_vocab[key] = max(per_vocab.get(key, 0.0), r[1])
                 score = {}
-                for r in self.db.q(f"SELECT shot_id, vocab, MAX(confidence) c FROM shot_terms WHERE ({cond}) AND confidence >= ?"
-                                   f" GROUP BY shot_id, vocab ORDER BY c DESC LIMIT {POOL * 8}", (*pargs, TERM_MIN_CONF)):
-                    score[r[0]] = score.get(r[0], 0) + r[2]
+                for (sid, _v), c in per_vocab.items():
+                    score[sid] = score.get(sid, 0.0) + c
             lists["terms"] = sorted(score.items(), key=lambda x: -x[1])[:POOL * 2]
         timings["terms"] = time.perf_counter() - t1
         # Pure browse (no query): order candidates by quality.
@@ -290,7 +299,7 @@ class SearchEngine:
             for rank, (sid, sc) in enumerate(lst):
                 fused[sid] = fused.get(sid, 0.0) + wgt / (RRF_K + rank + 1)
                 contrib.setdefault(sid, {})[name] = {"rank": rank + 1, "score": round(float(sc), 4)}
-        pool = list(fused)
+        pool = sorted(fused, key=lambda x: -fused[x])[:POOL_CAP]
         # Hard filters on broad queries are applied to the pool now.
         if hard and candidates is None and pool:
             ok: set[int] = set()
@@ -359,6 +368,29 @@ class SearchEngine:
             "next_cursor": _enc_cursor(offset + limit, key) if offset + limit < len(pool) else None,
             "timings_ms": {k: round(v * 1000, 1) for k, v in timings.items()},
         }
+
+    def _prune_common(self, words: list[str]) -> list[str]:
+        """Drop keyword tokens that occur in a large share of shots (IDF pruning).
+        They are expensive for BM25 over millions of rows and add little; the
+        semantic retriever still sees the whole phrase."""
+        if not words:
+            return words
+        total = self._shot_count()
+        if total < 50_000:
+            return words
+        keep = []
+        for w in words:
+            t = re.sub(r"[^\w]", "", w.lower())
+            r = self.db.q1("SELECT doc FROM shot_fts_vocab WHERE term=?", (t,))
+            if r is None or r[0] / total <= COMMON_DF:
+                keep.append(w)
+        return keep
+
+    def _shot_count(self) -> int:
+        now_t = time.time()
+        if not hasattr(self, "_count_cache") or now_t - self._count_cache[1] > 60:
+            self._count_cache = (self.db.q1("SELECT COUNT(*) n FROM shot_index")["n"], now_t)
+        return self._count_cache[0]
 
     def _load_index_rows(self, ids: list[int]) -> dict[int, dict[str, Any]]:
         out: dict[int, dict[str, Any]] = {}
@@ -429,7 +461,7 @@ class SearchEngine:
         if pool is not None and not pool:
             return {}
         if pool is not None:
-            ids = pool[:20000]
+            ids = pool[:5000]
             counts: dict[tuple[str, str], int] = {}
             for i in range(0, len(ids), 900):
                 chunk = ids[i:i + 900]

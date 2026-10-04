@@ -8,7 +8,7 @@ from .base import AnalysisContext, Analyser
 
 class MotionAnalyser(Analyser):
     name = "motion"
-    version = "1.0.0"
+    version = "1.1.0"
     requires = ("shots",)
     priority = 60
     description = ("Camera movement (static, pan, tilt, zoom, dolly, truck, roll, handheld, gimbal), stability and motion "

@@ -1,0 +1,378 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1_5);
+  min-inline-size: 0;
+}
+
+.label {
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  font-weight: var(--weight-medium);
+  color: var(--fg-1);
+}
+
+.slateLabel {
+  composes: slate from '../styles/type.module.css';
+}
+
+.description {
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-3);
+}
+
+.error {
+  font-size: var(--text-xs);
+  color: var(--status-blocked);
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+}
+
+.input,
+.textarea {
+  block-size: var(--control-md);
+  background: var(--bg-raised);
+  color: var(--fg-1);
+  border: var(--border-width) solid var(--border-control);
+  border-radius: var(--radius-sm);
+  padding-inline: var(--space-2);
+  font-size: var(--text-sm);
+  min-inline-size: 0;
+  inline-size: 100%;
+  transition: border-color var(--dur-1) var(--ease-standard);
+}
+
+.input::placeholder,
+.textarea::placeholder {
+  color: var(--fg-3);
+}
+
+.input[data-hovered],
+.textarea[data-hovered] {
+  border-color: var(--border-strong);
+}
+
+.input[data-focus-visible],
+.input[data-focused],
+.textarea[data-focused] {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: 0;
+}
+
+.input[data-invalid] {
+  border-color: var(--status-blocked);
+}
+
+.input[data-disabled] {
+  color: var(--fg-disabled);
+  border-color: var(--border-subtle);
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-feature-settings: var(--font-mono-features);
+}
+
+.textarea {
+  block-size: auto;
+  min-block-size: 88px;
+  padding-block: var(--space-2);
+  font-size: var(--text-md);
+  line-height: var(--leading-md);
+  resize: vertical;
+}
+
+.group {
+  display: flex;
+  align-items: stretch;
+  border: var(--border-width) solid var(--border-control);
+  border-radius: var(--radius-sm);
+  background: var(--bg-raised);
+  block-size: var(--control-md);
+  overflow: hidden;
+}
+
+.group[data-focus-within] {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+}
+
+.group .input {
+  border: 0;
+  border-radius: 0;
+  outline: none;
+  background: transparent;
+  font-variant-numeric: tabular-nums;
+}
+
+.stepper {
+  inline-size: var(--control-sm);
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--fg-2);
+  border-inline-start: var(--border-width) solid var(--border-subtle);
+}
+
+.stepper[data-hovered] {
+  background: var(--bg-hover);
+  color: var(--fg-1);
+}
+
+/* Checkbox (§3.4 value row) */
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-block-size: var(--target-min);
+  font-size: var(--text-sm);
+  color: var(--fg-1);
+  cursor: default;
+}
+
+.box {
+  inline-size: 16px;
+  block-size: 16px;
+  flex: none;
+  border: var(--border-width) solid var(--border-control);
+  border-radius: var(--radius-xs);
+  background: var(--bg-raised);
+  display: grid;
+  place-items: center;
+  color: var(--fg-on-key);
+  transition: background-color var(--dur-2) var(--ease-standard);
+}
+
+.checkbox[data-hovered] .box {
+  border-color: var(--border-strong);
+}
+
+.checkbox[data-selected] .box,
+.checkbox[data-indeterminate] .box {
+  background: var(--fg-1);
+  border-color: var(--fg-1);
+  color: var(--bg-canvas);
+}
+
+/* Selection checkboxes use the Key (system.md §0 rule 2) */
+.key[data-selected] .box {
+  background: var(--key);
+  border-color: var(--key);
+  color: var(--fg-on-key);
+}
+
+.checkbox[data-focus-visible] .box {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.checkbox[data-disabled] {
+  color: var(--fg-disabled);
+}
+
+/* Switch */
+.switch {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-block-size: var(--target-min);
+  font-size: var(--text-sm);
+}
+
+.track {
+  inline-size: 28px;
+  block-size: 16px;
+  border-radius: var(--radius-full);
+  border: var(--border-width) solid var(--border-control);
+  background: var(--bg-raised);
+  position: relative;
+  flex: none;
+  transition: background-color var(--dur-2) var(--ease-standard);
+}
+
+.track::after {
+  content: '';
+  position: absolute;
+  inset-block-start: 2px;
+  inset-inline-start: 2px;
+  inline-size: 10px;
+  block-size: 10px;
+  border-radius: var(--radius-full);
+  background: var(--fg-2);
+  transition: transform var(--dur-2) var(--ease-standard);
+}
+
+.switch[data-selected] .track {
+  background: var(--fg-1);
+  border-color: var(--fg-1);
+}
+
+.switch[data-selected] .track::after {
+  transform: translateX(12px);
+  background: var(--bg-canvas);
+}
+
+.switch[data-focus-visible] .track {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* Radio */
+.radioGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.radio {
+  display: flex;
+  align-items: start;
+  gap: var(--space-2);
+  padding-block: var(--space-1);
+  font-size: var(--text-sm);
+}
+
+.dot {
+  inline-size: 16px;
+  block-size: 16px;
+  border-radius: var(--radius-full);
+  border: var(--border-width) solid var(--border-control);
+  background: var(--bg-raised);
+  flex: none;
+  margin-block-start: 1px;
+  display: grid;
+  place-items: center;
+}
+
+.radio[data-selected] .dot {
+  border-color: var(--fg-1);
+}
+
+.radio[data-selected] .dot::after {
+  content: '';
+  inline-size: 8px;
+  block-size: 8px;
+  border-radius: var(--radius-full);
+  background: var(--fg-1);
+}
+
+.radio[data-focus-visible] .dot {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.radioText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0_5);
+}
+
+/* Select / ComboBox */
+.selectButton {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  block-size: var(--control-md);
+  background: var(--bg-raised);
+  border: var(--border-width) solid var(--border-control);
+  border-radius: var(--radius-sm);
+  padding-inline: var(--space-2) var(--space-1_5);
+  font-size: var(--text-sm);
+  color: var(--fg-1);
+  min-inline-size: 0;
+  inline-size: 100%;
+  text-align: start;
+}
+
+.selectButton[data-hovered] {
+  border-color: var(--border-strong);
+}
+
+.selectButton[data-focus-visible] {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.selectValue {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selectValue[data-placeholder] {
+  color: var(--fg-3);
+}
+
+.listbox {
+  padding: var(--space-1);
+  outline: none;
+  min-inline-size: var(--trigger-width);
+  max-block-size: 320px;
+  overflow: auto;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-block-size: var(--row-height);
+  padding-inline: var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  outline: none;
+}
+
+.option[data-focused] {
+  background: var(--bg-hover);
+}
+
+.option[data-selected] {
+  font-weight: var(--weight-semibold);
+}
+
+.option .optionCheck {
+  margin-inline-start: auto;
+  color: var(--fg-1);
+}
+
+.option .optionMeta {
+  margin-inline-start: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--fg-3);
+}
+
+.comboInput {
+  composes: input;
+  padding-inline-end: var(--control-sm);
+}
+
+.comboWrap {
+  position: relative;
+}
+
+.comboWrap .comboButton {
+  position: absolute;
+  inset-inline-end: 4px;
+  inset-block-start: 50%;
+  transform: translateY(-50%);
+  inline-size: var(--control-sm);
+  block-size: var(--control-sm);
+  border: 0;
+  background: transparent;
+  color: var(--fg-2);
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-xs);
+}
+
+@media (pointer: coarse) {
+  .input,
+  .selectButton,
+  .group {
+    block-size: var(--target-coarse);
+  }
+}

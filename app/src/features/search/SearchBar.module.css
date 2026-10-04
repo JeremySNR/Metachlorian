@@ -1,0 +1,130 @@
+.form {
+  position: relative;
+  inline-size: 100%;
+  max-inline-size: 760px;
+  display: flex;
+  align-items: center;
+}
+
+.field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  inline-size: 100%;
+  block-size: var(--control-lg);
+  background: var(--bg-raised);
+  border: var(--border-width) solid var(--border-control);
+  border-radius: var(--radius-sm);
+  padding-inline: var(--space-3) var(--space-1);
+  gap: var(--space-2);
+  color: var(--fg-2);
+  transition: border-color var(--dur-1) var(--ease-standard);
+  overflow: hidden;
+}
+
+.field:hover {
+  border-color: var(--border-strong);
+}
+
+.field:focus-within {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: 0;
+}
+
+.dropping {
+  border-style: dashed;
+  border-color: var(--key);
+}
+
+.error {
+  border-color: var(--status-blocked);
+}
+
+.input {
+  flex: 1;
+  min-inline-size: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  font-size: var(--text-lg);
+  line-height: var(--leading-lg);
+  color: var(--fg-1);
+  text-overflow: ellipsis;
+}
+
+.input::placeholder {
+  color: var(--fg-3);
+}
+
+.input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.trail {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: none;
+}
+
+.hint {
+  margin-inline-end: var(--space-1_5);
+}
+
+@media (width < 1024px) {
+  .hint {
+    display: none;
+  }
+}
+
+.dropHint {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: var(--bg-raised);
+  color: var(--fg-1);
+  font-size: var(--text-sm);
+  pointer-events: none;
+}
+
+.suggest {
+  position: absolute;
+  inset-block-start: calc(100% + 4px);
+  inset-inline: 0;
+  background: var(--bg-overlay);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-popover);
+  z-index: var(--z-popover);
+  padding: var(--space-1);
+  max-block-size: 360px;
+  overflow: auto;
+}
+
+.suggestHeader {
+  padding: var(--space-1_5) var(--space-2) var(--space-1);
+}
+
+.suggestItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-block-size: var(--row-height);
+  padding-inline: var(--space-2);
+  border-radius: var(--radius-sm);
+  color: var(--fg-1);
+  font-size: var(--text-sm);
+  cursor: default;
+}
+
+.suggestItem svg {
+  color: var(--fg-2);
+}
+
+.suggestItem[aria-selected='true'] {
+  background: var(--bg-hover);
+}
+
+.suggestMeta {
+  margin-inline-start: auto;
+}

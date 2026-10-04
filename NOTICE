@@ -1,0 +1,15 @@
+Metachlorian
+Copyright 2026 Metachlorian contributors
+
+This product is licensed under the Apache License, Version 2.0 (LICENSE).
+
+Model weights downloaded by `metachlorian models fetch` are third-party works under their own licences
+(docs/licences.md). Attribution required by those licences:
+
+- NVIDIA Parakeet TDT 0.6B v3, (c) NVIDIA Corporation, licensed under CC BY 4.0
+  (https://creativecommons.org/licenses/by/4.0/). Converted to ONNX by the sherpa-onnx project.
+- NVIDIA TitaNet small speaker verification model, (c) NVIDIA Corporation, licensed under CC BY 4.0.
+- SigLIP base patch16-256 multilingual, (c) Google LLC, Apache-2.0. Modified: exported to ONNX; text embedding
+  table quantised to 8 bits.
+- OpenAI Whisper base (MIT), Silero VAD (MIT), pyannote segmentation 3.0 (MIT), CED-mini (Apache-2.0),
+  MediaPipe EfficientDet-Lite2 (Apache-2.0), OpenCV Zoo YuNet (MIT), PaddleOCR PP-OCR models via RapidOCR (Apache-2.0).

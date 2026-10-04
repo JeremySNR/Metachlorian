@@ -1,0 +1,162 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1_5);
+  block-size: var(--control-md);
+  min-inline-size: var(--target-min);
+  padding-inline: var(--space-3);
+  border-radius: var(--radius-sm);
+  border: var(--border-width) solid transparent;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+  user-select: none;
+  text-decoration: none;
+  transition: background-color var(--dur-1) var(--ease-standard), border-color var(--dur-1) var(--ease-standard), color var(--dur-1) var(--ease-standard);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sm {
+  block-size: var(--control-sm);
+  padding-inline: var(--space-2);
+  font-size: var(--text-xs);
+  gap: var(--space-1);
+}
+
+.lg {
+  block-size: var(--control-lg);
+  padding-inline: var(--space-4);
+}
+
+.icon {
+  padding-inline: 0;
+  inline-size: var(--control-md);
+}
+
+.icon.sm {
+  inline-size: var(--control-sm);
+}
+
+.icon.lg {
+  inline-size: var(--control-lg);
+}
+
+/* primary: at most one per view */
+.primary {
+  background: var(--key);
+  color: var(--fg-on-key);
+  font-weight: var(--weight-semibold);
+}
+
+.primary[data-hovered] {
+  background: var(--key-hover);
+}
+
+.primary[data-pressed] {
+  background: var(--key-pressed);
+}
+
+.secondary {
+  background: var(--bg-raised);
+  color: var(--fg-1);
+  border-color: var(--border-control);
+}
+
+.secondary[data-hovered] {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+}
+
+.secondary[data-pressed] {
+  background: var(--bg-pressed);
+}
+
+.quiet {
+  background: transparent;
+  color: var(--fg-2);
+}
+
+.quiet[data-hovered] {
+  background: var(--bg-hover);
+  color: var(--fg-1);
+}
+
+.quiet[data-pressed],
+.quiet[data-selected] {
+  background: var(--bg-pressed);
+  color: var(--fg-1);
+}
+
+.danger {
+  background: transparent;
+  color: var(--status-blocked);
+  border-color: var(--status-blocked);
+}
+
+.danger[data-hovered] {
+  background: var(--status-blocked-bg);
+}
+
+.dangerFilled {
+  background: var(--status-blocked);
+  color: var(--fg-on-danger);
+  font-weight: var(--weight-semibold);
+}
+
+.button[data-disabled],
+.button[aria-disabled='true'] {
+  color: var(--fg-disabled);
+  background: transparent;
+  border-color: transparent;
+}
+
+.secondary[data-disabled],
+.secondary[aria-disabled='true'] {
+  border-color: var(--border-subtle);
+}
+
+.primary[data-disabled],
+.primary[aria-disabled='true'] {
+  background: var(--bg-hover);
+}
+
+.button[data-focus-visible] {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.kbd {
+  margin-inline-start: var(--space-1);
+  border-color: transparent;
+  padding: 0;
+  color: inherit;
+  opacity: 1;
+}
+
+.primary .kbd {
+  color: var(--fg-on-key);
+}
+
+.quiet .kbd,
+.secondary .kbd {
+  color: var(--fg-3);
+}
+
+@media (width < 1280px) {
+  .kbd {
+    display: none;
+  }
+}
+
+.busy {
+  display: inline-flex;
+}
+
+@media (pointer: coarse) {
+  .button {
+    min-block-size: var(--target-coarse);
+  }
+}

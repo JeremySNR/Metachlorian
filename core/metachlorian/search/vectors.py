@@ -17,7 +17,7 @@ from ..db import Database
 
 log = logging.getLogger(__name__)
 
-EXACT_LIMIT = 50_000
+EXACT_LIMIT = 20_000
 
 
 class VectorIndex:
@@ -33,6 +33,10 @@ class VectorIndex:
         self.keys: set[int] = set()          # shot ids present
         self.shot_of: dict[int, int] = {}    # vector row id -> shot id
         self.vids_of: dict[int, list[int]] = {}  # shot id -> vector row ids
+        # Exact scoring store: int8-quantised unit vectors, one row per vector id.
+        self._chunks: list[np.ndarray] = []
+        self.mat: np.ndarray | None = None
+        self.slot_of: dict[int, int] = {}
 
     def _new(self, dim: int):
         from usearch.index import Index
@@ -48,6 +52,7 @@ class VectorIndex:
             stat = self.db.q1("SELECT COUNT(*) n FROM vectors WHERE space=? AND id<=?", (self.space, self.watermark))
             if self.index is not None and stat["n"] != len(self.shot_of):
                 self.index, self.shot_of, self.vids_of, self.watermark = None, {}, {}, 0
+                self._chunks, self.mat, self.slot_of = [], None, {}
             added = 0
             while True:
                 rows = self.db.q("SELECT id, shot_id, dim, vec FROM vectors WHERE space=? AND id>? ORDER BY id LIMIT 20000", (self.space, self.watermark))
@@ -59,12 +64,20 @@ class VectorIndex:
                 keys = np.array([r["id"] for r in rows], dtype=np.uint64)
                 vecs = np.stack([np.frombuffer(r["vec"], dtype=np.float16).astype(np.float32) for r in rows])
                 self.index.add(keys, vecs)
+                unit = vecs / (np.linalg.norm(vecs, axis=1, keepdims=True) + 1e-9)
+                base = sum(len(c) for c in self._chunks)
+                self._chunks.append(np.clip(np.rint(unit * 127), -127, 127).astype(np.int8))
+                for j, r in enumerate(rows):
+                    self.slot_of[r["id"]] = base + j
                 for r in rows:
                     self.shot_of[r["id"]] = r["shot_id"]
                     self.vids_of.setdefault(r["shot_id"], []).append(r["id"])
                 self.watermark = rows[-1]["id"]
                 added += len(rows)
             self.keys = set(self.vids_of)
+            if added:
+                self.mat = np.concatenate(self._chunks) if len(self._chunks) > 1 else self._chunks[0]
+                self._chunks = [self.mat]
             return added
 
     def __len__(self) -> int:
@@ -80,10 +93,12 @@ class VectorIndex:
         return vids, sids
 
     def get(self, vector_ids: list[int]) -> np.ndarray:
+        """Unit vectors (dequantised int8) for vector row ids."""
         with self.lock:
-            if self.index is None or not vector_ids:
+            if self.mat is None or not vector_ids:
                 return np.zeros((0, self.dim or 1), np.float32)
-            return np.asarray(self.index.get(np.array(vector_ids, dtype=np.uint64)), dtype=np.float32)
+            slots = np.fromiter((self.slot_of[v] for v in vector_ids), dtype=np.int64, count=len(vector_ids))
+            return self.mat[slots].astype(np.float32) / 127.0
 
     def shot_vector(self, shot_id: int) -> np.ndarray | None:
         vids, _ = self.vector_ids([shot_id])
@@ -104,9 +119,9 @@ class VectorIndex:
                     vids, sids = self.vector_ids(list(candidates))
                     if not vids:
                         return []
-                    V = self.get(vids)
-                    V /= np.linalg.norm(V, axis=1, keepdims=True) + 1e-9
-                    return _best_per_shot(sids, V @ q, k)
+                    slots = np.fromiter((self.slot_of[v] for v in vids), dtype=np.int64, count=len(vids))
+                    sims = (self.mat[slots] @ (q * 127).astype(np.float32)) / (127.0 * 127.0)
+                    return _best_per_shot(sids, sims, k)
                 over = max(k * 10, 1000)
                 while True:
                     res = self.index.search(q, min(over, len(self.shot_of)))
@@ -133,8 +148,9 @@ def _best_per_shot(sids: list[int], sims: np.ndarray, k: int) -> list[tuple[int,
 class VectorStore:
     """One VectorIndex per embedding space, lazily created."""
 
-    def __init__(self, db: Database, cache_dir: Path | None = None):
+    def __init__(self, db: Database, cache_dir: Path | None = None, dtype: str = "f16"):
         self.db = db
+        self.dtype = dtype
         self.cache_dir = cache_dir
         self.spaces: dict[str, VectorIndex] = {}
         self.lock = threading.Lock()
@@ -142,7 +158,7 @@ class VectorStore:
     def get(self, space: str) -> VectorIndex:
         with self.lock:
             if space not in self.spaces:
-                self.spaces[space] = VectorIndex(self.db, space, self.cache_dir)
+                self.spaces[space] = VectorIndex(self.db, space, self.cache_dir, self.dtype)
             idx = self.spaces[space]
         idx.sync()
         return idx

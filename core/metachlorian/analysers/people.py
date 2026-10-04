@@ -49,7 +49,6 @@ class PeopleAnalyser(Analyser):
     version = "1.1.0"
     requires = ("keyframes",)
     priority = 50
-    resource = "model"
     description = "Person and face counts, face sizes and positions (no identity), COCO objects. YuNet (OpenCV) faces, EfficientDet-Lite2 objects on LiteRT."
 
     def config(self, settings) -> dict[str, Any]:
