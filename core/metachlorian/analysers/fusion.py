@@ -410,26 +410,42 @@ class FusionAnalyser(Analyser):
         return {"used": True, "shots": used, "flagged": flagged, "model": ctx.settings.llm.model}
 
 
-def template_caption(r: dict[str, Any]) -> str:
-    """Plain caption assembled from labels when no VLM is available."""
+CAPTION_MIN_CONF = 0.6  # the UI's "low" band starts below this; low-band guesses are not stated as fact
+
+
+def template_caption(r: dict[str, Any], min_conf: float = CAPTION_MIN_CONF) -> str:
+    """Plain caption assembled from labels when no VLM is available. Only medium- and high-confidence
+    values (and human corrections) are used, so the caption never states a weak guess as fact."""
     reg = registry()
+
+    def ok(x: Any) -> bool:
+        return isinstance(x, dict) and (x.get("confidence") if x.get("confidence") is not None else 1.0) >= min_conf
+
+    def one(name: str) -> dict[str, Any] | None:
+        v = r.get(name)
+        return v if ok(v) else None
+
+    def many(name: str) -> list[dict[str, Any]]:
+        v = r.get(name) or []
+        return [x for x in (v if isinstance(v, list) else [v]) if ok(x)]
+
     parts = []
-    size = (r.get("camera.shot_size") or {}).get("term")
+    size = (one("camera.shot_size") or {}).get("term")
     if size:
         parts.append(reg.label("shot_size", size))
-    setting = [x["term"] for x in r.get("content.setting", [])[:2]]
+    setting = [x["term"] for x in many("content.setting")[:2]]
     if setting:
         parts.append(" / ".join(reg.label("setting", t).lower() for t in setting))
-    pc = (r.get("people.count") or {}).get("value")
+    pc = (one("people.count") or {}).get("value")
     if pc:
         parts.append(f"{pc} {'person' if pc == 1 else 'people'}")
-    objs = [o["term"] for o in r.get("content.objects", [])[:3]]
+    objs = [o["term"] for o in many("content.objects")[:3]]
     if objs:
         parts.append(", ".join(objs))
-    tod = (r.get("content.time_of_day") or {}).get("term")
+    tod = (one("content.time_of_day") or {}).get("term")
     if tod:
         parts.append(reg.label("time_of_day", tod).lower())
-    mv = [m["term"] for m in r.get("camera.movement", []) if m["term"] not in ("static",)]
+    mv = [m["term"] for m in many("camera.movement") if m["term"] not in ("static",)]
     if mv:
         parts.append(", ".join(reg.label("camera_movement", m).lower() for m in mv[:2]))
     return (". ".join(p[0].upper() + p[1:] for p in parts if p) + ".") if parts else "Shot."

@@ -56,7 +56,7 @@ class ChatClient:
     def __init__(self, ep: ModelEndpoint, settings: Settings):
         if not ep.enabled:
             raise LLMError("endpoint not configured")
-        if not ep.local and not settings.allow_remote:
+        if not ep.is_local and not settings.allow_remote:
             raise LLMError("remote model endpoints are disabled (allow_remote=false): content would leave this machine")
         self.ep = ep
         key = os.environ.get(ep.api_key_env, "") if ep.api_key_env else ""

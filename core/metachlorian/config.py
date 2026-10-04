@@ -23,12 +23,44 @@ def _default_data_dir() -> Path:
     return base / "metachlorian"
 
 
+def classify_endpoint(url: str) -> tuple[bool, str]:
+    """Is this endpoint on this machine or a private network? Decided from the host, never from a
+    user's say-so: loopback, private (RFC 1918 / ULA), link-local and ``.local``/``.lan``/``.internal``
+    names are local, as are names that resolve only to such addresses. Anything else is remote."""
+    import ipaddress
+    import socket
+    from urllib.parse import urlparse
+
+    host = (urlparse(url if "://" in url else "http://" + url).hostname or "").lower()
+    if not host:
+        return False, "no host"
+
+    def private(ip: str) -> bool:
+        a = ipaddress.ip_address(ip.split("%")[0])
+        return a.is_loopback or a.is_private or a.is_link_local
+
+    try:
+        return (True, "private address") if private(host) else (False, "public address")
+    except ValueError:
+        pass
+    if host == "localhost" or host.endswith((".localhost", ".local", ".lan", ".internal", ".home.arpa")):
+        return True, "local name"
+    try:
+        addrs = {i[4][0] for i in socket.getaddrinfo(host, None)}
+    except OSError:
+        return False, "name does not resolve"
+    if addrs and all(private(a) for a in addrs):
+        return True, "resolves to a private address"
+    return False, "resolves to a public address"
+
+
 @dataclass
 class ModelEndpoint:
     """An OpenAI-compatible chat endpoint used for VLM captioning or text fusion.
 
-    ``local`` must be true only for endpoints on this machine or LAN that the
-    admin controls. Remote endpoints are hosted adapters: content leaves the
+    ``local`` is the admin's declaration; the endpoint only counts as local when
+    its host is also local (``classify_endpoint``), so a hosted API can never be
+    mislabelled. Remote endpoints are hosted adapters: content leaves the
     machine, so they are refused unless ``allow_remote`` is set.
     """
 
@@ -46,6 +78,10 @@ class ModelEndpoint:
     @property
     def enabled(self) -> bool:
         return bool(self.base_url and self.model)
+
+    @property
+    def is_local(self) -> bool:
+        return self.local and classify_endpoint(self.base_url)[0]
 
 
 @dataclass
@@ -108,13 +144,13 @@ class Settings:
             p.mkdir(parents=True, exist_ok=True)
 
     def endpoint_allowed(self, ep: ModelEndpoint) -> bool:
-        return ep.enabled and (ep.local or self.allow_remote)
+        return ep.enabled and (ep.is_local or self.allow_remote)
 
     def egress_summary(self) -> dict[str, Any]:
         """What, if anything, can leave this machine. Shown in the UI."""
         items = []
         for name, ep in (("vlm", self.vlm), ("llm", self.llm)):
-            if ep.enabled and not ep.local:
+            if ep.enabled and not ep.is_local:
                 items.append({
                     "adapter": name,
                     "base_url": ep.base_url,

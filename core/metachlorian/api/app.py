@@ -78,6 +78,14 @@ def create_app(settings: Settings, db: Database | None = None, start_workers: bo
     app.state.lib = lib
     app.state.settings = settings
 
+    def _intended(use, channel, territory, include) -> dict[str, Any] | None:
+        if not (use or channel or territory):
+            return None
+        d: dict[str, Any] = {"use": use, "channel": channel, "territory": territory}
+        if include:
+            d["include"] = [x for x in include.split(",") if x]
+        return d
+
     # ------------------------------------------------------------------ auth
     def principal(request: Request) -> Principal:
         p = getattr(request.state, "principal", None)
@@ -188,11 +196,16 @@ def create_app(settings: Settings, db: Database | None = None, start_workers: bo
         return lib.get_shot(p, uid, intended)
 
     @app.get("/api/shots/{uid}/similar")
-    def similar(uid: str, limit: int = 24, modality: str = "visual", p: Principal = Depends(principal)):
-        return lib.find_similar(p, shot_uid=uid, limit=limit, modality=modality)
+    def similar(uid: str, limit: int = 24, modality: str = "visual", use: str | None = None, channel: str | None = None,
+                territory: str | None = None, include: str | None = None, hide_blocked: bool = True, p: Principal = Depends(principal)):
+        return lib.find_similar(p, shot_uid=uid, limit=limit, modality=modality, intended=_intended(use, channel, territory, include),
+                                hide_blocked=hide_blocked)
 
     @app.post("/api/similar")
-    async def similar_upload(file: UploadFile = File(...), limit: int = 24, p: Principal = Depends(principal)):
+    async def similar_upload(file: UploadFile = File(...), limit: int = 24, use: str | None = None, channel: str | None = None,
+                             territory: str | None = None, include: str | None = None, hide_blocked: bool = True,
+                             p: Principal = Depends(principal)):
+        intended = _intended(use, channel, territory, include)
         data = await file.read()
         if len(data) > 300 * 1024 * 1024:
             raise HTTPException(413, "file too large")
@@ -200,10 +213,10 @@ def create_app(settings: Settings, db: Database | None = None, start_workers: bo
             with tempfile.NamedTemporaryFile(suffix=Path(file.filename or "x.mp4").suffix, delete=False) as tf:
                 tf.write(data)
             try:
-                return lib.find_similar(p, clip=Path(tf.name), limit=limit)
+                return lib.find_similar(p, clip=Path(tf.name), limit=limit, intended=intended, hide_blocked=hide_blocked)
             finally:
                 os.unlink(tf.name)
-        return lib.find_similar(p, image=data, limit=limit)
+        return lib.find_similar(p, image=data, limit=limit, intended=intended, hide_blocked=hide_blocked)
 
     @app.get("/api/assets")
     def assets(q: str = "", edit_type: str | None = None, status: str | None = None, limit: int = 200, offset: int = 0,
@@ -441,6 +454,14 @@ def create_app(settings: Settings, db: Database | None = None, start_workers: bo
         return {"settings": settings.public_dict(), "egress": settings.egress_summary(), "models": models.status(settings.resolved_models_dir),
                 "vlm_health": llm_health(settings.vlm) if settings.vlm.enabled else None,
                 "llm_health": llm_health(settings.llm) if settings.llm.enabled else None}
+
+    @app.get("/api/admin/endpoint-locality")
+    def endpoint_locality(url: str, p: Principal = Depends(principal)):
+        A.require(p, "admin")
+        from ..config import classify_endpoint
+
+        local, reason = classify_endpoint(url)
+        return {"url": url, "local": local, "reason": reason}
 
     @app.put("/api/admin/settings")
     def settings_put(body: dict = Body(...), p: Principal = Depends(principal)):

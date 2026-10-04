@@ -48,11 +48,11 @@ VARIANTS = ("hybrid", "hybrid_with_text_space", "visual_only", "keyword_only", "
 
 def run_variant(eng: E.SearchEngine, q: str, variant: str, k: int = 10) -> list[int]:
     if variant == "hybrid":
-        r = eng.search(E.SearchRequest(q=q, limit=k, facets=False))
+        r = eng.search(E.SearchRequest(q=q, limit=k, facets=False, hide_blocked=False))
     elif variant == "hybrid_with_text_space":
         E.FUSE_TEXT_SPACE = True
         try:
-            r = eng.search(E.SearchRequest(q=q, limit=k, facets=False))
+            r = eng.search(E.SearchRequest(q=q, limit=k, facets=False, hide_blocked=False))
         finally:
             E.FUSE_TEXT_SPACE = False
     elif variant == "no_prefs":
@@ -60,7 +60,7 @@ def run_variant(eng: E.SearchEngine, q: str, variant: str, k: int = 10) -> list[
         saved = E.WEIGHTS["terms"]
         E.WEIGHTS["terms"] = 0.0
         try:
-            r = eng.search(E.SearchRequest(q=q, limit=k, facets=False))
+            r = eng.search(E.SearchRequest(q=q, limit=k, facets=False, hide_blocked=False))
         finally:
             E.WEIGHTS["terms"] = saved
     elif variant == "visual_only":

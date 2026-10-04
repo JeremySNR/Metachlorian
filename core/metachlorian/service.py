@@ -19,7 +19,7 @@ from .exports import package as P
 from .indexer import index_asset
 from .ingest.scan import add_source, register_file, scan_source
 from .jobs import queue
-from .records import ASSET_CORRECTABLE, CORRECTABLE, build_asset_doc, build_shot_doc, record_correction, revert_correction
+from .records import ASSET_CORRECTABLE, CORRECTABLE, build_asset_doc, build_shot_doc, collect, record_correction, revert_correction
 from .search.engine import SearchEngine, SearchRequest, summarise_doc
 from .vocab import registry
 
@@ -74,10 +74,6 @@ class Library:
         if p.is_agent and req.intended_use is None:
             pass  # agents may search without a use; check_rights / build_package enforce clearance
         out = self.engine.search(req)
-        for r in out["results"]:
-            rr = self.db.q1("SELECT r.status, r.expires FROM rights r JOIN assets a ON a.id=r.asset_id WHERE a.uid=? AND r.shot_id IS NULL",
-                            (r["asset_uid"],))
-            r["rights_badge"] = R.summary_status({"status": rr["status"], "expires": rr["expires"]}) if rr else "unknown"
         self._log(p, "search_shots", req.q[:200], {"filters": req.filters, "intended_use": req.intended_use, "results": len(out["results"])})
         return out
 
@@ -156,9 +152,9 @@ class Library:
 
     def find_similar(self, p: Principal, shot_uid: str | None = None, image: bytes | None = None, clip: Path | None = None,
                      limit: int = 24, intended: dict[str, Any] | None = None, filters: dict[str, Any] | None = None,
-                     modality: str = "visual") -> dict[str, Any]:
+                     modality: str = "visual", hide_blocked: bool = True) -> dict[str, Any]:
         require(p, "library:read")
-        req = SearchRequest(limit=limit, intended_use=intended, filters=filters or {}, similar_space=modality)
+        req = SearchRequest(limit=limit, intended_use=intended, filters=filters or {}, similar_space=modality, hide_blocked=hide_blocked)
         if shot_uid:
             self._shot_id(shot_uid)
             req.similar_to = shot_uid
@@ -268,7 +264,20 @@ class Library:
             rows = self.db.q("SELECT * FROM corrections WHERE asset_uid=? ORDER BY id DESC LIMIT ?", (asset_uid, limit))
         else:
             rows = self.db.q("SELECT c.*, a.filename FROM corrections c LEFT JOIN assets a ON a.uid=c.asset_uid ORDER BY c.id DESC LIMIT ?", (limit,))
-        return [{**dict(r), "value": loads(r["value"])} for r in rows]
+        out = []
+        for r in rows:
+            d = {**dict(r), "value": loads(r["value"])}
+            # Where it applies and what the model says there, so the log reads "Night -> Morning" on "Shot 3 at 00:00:08".
+            sh = self.db.q1("SELECT id, idx, start_s, end_s FROM shots WHERE uid=?", (r["shot_uid"],)) if r["shot_uid"] else None
+            if sh:
+                d["shot"] = {"idx": sh["idx"], "number": sh["idx"] + 1, "start": sh["start_s"], "end": sh["end_s"]}
+                m = collect(self.db, "shot", sh["id"]).get(r["field"])
+                d["model_value"] = {"value": m["value"], "source": m["source"], "confidence": m["confidence"]} if m else None
+            else:
+                d["shot"] = {"start": r["anchor_start"], "end": r["anchor_end"]} if r["anchor_start"] is not None else None
+                d["model_value"] = None
+            out.append(d)
+        return out
 
     def revert(self, p: Principal, correction_id: int) -> None:
         require(p, "tags:write")
@@ -391,6 +400,14 @@ class Library:
     def export_clip(self, p: Principal, shot_uid: str, in_s: float | None = None, out_s: float | None = None, mode: str = "proxy",
                     intended: dict[str, Any] | None = None) -> dict[str, Any]:
         require(p, "media:export")
+        if mode != "reference":
+            # Blocked footage (not cleared, or past expiry) never leaves as media, for people or agents.
+            doc = build_shot_doc(self.db, self._shot_id(shot_uid))
+            badge = R.summary_status(self._shot_rights(doc))
+            if badge in ("not_cleared", "expired"):
+                self._log(p, "export_clip", shot_uid, {"refused": badge}, write=True)
+                raise Forbidden("this shot is blocked (" + ("not cleared" if badge == "not_cleared" else "rights expired")
+                                + "); change its rights before exporting media")
         if p.is_agent:
             chk = self.check_rights(p, [shot_uid], use=(intended or {}).get("use"), channel=(intended or {}).get("channel"),
                                     territory=(intended or {}).get("territory"))

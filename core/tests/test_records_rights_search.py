@@ -179,3 +179,35 @@ def test_vector_index_incremental_and_persistent(tmp_path):
     assert again.garbage >= 100
     hits = again.search(q, 5)
     assert hits and all(s in (1, 2) for s, _ in hits)
+
+
+def test_endpoint_locality_is_decided_by_host():
+    from metachlorian.config import ModelEndpoint, Settings, classify_endpoint
+
+    assert classify_endpoint("http://127.0.0.1:8080/v1")[0]
+    assert classify_endpoint("http://192.168.1.20:11434/v1")[0]
+    assert classify_endpoint("http://gpu-box.local:8000/v1")[0]
+    assert not classify_endpoint("https://api.openai.com/v1")[0]
+    assert not classify_endpoint("https://8.8.8.8/v1")[0]
+    s = Settings()
+    s.vlm = ModelEndpoint(base_url="https://api.openai.com/v1", model="x", local=True)  # self-declared local
+    assert not s.vlm.is_local and not s.endpoint_allowed(s.vlm)
+    assert s.egress_summary()["adapters"][0]["adapter"] == "vlm"
+
+
+def test_rule_caption_follows_corrections_and_skips_weak_guesses():
+    from metachlorian.records import _refresh_template_caption
+
+    fields = {
+        "camera.shot_size": {"value": {"term": "extreme_close_up", "confidence": 0.41}, "source": "fusion"},
+        "content.time_of_day": {"value": {"term": "night", "confidence": 0.7}, "source": "fusion"},
+        "people.count": {"value": {"value": 2, "confidence": 0.75}, "source": "fusion"},
+        "content.caption": {"value": {"value": "old", "confidence": 0.35, "sources": ["fusion_rules"]}, "source": "fusion"},
+    }
+    _refresh_template_caption(fields)
+    cap = fields["content.caption"]["value"]["value"]
+    assert "close-up" not in cap.lower() and "Night" in cap and "2 people" in cap
+    fields["content.time_of_day"] = {"value": {"term": "morning", "confidence": 1.0, "sources": ["human"]}, "source": "human", "corrected": True}
+    _refresh_template_caption(fields)
+    cap = fields["content.caption"]["value"]["value"]
+    assert "night" not in cap.lower() and "morning" in cap.lower()

@@ -40,7 +40,13 @@ WEIGHTS = {"vector": 1.0, "text": 0.8, "keyword": 0.9, "exact": 2.0, "terms": 0.
 EXACT_MAX_SHARE = 0.02  # an all-words match shared by more than 2% of shots is not specific evidence
 STOPWORDS = frozenset("a an and are as at be but by for from has have in is it its of on or that the this to was were with".split())
 TERM_MIN_CONF = 0.3
-FUSE_TEXT_SPACE = False  # kept switchable for the relevance evaluation (eval/search)
+FUSE_TEXT_SPACE = False
+BLOCKED_BADGES = frozenset({"not_cleared", "expired"})
+# Match strength (0..1) thresholds. For text queries strength is SigLIP's own sigmoid probability on a
+# log scale (p = 1e-4 -> 0, 1e-3 -> 0.25, 1e-2 -> 0.5, 0.1 -> 0.75); against blind judgments, precision
+# (grade >= 1) is ~0.55 at loose, ~0.7 at balanced and ~0.85 at strict (eval/README.md).
+EXACT_LIMIT_STRENGTH = 5000
+STRENGTH_THRESHOLDS = {"loose": 0.25, "balanced": 0.4, "strict": 0.6}  # kept switchable for the relevance evaluation (eval/search)
 FACET_VOCABS = ("shot_size", "camera_movement", "shot_role", "setting", "time_of_day", "weather", "pace", "mood", "audio_class",
                 "edit_type", "resolution", "orientation", "look", "object", "concept", "quality_flag")
 FTS_COLS_WEIGHTS = (1.0, 0.8, 0.9, 1.2, 1.6, 0.5)  # caption, transcript, ocr, tags, place, filename
@@ -61,6 +67,8 @@ class SearchRequest:
     limit: int = 40
     cursor: str | None = None
     strict: bool = False                        # promote parsed preferences to hard filters
+    hide_blocked: bool = True                   # not cleared or expired: blocked for every use, hidden unless asked
+    strictness: str = "balanced"                # loose | balanced | strict: where "strong" matches end
     facets: bool = True
     parse_query: bool = True
 
@@ -368,6 +376,15 @@ class SearchEngine:
         # ---------------------------------------------------------- rights
         verdicts: dict[int, dict[str, Any]] = {}
         excluded_by_rights = 0
+        badges = self._badges(pool, info)
+        hidden_blocked = 0
+        if req.hide_blocked:
+            # Blocked footage (not cleared, or past expiry) is blocked for every use, so it is hidden
+            # whether or not an intended use was given.
+            kept = [sid for sid in pool if badges.get(sid) not in BLOCKED_BADGES]
+            hidden_blocked = len(pool) - len(kept)
+            excluded_by_rights += hidden_blocked
+            pool = kept
         if intended:
             include = set(intended.get("include") or ["allowed"])
             kept = []
@@ -388,13 +405,31 @@ class SearchEngine:
                 else:
                     excluded_by_rights += 1
             pool = kept
+        # ---------------------------------------------------------- strength: strong matches first
+        evidence = self._word_evidence(snippets, kw)
+        strength = self._strengths(pool, contrib, qvec if (sem_text and req.vector is None) else None,
+                                   req.vector is not None or bool(req.similar_to), req.similar_space, evidence)
+        threshold = STRENGTH_THRESHOLDS.get(req.strictness, STRENGTH_THRESHOLDS["balanced"])
+        if strength:
+            strong = [sid for sid in pool if (strength.get(sid) or 0) >= threshold]
+            strong_set = set(strong)
+            pool = strong + [sid for sid in pool if sid not in strong_set]
+            strong_count = len(strong)
+        else:
+            strong_count = len(pool)
         timings["fuse"] = time.perf_counter() - t1
         # ---------------------------------------------------------- page
-        key = json.dumps([req.q, filters, require, exclude, prefer, intended, req.similar_to], sort_keys=True, default=str)[:400]
+        key = json.dumps([req.q, filters, require, exclude, prefer, intended, req.similar_to, req.strictness, req.hide_blocked],
+                         sort_keys=True, default=str)[:400]
         offset = _dec_cursor(req.cursor, key)
         page = pool[offset: offset + limit]
         results = [self._result(sid, info.get(sid), contrib.get(sid, {}), fused[sid], snippets.get(sid), verdicts.get(sid), prefer, filters, kw)
                    for sid in page]
+        for r, sid in zip(results, page):
+            r["rights_badge"] = badges.get(sid, "unknown")
+            st = strength.get(sid) if strength else None
+            r["strength"] = None if st is None else round(st, 3)
+            r["strong"] = True if not strength else (st or 0) >= threshold
         # Facets describe the ranked pool (at most 5,000 shots), never the whole library: aggregating
         # terms over every match of a broad filter took minutes at 1.5M shots.
         facets = self._facets(pool, where, args, base_from) if req.facets else {}
@@ -403,10 +438,88 @@ class SearchEngine:
             "query": {"text": req.q, "parsed": parsed.as_dict(), "filters": {k: v for k, v in filters.items() if not k.startswith("_")},
                       "require": require, "exclude": exclude, "prefer": prefer, "intended_use": intended or None, "limit": limit},
             "total": len(pool), "results": results, "facets": facets, "notes": notes,
-            "excluded_by_rights": excluded_by_rights,
+            "excluded_by_rights": excluded_by_rights, "hidden_blocked": hidden_blocked,
+            "strong_count": strong_count, "strictness": req.strictness if strength else None, "strength_thresholds": STRENGTH_THRESHOLDS,
             "next_cursor": _enc_cursor(offset + limit, key) if offset + limit < len(pool) else None,
             "timings_ms": {k: round(v * 1000, 1) for k, v in timings.items()},
         }
+
+    @staticmethod
+    def _word_evidence(snippets: dict[int, dict[str, str]], kw: list[str]) -> dict[int, float]:
+        """Share of the query's keywords found in what was said or written on screen, per shot."""
+        toks = {re.sub(r"[^\w]", "", w.lower()) for w in kw}
+        toks = {t for t in toks if len(t) >= 2 and t not in STOPWORDS}
+        if not toks:
+            return {}
+        out: dict[int, float] = {}
+        for sid, sn in snippets.items():
+            hits = {h.lower() for k in ("tr", "ocr") for h in re.findall(r"\[([^\]]+)\]", sn.get(k) or "")}
+            found = sum(1 for t in toks if any(h.startswith(t[:max(4, len(t) - 2)]) or h == t for h in hits))
+            if found:
+                out[sid] = found / len(toks)
+        return out
+
+    def _strengths(self, pool: list[int], contrib: dict[int, dict[str, Any]], qvec: np.ndarray | None, by_example: bool,
+                   space: str, evidence: dict[int, float] | None = None) -> dict[int, float]:
+        """Absolute match strength per shot (0..1), comparable across queries. Empty when the query has no
+        content to match (filter-only browse), in which case every result counts as strong."""
+        if not pool:
+            return {}
+        out: dict[int, float] = {}
+        if by_example:
+            for sid in pool:
+                ex = contrib.get(sid, {}).get("example")
+                # Image-to-image cosine: ~0.55 is unrelated, ~0.95 near-identical (uncalibrated, monotonic).
+                out[sid] = float(np.clip((ex["score"] - 0.55) / 0.4, 0, 1)) if ex else 0.0
+            return out
+        if qvec is None:
+            if any("exact" in contrib.get(s, {}) or "keyword" in contrib.get(s, {}) for s in pool):
+                ev = evidence or {}
+                return {sid: (0.95 if "exact" in contrib.get(sid, {}) else 0.45 + 0.5 * ev[sid] if sid in ev else 0.0) for sid in pool}
+            return {}
+        from ..media import siglip
+
+        enc = siglip.load(str(self.settings.resolved_models_dir))
+        cos = dict(self.vectors.get("visual").search(qvec, len(pool), candidates=set(pool[:EXACT_LIMIT_STRENGTH])))
+        for sid in pool:
+            c = cos.get(sid)
+            st = 0.0
+            if c is not None:
+                p = 1.0 / (1.0 + np.exp(-(c * enc.scale + enc.bias)))
+                st = float(np.clip((np.log10(max(p, 1e-9)) + 4) / 4, 0, 1))
+            if "exact" in contrib.get(sid, {}):
+                st = max(st, 0.95)  # every query word said, written or named: strong evidence on its own
+            elif evidence and sid in evidence:
+                st = max(st, 0.45 + 0.5 * evidence[sid])  # some of the words were said or shown
+            out[sid] = st
+        return out
+
+    def _badges(self, pool: list[int], info: dict[int, dict[str, Any]]) -> dict[int, str]:
+        """Rights badge per shot (shot overrides win over the asset), in a few bulk queries."""
+        aids = sorted({info[s]["asset_id"] for s in pool if s in info})
+        asset_level: dict[int, tuple[str, str | None]] = {}
+        shot_level: dict[int, tuple[str, str | None]] = {}
+        for i in range(0, len(aids), 900):
+            chunk = aids[i:i + 900]
+            for r in self.db.q(f"SELECT asset_id, shot_id, status, expires FROM rights WHERE asset_id IN ({','.join('?' * len(chunk))})", chunk):
+                if r["shot_id"] is None:
+                    asset_level[r["asset_id"]] = (r["status"], r["expires"])
+                else:
+                    shot_level[r["shot_id"]] = (r["status"], r["expires"])
+        out: dict[int, str] = {}
+        for sid in pool:
+            row = info.get(sid)
+            if not row:
+                continue
+            st, exp = asset_level.get(row["asset_id"], ("unknown", None))
+            if sid in shot_level:
+                s_st, s_exp = shot_level[sid]
+                st, exp = (s_st if s_st != "unknown" else st), (s_exp or exp)
+            try:
+                out[sid] = R.summary_status({"status": st, "expires": exp})
+            except ValueError:
+                out[sid] = st
+        return out
 
     def _prune_common(self, words: list[str]) -> list[str]:
         """Drop keyword tokens that occur in a large share of shots (IDF pruning).

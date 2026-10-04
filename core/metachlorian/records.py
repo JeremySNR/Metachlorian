@@ -213,10 +213,26 @@ def shot_doc(asset: dict[str, Any], s: dict[str, Any], fields: dict[str, dict[st
         "moments": [{"kind": m["kind"], "start": m["start_s"], "end": m["end_s"], "text": m["text"], "confidence": m["confidence"],
                      "source": m["source"], "data": {k: v for k, v in (loads(m["data"], {}) or {}).items() if k != "words"}} for m in moments],
     }
+    _refresh_template_caption(fields)
     log = fields.get("look.log_likeness", {}).get("value") or 0
     doc["technical"]["log_profile"] = bool(tech.get("log_hint")) or log >= 0.6
     doc["technical"]["log_confidence"] = 0.9 if tech.get("log_hint") else round(float(log), 3)
     return doc
+
+
+def _refresh_template_caption(fields: dict[str, dict[str, Any]]) -> None:
+    """Rule-written captions are rebuilt from the effective values, so a human correction (which
+    always wins) is reflected in the description and the text index, not only in its own field."""
+    cap = fields.get("content.caption")
+    if not cap or cap.get("corrected"):
+        return
+    v = cap.get("value")
+    if not isinstance(v, dict) or "fusion_rules" not in (v.get("sources") or []):
+        return
+    from .analysers.fusion import template_caption
+
+    eff = {k: f.get("value") for k, f in fields.items()}
+    fields["content.caption"] = {**cap, "value": {**v, "value": template_caption(eff)}}
 
 
 def record_correction(db: Database, level: str, asset_uid: str, field: str, op: str, value: Any, actor: str, user_id: int | None,
