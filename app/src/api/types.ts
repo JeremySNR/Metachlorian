@@ -168,8 +168,8 @@ export interface Moment {
   data?: Record<string, unknown>
 }
 
-/** A search hit. `people` here is the recognised identities (the core replaces the summary's people count). */
-export interface SearchResult extends Omit<ShotSummary, 'people'> {
+/** A search hit. */
+export interface SearchResult extends ShotSummary {
   score: number
   why: WhyItem[]
   in: number | null
@@ -180,7 +180,7 @@ export interface SearchResult extends Omit<ShotSummary, 'people'> {
   /** Absolute match strength 0..1, comparable across queries (null when nothing was scored). */
   strength?: number | null
   /** Recognised people in the shot (face identity), largest face first. */
-  people?: PersonRef[]
+  identities?: PersonRef[]
   /** At or above the strictness threshold; strong results come first. */
   strong?: boolean
 }

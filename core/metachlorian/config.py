@@ -100,6 +100,8 @@ class ModelEndpoint:
 
     @property
     def url(self) -> str:
+        if self.provider in ("openai", "openrouter"):
+            return self.preset["base_url"]  # a custom address kept from the Local setting does not apply
         return (self.base_url or self.preset["base_url"]).rstrip("/")
 
     @property
@@ -205,7 +207,8 @@ class Settings:
                     "base_url": ep.url if ep.provider != "codex" else "codex exec (ChatGPT)",
                     "model": ep.model,
                     "active": self.allow_remote,
-                    "sends": "sampled keyframes and analyser text" if name == "vlm" else "analyser text and queries",
+                    "sends": ("sampled keyframes as contact sheets, transcript and on-screen text snippets, measured facts" if name == "vlm"
+                              else "shot captions, transcript snippets and measured facts, for summaries and roles"),
                 })
         return {"content_leaves_machine": any(i["active"] for i in items), "adapters": items}
 

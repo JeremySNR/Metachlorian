@@ -105,7 +105,7 @@ export function SearchPage() {
   const namedPeople = useNamedPeople()
   const peopleById = useMemo(() => {
     const m = new Map<number, PersonRef>()
-    for (const r of results) if (Array.isArray(r.people)) for (const p of r.people) m.set(p.id, p)
+    for (const r of results) if (Array.isArray(r.identities)) for (const p of r.identities) m.set(p.id, p)
     for (const p of namedPeople.data?.people ?? []) m.set(p.id, p)
     return m
   }, [results, namedPeople.data])

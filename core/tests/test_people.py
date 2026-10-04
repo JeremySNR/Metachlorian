@@ -64,13 +64,17 @@ def test_people_cluster_name_merge_and_survive_reanalysis(processed):
     res = eng.search(SearchRequest(q="maria silva", limit=20, hide_blocked=False))
     found = {r["uid"] for r in res["results"]}
     assert found == {shots[0]["uid"], shots[1]["uid"]} and any("Maria" in n for n in res["notes"])
-    assert {p["name"] for r in res["results"] for p in r["people"]} >= {"Maria Silva"}
+    assert {p["name"] for r in res["results"] for p in r["identities"]} >= {"Maria Silva"}
+    assert res["query"]["people"] == [{"id": m_id, "name": "Maria Silva"}]
+    assert res["strong_count"] == len(res["results"])  # a name-only query: every shot with them is a strong match
+    with pytest.raises(ValueError, match="merge"):
+        PP.rename(db, j_id, "maria silva", "editor")  # names are unique
 
     # Re-analysis replaces the faces; the human naming re-attaches by time and box.
     with db.tx() as c:
         PP.replace_asset_faces(c, a["id"], _faces(shots, specs))
     again = {r["t"]: (r["identity_id"], r["assigned_by"]) for r in db.q("SELECT t, identity_id, assigned_by FROM faces WHERE asset_id=?", (a["id"],))}
-    assert again[specs[0][3]] == (m_id, "human") and again[specs[2][3]] == (m_id, "human")
+    assert again[specs[0][3]] == (m_id, "named") and again[specs[2][3]] == (m_id, "named")
 
     # "Not this person" puts a face on a new person and never back on Maria automatically.
     fid = db.q1("SELECT id FROM faces WHERE asset_id=? AND t=?", (a["id"], specs[2][3]))["id"]

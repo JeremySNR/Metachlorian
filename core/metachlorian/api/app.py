@@ -486,7 +486,7 @@ def create_app(settings: Settings, db: Database | None = None, start_workers: bo
     def providers(p: Principal = Depends(principal)):
         A.require(p, "admin")
         from .. import apikeys
-        from ..config import PROVIDERS
+        from ..config import PROVIDERS, ModelEndpoint
         from ..llm import codex_remaining, codex_status
 
         out = []
@@ -497,10 +497,12 @@ def create_app(settings: Settings, db: Database | None = None, start_workers: bo
             if pr.get("key"):
                 item["key"] = {"name": pr["key"], **keys[pr["key"]]}
             if pid == "codex":
-                item["status"] = codex_status(settings.vlm if settings.vlm.provider == "codex" else settings.llm)
-                ep = settings.vlm if settings.vlm.provider == "codex" else settings.llm
-                item["daily_limit"] = ep.effective_daily_limit if ep.provider == "codex" else pr["daily_limit"]
-                item["remaining_today"] = codex_remaining(settings, ep) if ep.provider == "codex" else None
+                active = settings.vlm if settings.vlm.provider == "codex" else settings.llm if settings.llm.provider == "codex" else None
+                ep = active or ModelEndpoint(provider="codex", model=pr["vlm_model"], codex_path=settings.vlm.codex_path or "codex")
+                item["status"] = codex_status(ep)
+                item["daily_limit"] = ep.effective_daily_limit
+                item["remaining_today"] = codex_remaining(settings, ep)
+                item["active"] = active is not None
             out.append(item)
         return {"providers": out, "active": {"vlm": settings.vlm.provider, "llm": settings.llm.provider},
                 "allow_remote": settings.allow_remote, "egress": settings.egress_summary()}

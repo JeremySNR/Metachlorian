@@ -29,7 +29,7 @@ def _vec(blob: bytes, dtype=np.float32) -> np.ndarray:
 def replace_asset_faces(c: sqlite3.Connection, asset_id: int, faces: list[dict[str, Any]]) -> None:
     """Swap an asset's faces for a fresh analysis, keeping human decisions, then assign identities."""
     old = [dict(r) for r in c.execute("SELECT t, box, embedding, identity_id, assigned_by, excluded_identity FROM faces WHERE asset_id=? AND "
-                                      "(assigned_by='human' OR excluded_identity IS NOT NULL)", (asset_id,))]
+                                      "(assigned_by IN ('human','named') OR excluded_identity IS NOT NULL)", (asset_id,))]
     for o in old:
         o["box"], o["emb"], o["used"] = json.loads(o["box"]), _vec(o["embedding"], np.float16), False
     c.execute("DELETE FROM faces WHERE asset_id=?", (asset_id,))
@@ -44,12 +44,13 @@ def replace_asset_faces(c: sqlite3.Connection, asset_id: int, faces: list[dict[s
         keep = old[max(cands)[2]] if cands else None
         if keep:
             keep["used"] = True
+        manual = bool(keep) and keep["assigned_by"] in ("human", "named")
         c.execute("INSERT INTO faces(asset_id, shot_id, t, box, score, size_px, appearances, thumb, embedding, identity_id, assigned_by,"
                   " excluded_identity, created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
                   (asset_id, f["shot_id"], f["t"], json.dumps(f["box"]), f["score"], f["size_px"], f.get("appearances", 1), f["thumb"],
                    e.astype(np.float16).tobytes(),
-                   keep["identity_id"] if keep and keep["assigned_by"] == "human" else None,
-                   "human" if keep and keep["assigned_by"] == "human" else "auto",
+                   keep["identity_id"] if manual else None,
+                   keep["assigned_by"] if manual else "auto",
                    keep["excluded_identity"] if keep else None, ts))
     assign(c, asset_id)
 
@@ -92,17 +93,30 @@ def assign(c: sqlite3.Connection, asset_id: int | None = None) -> int:
             c.execute("UPDATE faces SET identity_id=? WHERE id=?", (cur.lastrowid, r["id"]))
     for j in changed:
         c.execute("UPDATE identities SET centroid=?, n=?, updated_at=? WHERE id=?", (mat[j].astype(np.float32).tobytes(), counts[j], ts, ids[j]))
+        frows = c.execute("SELECT id, embedding, size_px, score FROM faces WHERE identity_id=? ORDER BY size_px DESC LIMIT 200", (ids[j],)).fetchall()
+        if frows:
+            embs = np.stack([_vec(r["embedding"], np.float16) for r in frows])
+            c.execute("UPDATE identities SET cover_face_id=? WHERE id=?", (_cover(frows, embs, mat[j]), ids[j]))
     return len(rows)
 
 
 def _recompute(c: sqlite3.Connection, identity_id: int) -> None:
-    rows = c.execute("SELECT id, embedding FROM faces WHERE identity_id=? ORDER BY size_px DESC, score DESC", (identity_id,)).fetchall()
+    rows = c.execute("SELECT id, embedding, size_px, score FROM faces WHERE identity_id=? ORDER BY size_px DESC, score DESC LIMIT 500",
+                     (identity_id,)).fetchall()
     if not rows:
         return
-    m = np.stack([_vec(r["embedding"], np.float16) for r in rows]).mean(axis=0)
-    c.execute("UPDATE identities SET centroid=?, n=?, cover_face_id=COALESCE((SELECT cover_face_id FROM identities WHERE id=? AND"
-              " cover_face_id IN (SELECT id FROM faces WHERE identity_id=?)), ?), updated_at=? WHERE id=?",
-              ((m / (np.linalg.norm(m) + 1e-9)).astype(np.float32).tobytes(), len(rows), identity_id, identity_id, rows[0]["id"], now(), identity_id))
+    embs = np.stack([_vec(r["embedding"], np.float16) for r in rows])
+    m = embs.mean(axis=0)
+    m = m / (np.linalg.norm(m) + 1e-9)
+    c.execute("UPDATE identities SET centroid=?, n=?, cover_face_id=?, updated_at=? WHERE id=?",
+              (m.astype(np.float32).tobytes(), len(rows), _cover(rows, embs, m), now(), identity_id))
+
+
+def _cover(rows, embs: np.ndarray, centroid: np.ndarray) -> int:
+    """The most typical face (closest to the centroid), preferring larger, clearer ones among near ties."""
+    sims = embs @ centroid
+    best = max(range(len(rows)), key=lambda k: (round(float(sims[k]), 2), rows[k]["size_px"] * rows[k]["score"]))
+    return rows[best]["id"]
 
 
 def assets_of(db: Database, identity_ids: list[int]) -> list[int]:
@@ -115,9 +129,16 @@ def rename(db: Database, identity_id: int, name: str, actor: str) -> None:
     with db.tx() as c:
         if not c.execute("SELECT 1 FROM identities WHERE id=?", (identity_id,)).fetchone():
             raise KeyError(identity_id)
+        if name:
+            other = c.execute("SELECT id FROM identities WHERE lower(name)=lower(?) AND id<>?", (name, identity_id)).fetchone()
+            if other:
+                raise ValueError(f"{name} is already person {other['id']}; merge the two instead of giving them the same name")
+            # Naming confirms the cluster: its faces are no longer moved by automatic assignment.
+            c.execute("UPDATE faces SET assigned_by='named' WHERE identity_id=? AND assigned_by='auto'", (identity_id,))
+        else:
+            # Un-naming undoes only what naming confirmed; individual moves and merges stay.
+            c.execute("UPDATE faces SET assigned_by='auto' WHERE identity_id=? AND assigned_by='named'", (identity_id,))
         c.execute("UPDATE identities SET name=?, named_by=?, updated_at=? WHERE id=?", (name or None, actor if name else "", now(), identity_id))
-        # Naming confirms the cluster: its faces are no longer moved by automatic assignment.
-        c.execute("UPDATE faces SET assigned_by='human' WHERE identity_id=?", (identity_id,))
 
 
 def merge(db: Database, source_id: int, into_id: int) -> None:
@@ -203,11 +224,11 @@ def list_people(db: Database, q: str = "", named: bool | None = None, limit: int
 
 
 def person_faces(db: Database, identity_id: int, limit: int = 200, offset: int = 0) -> list[dict[str, Any]]:
-    rows = db.q("SELECT f.id, f.t, f.box, f.score, f.size_px, f.thumb, f.assigned_by, s.uid shot_uid, s.idx, a.uid asset_uid, a.filename"
+    rows = db.q("SELECT f.id, f.t, f.box, f.score, f.size_px, f.thumb, f.assigned_by, s.uid shot_uid, s.idx, a.uid asset_uid, a.filename, a.fps"
                 " FROM faces f JOIN shots s ON s.id=f.shot_id JOIN assets a ON a.id=f.asset_id WHERE f.identity_id=?"
                 " ORDER BY a.filename, f.t LIMIT ? OFFSET ?", (identity_id, limit, offset))
     return [{"id": r["id"], "t": r["t"], "box": json.loads(r["box"]), "score": r["score"], "size_px": r["size_px"],
-             "thumb": f"/media/{r['asset_uid']}/{r['thumb']}", "confirmed": r["assigned_by"] == "human",
+             "thumb": f"/media/{r['asset_uid']}/{r['thumb']}", "confirmed": r["assigned_by"] in ("human", "named"), "fps": r["fps"],
              "shot_uid": r["shot_uid"], "shot_number": r["idx"] + 1, "asset_uid": r["asset_uid"], "filename": r["filename"]} for r in rows]
 
 

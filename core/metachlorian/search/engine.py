@@ -423,8 +423,15 @@ class SearchEngine:
             pool = kept
         # ---------------------------------------------------------- strength: strong matches first
         evidence = self._word_evidence(snippets, kw)
-        strength = self._strengths(pool, contrib, qvec if (sem_text and req.vector is None) else None,
-                                   req.vector is not None or bool(req.similar_to), req.similar_space, evidence)
+        names_only = False
+        if people_named and sem_text:
+            rest = sem_text.lower()
+            for nm in people_named:
+                rest = re.sub(rf"(?<!\w){re.escape(nm)}(?!\w)", " ", rest)
+            if not [w for w in re.findall(r"\w+", rest) if w not in STOPWORDS and w not in ("with", "of", "shots", "shot")]:
+                names_only = True  # only names: every shot with them is an equally strong match
+        strength = {} if names_only else self._strengths(pool, contrib, qvec if (sem_text and req.vector is None) else None,
+                                                         req.vector is not None or bool(req.similar_to), req.similar_space, evidence)
         threshold = STRENGTH_THRESHOLDS.get(req.strictness, STRENGTH_THRESHOLDS["balanced"])
         if strength:
             strong = [sid for sid in pool if (strength.get(sid) or 0) >= threshold]
@@ -451,7 +458,8 @@ class SearchEngine:
         facets = self._facets(pool, where, args, base_from) if req.facets else {}
         timings["total"] = time.perf_counter() - t0
         return {
-            "query": {"text": req.q, "parsed": parsed.as_dict(), "filters": {k: v for k, v in filters.items() if not k.startswith("_")},
+            "query": {"text": req.q, "people": [{"id": int(i), "name": n.title()} for n, i in zip(people_named, require.get("person", []))],
+                      "parsed": parsed.as_dict(), "filters": {k: v for k, v in filters.items() if not k.startswith("_")},
                       "require": require, "exclude": exclude, "prefer": prefer, "intended_use": intended or None, "limit": limit},
             "total": len(pool), "results": results, "facets": facets, "notes": notes,
             "excluded_by_rights": excluded_by_rights, "hidden_blocked": hidden_blocked,
@@ -637,7 +645,7 @@ class SearchEngine:
                     "out": round(out_s, 3) if out_s is not None else None, "moment": moment})
         if verdict:
             out["rights"] = {"verdict": verdict["verdict"], "reasons": verdict["reasons"]}
-        out["people"] = doc.get("people_identities") or []
+        out["identities"] = doc.get("people_identities") or []
         return out
 
     def _facets(self, pool: list[int] | None, where: str, args: list[Any], base_from: str) -> dict[str, list[dict[str, Any]]]:

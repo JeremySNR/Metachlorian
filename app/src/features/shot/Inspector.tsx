@@ -123,9 +123,9 @@ export function Inspector({ uid, result, intended, query, onClose, onCollapse, e
             <Section title="Rights" id="rights">
               <RightsBlock shot={d} vocabs={vocabs} intended={intended} />
             </Section>
-            {(d.people_identities || Array.isArray(result?.people)) && (
+            {(d.people_identities || Array.isArray(result?.identities)) && (
               <Section title="People" id="people">
-                <ShotPeople people={d.people_identities ?? result?.people} />
+                <ShotPeople people={d.people_identities ?? result?.identities} />
               </Section>
             )}
             {result && (
