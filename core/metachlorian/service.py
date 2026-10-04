@@ -180,6 +180,91 @@ class Library:
         self._log(p, "find_similar", shot_uid or ("image" if image else "clip"), {"results": len(out["results"])})
         return out
 
+    # ------------------------------------------------------------------ people (face identity, local only)
+    def people(self, p: Principal, q: str = "", named: bool | None = None, limit: int = 200, offset: int = 0) -> dict[str, Any]:
+        require(p, "library:read")
+        from . import people as PP
+
+        out = PP.list_people(self.db, q, named, max(1, min(500, limit)), max(0, offset))
+        out["enabled"] = self.settings.face_identity
+        self._log(p, "list_people", q)
+        return out
+
+    def person(self, p: Principal, identity_id: int, limit: int = 200, offset: int = 0) -> dict[str, Any]:
+        require(p, "library:read")
+        from . import people as PP
+
+        row = self.db.q1("SELECT id, name, named_by FROM identities WHERE id=?", (identity_id,))
+        if not row:
+            raise NotFound(f"no person {identity_id}")
+        faces = PP.person_faces(self.db, identity_id, limit, offset)
+        shots = sorted({f["shot_uid"] for f in faces})
+        self._log(p, "get_person", str(identity_id))
+        return {"id": row["id"], "name": row["name"], "label": row["name"] or f"Person {row['id']}", "named_by": row["named_by"],
+                "faces": faces, "shot_uids": shots}
+
+    def _people_write(self, p: Principal) -> None:
+        require(p, "tags:write")
+        if p.is_agent:
+            raise Forbidden("naming and grouping people is a decision for a person, not an agent")
+
+    def _reindex(self, asset_ids: list[int]) -> None:
+        for aid in dict.fromkeys(asset_ids):
+            index_asset(self.db, self.settings, aid)
+
+    def rename_person(self, p: Principal, identity_id: int, name: str) -> dict[str, Any]:
+        self._people_write(p)
+        from . import people as PP
+
+        try:
+            PP.rename(self.db, identity_id, name, p.username)
+        except KeyError as e:
+            raise NotFound(f"no person {identity_id}") from e
+        self._reindex(PP.assets_of(self.db, [identity_id]))
+        self._log(p, "rename_person", str(identity_id), {"name": name}, write=True)
+        return self.person(p, identity_id, limit=24)
+
+    def merge_people(self, p: Principal, source_id: int, into_id: int) -> dict[str, Any]:
+        self._people_write(p)
+        from . import people as PP
+
+        try:
+            PP.merge(self.db, source_id, into_id)
+        except KeyError as e:
+            raise NotFound(f"no person {e}") from e
+        self._reindex(PP.assets_of(self.db, [into_id]))
+        self._log(p, "merge_people", str(source_id), {"into": into_id}, write=True)
+        return self.person(p, into_id, limit=24)
+
+    def move_face(self, p: Principal, face_id: int, identity_id: int | None) -> dict[str, Any]:
+        self._people_write(p)
+        from . import people as PP
+
+        row = self.db.q1("SELECT asset_id FROM faces WHERE id=?", (face_id,))
+        if not row:
+            raise NotFound(f"no face {face_id}")
+        try:
+            target = PP.move_face(self.db, face_id, identity_id)
+        except KeyError as e:
+            raise NotFound(f"no person {e}") from e
+        self._reindex([row["asset_id"]])
+        self._log(p, "move_face", str(face_id), {"to": identity_id, "new_person": identity_id is None}, write=True)
+        return {"face_id": face_id, "identity_id": target}
+
+    def forget_person(self, p: Principal, identity_id: int) -> dict[str, Any]:
+        require(p, "admin")
+        from . import people as PP
+
+        try:
+            affected, thumbs = PP.forget(self.db, identity_id)
+        except KeyError as e:
+            raise NotFound(f"no person {identity_id}") from e
+        for t in thumbs:
+            (self.settings.media_dir / t).unlink(missing_ok=True)
+        self._reindex(affected)
+        self._log(p, "forget_person", str(identity_id), {"faces_deleted": len(thumbs)}, write=True)
+        return {"forgotten": identity_id, "faces_deleted": len(thumbs)}
+
     def check_rights(self, p: Principal, shot_uids: list[str] | None = None, asset_uids: list[str] | None = None, use: str | None = None,
                      channel: str | None = None, territory: str | None = None, date: str | None = None) -> dict[str, Any]:
         require(p, "library:read")

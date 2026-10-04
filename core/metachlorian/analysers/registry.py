@@ -11,6 +11,7 @@ def all_analysers() -> dict[str, Analyser]:
     from .audio import AudioAnalyser
     from .caption import CaptionAnalyser
     from .embed import EmbedAnalyser
+    from .faces import FacesAnalyser
     from .fusion import FusionAnalyser
     from .keyframes import KeyframeAnalyser
     from .motion import MotionAnalyser
@@ -27,7 +28,7 @@ def all_analysers() -> dict[str, Analyser]:
     from .visual_tags import VisualTagAnalyser
 
     items = [TechnicalAnalyser(), PlaceAnalyser(), ProxyAnalyser(), ShotAnalyser(), KeyframeAnalyser(), EmbedAnalyser(), VisualTagAnalyser(),
-             MotionAnalyser(), QualityAnalyser(), AudioAnalyser(), SpeechAnalyser(), OcrAnalyser(), PeopleAnalyser(),
+             MotionAnalyser(), QualityAnalyser(), AudioAnalyser(), SpeechAnalyser(), OcrAnalyser(), PeopleAnalyser(), FacesAnalyser(),
              CaptionAnalyser(), FusionAnalyser(), RollupAnalyser(), TextEmbedAnalyser()]
     return {a.name: a for a in items}
 

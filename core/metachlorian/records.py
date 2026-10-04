@@ -174,10 +174,15 @@ def build_shot_docs(db: Database, asset_id: int) -> list[dict[str, Any]]:
     moments = {}
     for m in db.q("SELECT * FROM moments WHERE asset_id=? ORDER BY start_s", (asset_id,)):
         moments.setdefault(m["shot_id"], []).append(m)
+    from .people import shot_people
+
+    who = shot_people(db, asset_id)
     for s in shots:
         fields = collect(db, "shot", s["id"])
         apply_corrections(fields, corr.get(s["id"], []))
-        out.append(shot_doc(asset, s, fields, moments.get(s["id"], [])))
+        doc = shot_doc(asset, s, fields, moments.get(s["id"], []))
+        doc["people_identities"] = who.get(s["id"], [])
+        out.append(doc)
     return out
 
 
@@ -191,7 +196,11 @@ def build_shot_doc(db: Database, shot_id: int) -> dict[str, Any]:
     fields = collect(db, "shot", shot_id)
     apply_corrections(fields, corr.get(shot_id, []))
     moms = db.q("SELECT * FROM moments WHERE shot_id=? ORDER BY start_s", (shot_id,))
-    return shot_doc(asset, dict(s), fields, moms)
+    doc = shot_doc(asset, dict(s), fields, moms)
+    from .people import shot_people
+
+    doc["people_identities"] = shot_people(db, s["asset_id"]).get(shot_id, [])
+    return doc
 
 
 def shot_doc(asset: dict[str, Any], s: dict[str, Any], fields: dict[str, dict[str, Any]], moments: list) -> dict[str, Any]:

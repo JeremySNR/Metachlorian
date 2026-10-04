@@ -127,6 +127,10 @@ def commit(db: Database, job: dict, analyser: Analyser, ctx: AnalysisContext, st
                       (aid, *{v[1] for v in ctx.vectors}))
             c.executemany("INSERT INTO vectors(shot_id, asset_id, space, dim, vec, created_at) VALUES(?,?,?,?,?,?)",
                           [(sid, aid, space, int(len(v)), np.asarray(v, dtype=np.float16).tobytes(), ts) for sid, space, v in ctx.vectors])
+        if ctx.faces is not None:
+            from .people import replace_asset_faces
+
+            replace_asset_faces(c, aid, ctx.faces)
         if ctx.asset_updates:
             cols = ", ".join(f"{k}=?" for k in ctx.asset_updates)
             c.execute(f"UPDATE assets SET {cols}, updated_at=? WHERE id=?", (*[dumps(v) if isinstance(v, (dict, list)) else v for v in ctx.asset_updates.values()], ts, aid))

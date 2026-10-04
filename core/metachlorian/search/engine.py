@@ -165,6 +165,12 @@ class SearchEngine:
             where.append(f"si.asset_id IN ({','.join('?' * len(asset_ids)) or 'NULL'})")
             args += asset_ids
         for vocab, terms in require.items():
+            if vocab == "person":
+                # Every named person must appear (AND), unlike vocabulary terms (any of).
+                for pid in dict.fromkeys(str(t) for t in terms):
+                    where.append("EXISTS (SELECT 1 FROM shot_terms st WHERE st.shot_id=si.shot_id AND st.vocab='person' AND st.term=?)")
+                    args.append(pid)
+                continue
             exp = sorted({t2 for t in terms for t2 in (reg.get(vocab).narrower(t) if vocab in reg.vocabs and t in reg.get(vocab).terms else {t})})
             where.append(f"EXISTS (SELECT 1 FROM shot_terms st WHERE st.shot_id=si.shot_id AND st.vocab=? AND st.term IN ({','.join('?' * len(exp))})"
                          f" AND st.confidence >= ?)")
@@ -189,6 +195,14 @@ class SearchEngine:
         for k, v in req.prefer.items():
             prefer.setdefault(k, []).extend(t for t in v if t not in prefer.get(k, []))
         require = {k: list(v) for k, v in req.require.items()}
+        people_named: list[str] = []
+        if req.q and req.parse_query:
+            # Names of people the library knows (named face clusters) are hard filters.
+            ql = req.q.lower()
+            for nm, pid in self._person_names().items():
+                if re.search(rf"(?<!\w){re.escape(nm)}(?!\w)", ql):
+                    require.setdefault("person", []).append(str(pid))
+                    people_named.append(nm)
         exclude = {k: list(v) for k, v in parsed.exclude.items()}
         for k, v in req.exclude.items():
             exclude.setdefault(k, []).extend(v)
@@ -217,6 +231,8 @@ class SearchEngine:
                 candidates = {r[0] for r in rows}
         timings["filter"] = time.perf_counter() - t0
         notes = list(parsed.notes)
+        if people_named:
+            notes.append("Only shots where " + " and ".join(n.title() for n in people_named) + " can be seen (recognised faces).")
         # Place: hard when anything matches it, otherwise a note.
         place_ids: set[int] | None = None
         if parsed.place:
@@ -494,6 +510,17 @@ class SearchEngine:
             out[sid] = st
         return out
 
+    def _person_names(self) -> dict[str, int]:
+        now_t = time.time()
+        if not hasattr(self, "_names_cache") or now_t - self._names_cache[1] > 30:
+            from ..people import names
+
+            try:
+                self._names_cache = (names(self.db), now_t)
+            except Exception:  # older library without the people tables
+                self._names_cache = ({}, now_t)
+        return self._names_cache[0]
+
     def _badges(self, pool: list[int], info: dict[int, dict[str, Any]]) -> dict[int, str]:
         """Rights badge per shot (shot overrides win over the asset), in a few bulk queries."""
         aids = sorted({info[s]["asset_id"] for s in pool if s in info})
@@ -610,6 +637,7 @@ class SearchEngine:
                     "out": round(out_s, 3) if out_s is not None else None, "moment": moment})
         if verdict:
             out["rights"] = {"verdict": verdict["verdict"], "reasons": verdict["reasons"]}
+        out["people"] = doc.get("people_identities") or []
         return out
 
     def _facets(self, pool: list[int] | None, where: str, args: list[Any], base_from: str) -> dict[str, list[dict[str, Any]]]:

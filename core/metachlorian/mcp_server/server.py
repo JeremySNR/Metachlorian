@@ -191,6 +191,16 @@ def build_server(lib: Library) -> MCPServer:
             return _err(e)
 
     @server.tool(annotations=RO)
+    def list_people(query: str = "", named_only: bool = True, limit: int = 50, ctx: Context | None = None) -> dict[str, Any]:
+        """People the library recognises by face (named by a person in the app, local only), with how many shots
+        and files each appears in. Use a name in search_shots (e.g. "Maria laughing in the kitchen") to require
+        that person. Agents can read names but cannot name, merge or forget people."""
+        try:
+            return call(ctx, lib.people, query, True if named_only else None, max(1, min(200, limit)))
+        except (Forbidden, NotFound, ValueError, KeyError) as e:
+            return _err(e)
+
+    @server.tool(annotations=RO)
     def list_vocabularies(name: str | None = None, ctx: Context | None = None) -> dict[str, Any]:
         """Controlled vocabularies used for filters and tags. Without a name: the list with versions. With a name: every
         term (id, label, definition, synonyms, broader) including local extensions."""

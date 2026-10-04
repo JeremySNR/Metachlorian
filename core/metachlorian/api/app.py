@@ -218,6 +218,33 @@ def create_app(settings: Settings, db: Database | None = None, start_workers: bo
                 os.unlink(tf.name)
         return lib.find_similar(p, image=data, limit=limit, intended=intended, hide_blocked=hide_blocked)
 
+    # ------------------------------------------------------------------ people (face identity)
+    @app.get("/api/people")
+    def people_list(q: str = "", named: bool | None = None, limit: int = 200, offset: int = 0, p: Principal = Depends(principal)):
+        return lib.people(p, q, named, limit, offset)
+
+    @app.get("/api/people/{identity_id}")
+    def people_get(identity_id: int, limit: int = 200, offset: int = 0, p: Principal = Depends(principal)):
+        return lib.person(p, identity_id, limit, offset)
+
+    @app.patch("/api/people/{identity_id}")
+    def people_rename(identity_id: int, body: dict = Body(...), p: Principal = Depends(principal)):
+        return lib.rename_person(p, identity_id, str(body.get("name") or ""))
+
+    @app.post("/api/people/{identity_id}/merge")
+    def people_merge(identity_id: int, body: dict = Body(...), p: Principal = Depends(principal)):
+        return lib.merge_people(p, identity_id, int(body["into"]))
+
+    @app.delete("/api/people/{identity_id}")
+    def people_forget(identity_id: int, p: Principal = Depends(principal)):
+        return lib.forget_person(p, identity_id)
+
+    @app.post("/api/faces/{face_id}/assign")
+    def faces_assign(face_id: int, body: dict = Body(...), p: Principal = Depends(principal)):
+        """{"identity_id": n} moves the face to that person; {"identity_id": null} means "not this person"."""
+        tid = body.get("identity_id")
+        return lib.move_face(p, face_id, int(tid) if tid is not None else None)
+
     @app.get("/api/assets")
     def assets(q: str = "", edit_type: str | None = None, status: str | None = None, limit: int = 200, offset: int = 0,
                p: Principal = Depends(principal)):

@@ -333,6 +333,37 @@ MIGRATIONS: list[str] = [
     """
     CREATE INDEX si_browse ON shot_index(asset_id, start_s);
     """,
+    # ---------------------------------------------------------------- v5: face identity (local only)
+    # Face embeddings never leave this machine. Identities are clusters of faces; a person names them.
+    """
+    CREATE TABLE identities (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT,                          -- null until a person names them
+        centroid BLOB NOT NULL,             -- float32 unit vector (SFace, 128-d)
+        n INTEGER NOT NULL DEFAULT 0,       -- faces folded into the centroid
+        cover_face_id INTEGER,
+        named_by TEXT NOT NULL DEFAULT '',
+        created_at REAL NOT NULL,
+        updated_at REAL NOT NULL
+    );
+    CREATE TABLE faces (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        asset_id INTEGER NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+        shot_id INTEGER NOT NULL REFERENCES shots(id) ON DELETE CASCADE,
+        t REAL NOT NULL,                    -- seconds into the file
+        box TEXT NOT NULL,                  -- [x0, y0, x1, y1] normalised
+        score REAL NOT NULL, size_px INTEGER NOT NULL, appearances INTEGER NOT NULL DEFAULT 1,
+        thumb TEXT NOT NULL,                -- path under media/<asset uid>/
+        embedding BLOB NOT NULL,            -- float16 unit vector
+        identity_id INTEGER REFERENCES identities(id) ON DELETE SET NULL,
+        assigned_by TEXT NOT NULL DEFAULT 'auto',   -- auto | human
+        excluded_identity INTEGER,          -- "not this person": never auto-assign to this one again
+        created_at REAL NOT NULL
+    );
+    CREATE INDEX faces_asset ON faces(asset_id);
+    CREATE INDEX faces_shot ON faces(shot_id);
+    CREATE INDEX faces_identity ON faces(identity_id);
+    """,
 ]
 
 

@@ -80,6 +80,7 @@ class AnalysisContext:
         self.keyframe_updates: dict[int, list[dict[str, Any]]] = {}
         self.asset_updates: dict[str, Any] = {}
         self.vectors: list[tuple[int, str, Any]] = []  # (shot_id, space, np.ndarray)
+        self.faces: list[dict[str, Any]] | None = None  # set only by the faces analyser
 
     # -------------------------------------------------------------- paths
     @property

@@ -154,8 +154,9 @@ class Settings:
     vlm: ModelEndpoint = field(default_factory=ModelEndpoint)
     llm: ModelEndpoint = field(default_factory=ModelEndpoint)
     allow_remote: bool = False
-    # Opt-in features.
-    face_identity: bool = False
+    # Face identity (recognise and name people). On by default: embeddings stay in this library and are
+    # never sent to any provider. Admins can switch it off and forget people individually.
+    face_identity: bool = True
     # Auth: when false (solo mode on loopback) requests from 127.0.0.1 act as
     # the local admin. Team mode must set this to true.
     require_auth: bool = False

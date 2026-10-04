@@ -69,6 +69,8 @@ def index_asset(db: Database, settings: Settings | None, asset_id: int) -> int:
                     terms[(vocab, str(x["term"]).lower()[:60])] = (float(x.get("confidence") or 0.5), fld["source"])
             for tag in term_list(_f(d, "tags")):
                 terms[("tag", str(tag["term"]).lower())] = (1.0, "human")
+            for who in d.get("people_identities") or []:
+                terms[("person", str(who["id"]))] = (1.0, "faces")
             if edit:
                 terms[("edit_type", edit)] = (1.0, "rollup")
             if t.get("resolution_class"):
@@ -86,10 +88,13 @@ def index_asset(db: Database, settings: Settings | None, asset_id: int) -> int:
             for (v, tm), (cf, _) in terms.items():
                 if cf < 0.3:
                     continue
+                if v == "person":
+                    continue  # names are added below; ids are not words
                 if v in reg.vocabs and tm in reg.get(v).terms:
                     tag_words.append(reg.get(v).terms[tm].label)
                 else:
                     tag_words.append(tm.replace("_", " "))
+            tag_words += [w["name"] for w in d.get("people_identities") or [] if w.get("name")]
             transcript = scalar(_f(d, "audio.transcript")) or ""
             ocr = scalar(_f(d, "content.ocr_text")) or ""
             logos = scalar(_f(d, "content.logos_text")) or []
