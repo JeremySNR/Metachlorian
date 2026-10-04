@@ -48,7 +48,8 @@ argon2-cffi (MIT), sentencepiece (Apache-2.0), jsonschema (MIT), httpx (BSD-3), 
 React (MIT), Vite (MIT), TanStack Query/Router/Virtual (MIT), React Aria Components (Apache-2.0), Zustand (MIT),
 Lucide (ISC), Lightning CSS (MPL-2.0, build-time only, not shipped), Electron (MIT), Playwright (Apache-2.0, dev only).
 Fonts: Instrument Sans and JetBrains Mono (SIL OFL 1.1; bundled via Fontsource, OFL permits bundling with software).
-Generated table: run `npx license-checker --summary` in `app/` (see [licences-js.md](licences-js.md) once generated).
+Full table of the 34 shipped JavaScript packages: [licences-js.md](licences-js.md) — MIT 21, Apache-2.0 8, OFL-1.1 2 (fonts),
+ISC 1, 0BSD 1, Unlicense 1. All OSI-approved or public-domain-equivalent; no copyleft in the shipped bundle.
 
 ## System tools invoked as separate processes
 
