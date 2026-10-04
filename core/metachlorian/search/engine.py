@@ -34,6 +34,7 @@ POOL = 600
 RRF_K = 60
 WEIGHTS = {"vector": 1.0, "text": 0.8, "keyword": 0.9, "terms": 1.1, "people": 0.5, "quality": 0.15, "example": 1.4}
 TERM_MIN_CONF = 0.3
+FUSE_TEXT_SPACE = False  # kept switchable for the relevance evaluation (eval/search)
 FACET_VOCABS = ("shot_size", "camera_movement", "shot_role", "setting", "time_of_day", "weather", "pace", "mood", "audio_class",
                 "edit_type", "resolution", "orientation", "look", "object", "concept", "quality_flag")
 FTS_COLS_WEIGHTS = (1.0, 0.8, 0.9, 1.2, 1.6, 0.5)  # caption, transcript, ocr, tags, place, filename
@@ -224,10 +225,14 @@ class SearchEngine:
             qvec = self._text_vector(sem_text)
             if qvec is not None:
                 lists["vector"] = self.vectors.get("visual").search(qvec, POOL, candidates)
-                # The same multilingual text space also matches transcripts and captions semantically.
-                tl = self.vectors.get("text").search(qvec, POOL, candidates)
-                if tl:
-                    lists["text"] = [(s, sc) for s, sc in tl if sc >= 0.35]
+                # The "text" space (SigLIP text tower over transcript + caption + OCR) is not fused here:
+                # pooled judgments showed it is a poor sentence matcher (nDCG@10 0.58 -> 0.73 without it,
+                # eval/README.md). Spoken and written words are matched by BM25 below; the text space
+                # stays available for "similar by transcript" (similar_space="text").
+                if FUSE_TEXT_SPACE:
+                    tl = self.vectors.get("text").search(qvec, POOL, candidates)
+                    if tl:
+                        lists["text"] = [(s, sc) for s, sc in tl if sc >= 0.35]
         timings["vector"] = time.perf_counter() - t1
         t1 = time.perf_counter()
         kw = list(parsed.keywords) + [w for p in parsed.place for w in p.split()]
