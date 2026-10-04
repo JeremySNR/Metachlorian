@@ -28,6 +28,9 @@ spec; see [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md) Q1.
 
 ## Next
 
+The detailed plan for the items below, with acceptance criteria, steps, tests and sizes, is in
+[docs/roadmap.md](docs/roadmap.md).
+
 1. Binary (b1) in-RAM vector codes with int8 rescoring, so 10 M shots fit a 16 GB machine (ADR 002 gate).
 2. A multilingual sentence embedder for meaning-level speech search (OPEN_QUESTIONS Q10).
 3. Verify the hosted providers against live accounts (not reachable from the build environment) and tune default models.

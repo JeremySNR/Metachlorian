@@ -51,6 +51,14 @@ def _is_loopback(host: str | None) -> bool:
         return host in LOOPBACK_HOSTS
 
 
+def _host_only(host: str) -> str:
+    """The host part of a Host header: 'a:8765' -> 'a', '[::1]:8765' and '[::1]' -> '::1'."""
+    host = host.strip()
+    if host.startswith("["):
+        return host[1:host.find("]")] if "]" in host else host[1:]
+    return host.rsplit(":", 1)[0] if host.count(":") == 1 else host
+
+
 def create_app(settings: Settings, db: Database | None = None, start_workers: bool = True) -> FastAPI:
     settings.ensure_dirs()
     db = db or Database(settings.db_path)
@@ -111,7 +119,7 @@ def create_app(settings: Settings, db: Database | None = None, start_workers: bo
         async def dispatch(self, request: Request, call_next):
             path = request.url.path
             request.state.principal = None
-            host = (request.headers.get("host") or "").rsplit(":", 1)[0].strip("[]")
+            host = _host_only(request.headers.get("host") or "")
             client = request.client.host if request.client else None
             token = None
             via_cookie = False
@@ -390,8 +398,9 @@ def create_app(settings: Settings, db: Database | None = None, start_workers: bo
         A.require(p, "media:export")
         base = settings.export_dir.resolve()
         target = (base / path).resolve()
-        if base not in target.parents and target != base:
+        if base not in target.parents:
             raise HTTPException(400, "bad path")
+        lib.export_access(p, target.relative_to(base).as_posix(), target.is_dir())  # rights as they are now, and agents only their own
         if target.is_dir():
             z = target.with_suffix(".zip")
             if not z.exists():
@@ -652,7 +661,7 @@ def create_app(settings: Settings, db: Database | None = None, start_workers: bo
     # ------------------------------------------------------------------ media
     @app.get("/media/{asset_uid}/{path:path}")
     def media(asset_uid: str, path: str, request: Request, p: Principal = Depends(principal)):
-        A.require(p, "library:read")
+        lib.media_access(p, asset_uid, path)  # library:read; for agents, the rights of every shot in the file
         if not asset_uid.replace("-", "").isalnum():
             raise HTTPException(400, "bad asset id")
         base = (settings.media_dir / asset_uid).resolve()

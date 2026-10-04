@@ -1,4 +1,3 @@
-import json
 
 import anyio
 import opentimelineio as otio
@@ -9,21 +8,9 @@ from metachlorian import auth as A
 from metachlorian import rights as R
 from metachlorian.api.app import create_app
 from metachlorian.exports.package import build_package, validate_manifest
-from metachlorian.indexer import index_asset
-from metachlorian.ingest.scan import add_source, scan_source
-
-from .test_ingest_pipeline import run_all
 
 
-@pytest.fixture()
-def processed(lib, footage):
-    s, db = lib
-    sid = add_source(db, str(footage))
-    scan_source(db, sid)
-    run_all(s, db)
-    a = db.q1("SELECT * FROM assets")
-    index_asset(db, s, a["id"])
-    return s, db, a
+
 
 
 def test_package_validates_and_timelines_parse(processed):
@@ -107,24 +94,20 @@ def test_solo_mode_rejects_foreign_host(processed):
         assert c.post("/api/collections", json={"name": "x"}, headers={"X-Metachlorian": "1"}).status_code == 200
 
 
-def test_mcp_tools_respect_scopes(processed):
+def test_mcp_tools_respect_scopes(processed, mcp_client):
     s, db, a = processed
-    from metachlorian.mcp_server.server import build_server, stdio_principal
     from metachlorian.service import Library
 
     lib = Library(db, s)
-    server = build_server(lib)
-    stdio_principal.set(A.Principal(None, "local-agent", "agent", set(A.AGENT_DEFAULT), "mcp"))
     shot = db.q1("SELECT uid FROM shots LIMIT 1")["uid"]
 
     async def go():
-        tools = await server.list_tools()
-        names = {t.name for t in tools}
-        assert {"search_shots", "get_shot", "get_asset", "find_similar", "check_rights", "export_clip", "build_package", "library_stats"} <= names
-        res = await server.call_tool("search_shots", {"query": "", "limit": 2})
-        return res, await server.call_tool("export_clip", {"shot_id": shot, "mode": "proxy"})
+        async with mcp_client(lib, A.Principal(None, "local-agent", "agent", set(A.AGENT_DEFAULT), "mcp")) as c:
+            names = {t.name for t in (await c.list_tools()).tools}
+            assert {"search_shots", "get_shot", "get_asset", "find_similar", "check_rights", "export_clip", "build_package", "library_stats"} <= names
+            return await c.call_tool("search_shots", {"query": "", "limit": 2}), await c.call_tool("export_clip", {"shot_id": shot, "mode": "proxy"})
 
     res, exp = anyio.run(go)
-    text = json.dumps(res, default=str)
-    assert "results" in text
-    assert "media:export" in json.dumps(exp, default=str)  # read-only agent refused
+    assert not res.is_error and "results" in res.content[0].text
+    # A read-only agent is refused with a tool error, not a data payload.
+    assert exp.is_error and "media:export" in exp.content[0].text

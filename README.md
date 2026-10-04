@@ -107,7 +107,7 @@ See [docs/agents.md](docs/agents.md).
 
 Read more: [architecture](docs/architecture.md) · [decision records](docs/decisions) · [design system](docs/design/system.md) ·
 [evaluation](eval/README.md) · [licences](docs/licences.md) · [Cutawan hand-off](docs/integration/cutawan-contract.md) ·
-[plan](PLAN.md) · [open questions](OPEN_QUESTIONS.md).
+[plan](PLAN.md) · [roadmap](docs/roadmap.md) · [open questions](OPEN_QUESTIONS.md).
 
 ## Licence
 

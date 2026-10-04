@@ -5,20 +5,11 @@ import pytest
 from metachlorian import people as PP
 from metachlorian.auth import Forbidden, Principal
 from metachlorian.indexer import index_asset
-from metachlorian.ingest.scan import add_source, scan_source
 from metachlorian.search.engine import SearchEngine, SearchRequest
 from metachlorian.service import Library
 
-from .test_ingest_pipeline import run_all
 
 
-@pytest.fixture()
-def processed(lib, footage):
-    s, db = lib
-    sid = add_source(db, str(footage))
-    scan_source(db, sid)
-    run_all(s, db)
-    return s, db, db.q1("SELECT * FROM assets")
 
 
 def _person(seed: int) -> np.ndarray:

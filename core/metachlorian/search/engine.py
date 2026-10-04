@@ -43,7 +43,6 @@ EXACT_MAX_SHARE = 0.02  # an all-words match shared by more than 2% of shots is 
 STOPWORDS = frozenset("a an and are as at be but by for from has have in is it its of on or that the this to was were with".split())
 TERM_MIN_CONF = 0.3
 FUSE_TEXT_SPACE = False
-BLOCKED_BADGES = frozenset({"not_cleared", "expired"})
 # Match strength (0..1) thresholds. For text queries strength is SigLIP's own sigmoid probability on a
 # log scale (p = 1e-4 -> 0, 1e-3 -> 0.25, 1e-2 -> 0.5, 0.1 -> 0.75); against blind judgments, precision
 # (grade >= 1) is ~0.55 at loose, ~0.7 at balanced and ~0.85 at strict (eval/README.md).
@@ -412,37 +411,43 @@ class SearchEngine:
                 fused[sid] *= 0.85
         pool.sort(key=lambda s: -fused[s])
         # ---------------------------------------------------------- rights
+        # One rule for every result list (rights.gate, mode "list"): blocked footage (not cleared, or past
+        # expiry) is blocked for every use, so it is hidden unless asked for; with an intended use only the
+        # verdicts in `include` (default: allowed) are kept.
         verdicts: dict[int, dict[str, Any]] = {}
         excluded_by_rights = 0
-        badges = self._badges(pool, info)
         hidden_blocked = 0
-        if req.hide_blocked:
-            # Blocked footage (not cleared, or past expiry) is blocked for every use, so it is hidden
-            # whether or not an intended use was given.
-            kept = [sid for sid in pool if badges.get(sid) not in BLOCKED_BADGES]
-            hidden_blocked = len(pool) - len(kept)
-            excluded_by_rights += hidden_blocked
-            pool = kept
+        lite = self._rights_lite(pool, info)
+        badges: dict[int, str] = {}
+        include = list(intended.get("include") or ["allowed"]) if intended else None
+        cache: dict[tuple[int, int | None], dict[str, Any]] = {}
+        overrides: set[tuple[int, int]] = set()
         if intended:
-            include = set(intended.get("include") or ["allowed"])
-            kept = []
-            cache: dict[tuple[int, int | None], dict[str, Any]] = {}
             overrides = {(r["asset_id"], r["shot_id"]) for r in self.db.q("SELECT asset_id, shot_id FROM rights WHERE shot_id IS NOT NULL")}
-            for sid in pool:
-                row = info.get(sid)
-                if not row:
-                    continue
+        kept = []
+        for sid in pool:
+            row = info.get(sid)
+            if not row:
+                continue
+            if intended:
                 key = (row["asset_id"], sid if (row["asset_id"], sid) in overrides else None)
                 if key not in cache:
                     cache[key] = R.get_rights(self.db, key[0], key[1])
-                v = R.check(cache[key], intended.get("use"), intended.get("channel"), intended.get("territory"), intended.get("date"),
-                            people_visible=(row.get("people_count") or 0) > 0)
-                verdicts[sid] = v
-                if v["verdict"] in include:
-                    kept.append(sid)
-                else:
-                    excluded_by_rights += 1
-            pool = kept
+                rr = cache[key]
+            else:
+                rr = lite[sid]  # status and expiry are all a use-free decision needs
+            v = R.gate(rr, mode="list", intended=intended or None, include=include, hide_blocked=req.hide_blocked,
+                       people_visible=(row.get("people_count") or 0) > 0)
+            badges[sid] = v.badge
+            if not v.permitted:
+                excluded_by_rights += 1
+                if v.blocked and req.hide_blocked:
+                    hidden_blocked += 1
+                continue
+            if intended or v.blocked:
+                verdicts[sid] = v.as_dict()
+            kept.append(sid)
+        pool = kept
         # ---------------------------------------------------------- strength: strong matches first
         evidence = self._word_evidence(snippets, kw)
         names_only = False
@@ -594,8 +599,8 @@ class SearchEngine:
                 self._names_cache = ({}, now_t)
         return self._names_cache[0]
 
-    def _badges(self, pool: list[int], info: dict[int, dict[str, Any]]) -> dict[int, str]:
-        """Rights badge per shot (shot overrides win over the asset), in a few bulk queries."""
+    def _rights_lite(self, pool: list[int], info: dict[int, dict[str, Any]]) -> dict[int, dict[str, Any]]:
+        """Status and expiry in force per shot (shot overrides win over the asset), in a few bulk queries."""
         aids = sorted({info[s]["asset_id"] for s in pool if s in info})
         asset_level: dict[int, tuple[str, str | None]] = {}
         shot_level: dict[int, tuple[str, str | None]] = {}
@@ -606,7 +611,7 @@ class SearchEngine:
                     asset_level[r["asset_id"]] = (r["status"], r["expires"])
                 else:
                     shot_level[r["shot_id"]] = (r["status"], r["expires"])
-        out: dict[int, str] = {}
+        out: dict[int, dict[str, Any]] = {}
         for sid in pool:
             row = info.get(sid)
             if not row:
@@ -615,10 +620,7 @@ class SearchEngine:
             if sid in shot_level:
                 s_st, s_exp = shot_level[sid]
                 st, exp = (s_st if s_st != "unknown" else st), (s_exp or exp)
-            try:
-                out[sid] = R.summary_status({"status": st, "expires": exp})
-            except ValueError:
-                out[sid] = st
+            out[sid] = {"status": st, "expires": exp}
         return out
 
     def _prune_common(self, words: list[str]) -> list[str]:

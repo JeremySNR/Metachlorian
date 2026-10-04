@@ -8,10 +8,15 @@ unknown (nothing recorded). Search with an intended use returns only
 from __future__ import annotations
 
 import datetime as dt
-from typing import Any
+import itertools
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
 from .db import Database, dumps, loads, now
 from .vocab import registry
+
+if TYPE_CHECKING:
+    from .auth import Principal
 
 FIELDS = ("source", "owner", "licence", "status", "permitted_uses", "channels", "territories", "excluded_territories", "starts",
           "expires", "model_release", "property_release", "brand_safety", "attribution", "notes")
@@ -151,13 +156,122 @@ def check(r: dict[str, Any], use: str | None = None, channel: str | None = None,
 def summary_status(r: dict[str, Any], on: str | None = None) -> str:
     """Badge for the UI: cleared | restricted | expiring | expired | not_cleared | unknown."""
     st = r.get("status", "unknown")
-    if st in ("unknown", "not_cleared", "restricted"):
+    if st in ("unknown", "not_cleared"):
         return st
     day = dt.date.fromisoformat(on[:10]) if on else dt.date.today()
     if r.get("expires"):
         exp = dt.date.fromisoformat(r["expires"])
         if exp < day:
-            return "expired"
-        if (exp - day).days <= 30:
+            return "expired"  # a restricted licence that has run out is expired, not merely restricted
+        if st == "cleared" and (exp - day).days <= 30:
             return "expiring"
-    return "cleared"
+    return st if st == "restricted" else "cleared"
+
+
+# ---------------------------------------------------------------------- the gate
+# Every exit that can hand out a shot (search and similar results, clip exports, packages, proxy
+# media) asks ``gate`` whether it may, so the rules live in one place and are tested once.
+BLOCKED_BADGES = frozenset({"not_cleared", "expired"})  # blocked for every use: never leaves as media
+VERDICT_ORDER = {"allowed": 0, "unknown": 1, "restricted": 2, "blocked": 3}
+MODES = ("list", "reference", "media", "package")
+_BADGE_VERDICT = {"cleared": "allowed", "expiring": "allowed"}
+
+
+@dataclass(frozen=True)
+class Verdict:
+    verdict: str              # allowed | restricted | blocked | unknown, for the intended use (or for any use)
+    reasons: tuple[str, ...]
+    badge: str                # summary_status: cleared | restricted | expiring | expired | not_cleared | unknown
+    permitted: bool           # may this principal do this with the shot
+    refusal: str = ""         # why not, when not permitted
+
+    @property
+    def blocked(self) -> bool:
+        return self.badge in BLOCKED_BADGES
+
+    def as_dict(self) -> dict[str, Any]:
+        return {"verdict": self.verdict, "reasons": list(self.reasons)}
+
+
+def _as_list(v: Any) -> list[Any]:
+    if v is None or v == "" or v == []:
+        return [None]
+    return list(v) if isinstance(v, (list, tuple)) else [v]
+
+
+def check_all(r: dict[str, Any], intended: dict[str, Any] | None = None, people_visible: bool = False) -> dict[str, Any]:
+    """The worst verdict over every use x channel x territory combination of an intended use (each
+    may be a single value or a list), with the reasons of every combination that reached it."""
+    intended = intended or {}
+    if not any(isinstance(intended.get(k), (list, tuple)) for k in ("use", "channel", "territory")):  # one combination (search)
+        return check(r, intended.get("use") or None, intended.get("channel") or None, intended.get("territory") or None,
+                     intended.get("date"), people_visible=people_visible)
+    worst: dict[str, Any] | None = None
+    for u, c, t in itertools.product(_as_list(intended.get("use")), _as_list(intended.get("channel")), _as_list(intended.get("territory"))):
+        chk = check(r, u, c, t, intended.get("date"), people_visible=people_visible)
+        if worst is None or VERDICT_ORDER[chk["verdict"]] > VERDICT_ORDER[worst["verdict"]]:
+            worst = chk
+        elif chk["verdict"] == worst["verdict"] and chk["verdict"] != "allowed":
+            worst = {**worst, "reasons": list(dict.fromkeys(worst["reasons"] + chk["reasons"]))}
+    assert worst is not None
+    return worst
+
+
+def gate(r: dict[str, Any], *, principal: "Principal | None" = None, mode: str = "list", intended: dict[str, Any] | None = None,
+         people_visible: bool = False, include: list[str] | tuple[str, ...] | None = None, hide_blocked: bool = True,
+         allow_restricted: bool = False) -> Verdict:
+    """May ``principal`` take this shot out through ``mode``?
+
+    ``r`` is the shot's rights (``get_rights`` with its shot id, so an override wins). Modes:
+
+    * ``list`` (search and similar results): blocked footage is hidden unless ``hide_blocked`` is off;
+      with an intended use only verdicts in ``include`` (default: allowed) are listed. Same for everyone.
+    * ``reference`` (paths and timecodes, no media): always permitted.
+    * ``media`` (proxy, original or timeline exports): blocked footage never leaves, for anyone; an agent
+      also needs an ``allowed`` verdict for the intended use (no intended use: the rights as recorded).
+    * ``package`` (hand-off packages): as ``media``, except that ``allow_restricted`` lets an agent
+      through with restricted or unknown items (never blocked ones).
+
+    In ``media`` and ``package`` modes an intended ``date`` is ignored: the media leaves today. In ``list``
+    mode without an intended use the verdict is read from the badge (no use, so nothing else applies).
+    """
+    if mode not in MODES:
+        raise ValueError(f"mode must be one of {MODES}")
+    if (intended or {}).get("date"):
+        dt.date.fromisoformat(str(intended["date"])[:10])  # the caller's date: a typo is their error (ValueError), not a block
+        if mode in ("media", "package"):
+            intended = {k: v for k, v in intended.items() if k != "date"}  # media leaves today, whatever date is asked about
+    try:
+        badge = summary_status(r)
+        if mode == "list" and not intended and badge not in BLOCKED_BADGES:
+            # The hot path (every shot of a search pool): with no intended use only the badge decides.
+            return Verdict(_BADGE_VERDICT.get(badge, badge), (), badge, True)
+        chk = check_all(r, intended, people_visible)
+        verdict, reasons = chk["verdict"], tuple(chk["reasons"])
+    except ValueError:  # a malformed date written outside set_rights: fail closed
+        badge, verdict, reasons = "not_cleared", "blocked", ("The rights record has an invalid date.",)
+    agent = principal is not None and principal.is_agent
+    refusal = ""
+    if mode == "list":
+        if hide_blocked and badge in BLOCKED_BADGES:
+            refusal = "blocked footage is hidden"
+        elif intended and verdict not in set(include or ["allowed"]):
+            refusal = f"rights verdict is '{verdict}'"
+    elif mode in ("media", "package"):
+        if badge in BLOCKED_BADGES:
+            refusal = ("this shot is blocked (" + ("not cleared" if badge == "not_cleared" else "rights expired")
+                       + "); change its rights before exporting media")
+        elif agent and verdict != "allowed" and not (mode == "package" and allow_restricted and verdict != "blocked"):
+            refusal = f"rights verdict is '{verdict}': {'; '.join(reasons)}"
+    return Verdict(verdict, reasons, badge, not refusal, refusal)
+
+
+def range_gate(db: Database, asset_id: int, start: float, end: float, **kw: Any) -> list[tuple[str, Verdict]]:
+    """``gate`` for every active shot of a file that the time range [start, end] overlaps, in order. Media cut
+    from a range (a clip with its own in/out, package handles) carries every shot it covers, not only the one
+    it was asked for."""
+    # Exact comparisons: a range that ends a hair past a boundary holds the next shot's first frame.
+    rows = db.q("SELECT s.id, s.uid, si.people_count FROM shots s LEFT JOIN shot_index si ON si.shot_id=s.id"
+                " WHERE s.asset_id=? AND s.active=1 AND s.start_s < ? AND s.end_s > ? ORDER BY s.start_s",
+                (asset_id, end, start))
+    return [(r["uid"], gate(get_rights(db, asset_id, r["id"]), people_visible=(r["people_count"] or 0) > 0, **kw)) for r in rows]

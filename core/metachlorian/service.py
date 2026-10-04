@@ -8,6 +8,7 @@ import posixpath
 import shutil
 import threading
 from collections import Counter
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -39,11 +40,15 @@ class NotFound(Exception):
     pass
 
 
+STILL_SUFFIXES = frozenset({".jpg", ".jpeg", ".png", ".webp", ".vtt", ".json"})
+
+
 class Library:
     def __init__(self, db: Database, settings: Settings):
         self.db = db
         self.settings = settings
         self.engine = SearchEngine(db, settings)
+        self._media_cache: dict[tuple[int, bool], tuple[Any, str]] = {}
         self._lock = threading.Lock()
         registry().load_custom(db)
 
@@ -66,9 +71,89 @@ class Library:
         return r
 
     def _shot_rights(self, doc: dict[str, Any]) -> dict[str, Any]:
-        override = self.db.q1("SELECT 1 FROM rights WHERE asset_id=? AND shot_id=?", (doc["asset_id"], doc["id"]))
-        r = R.get_rights(self.db, doc["asset_id"], doc["id"] if override else None)
+        r = R.get_rights(self.db, doc["asset_id"], doc["id"])  # the shot's override when it has one, else the asset's
         return {**r, "badge": R.summary_status(r)}
+
+    def media_access(self, p: Principal, asset_uid: str, path: str = "") -> None:
+        """Proxy, sprites, posters and keyframes under /media/<asset>/. People with library:read see them
+        all (reviewing footage is how rights get fixed). These files cover the whole asset, so for agents
+        every shot counts: stills (posters, thumbnails, sprites) are refused when any shot is blocked, and
+        video (the proxy) unless every shot's rights as recorded are 'allowed', as for export_clip."""
+        require(p, "library:read")
+        if not p.is_agent:
+            return
+        a = self.db.q1("SELECT id FROM assets WHERE uid=?", (asset_uid,))
+        if not a:
+            raise NotFound(f"no asset {asset_uid}")  # never fall through to the file system (case-insensitive disks)
+        still = Path(path).suffix.lower() in STILL_SUFFIXES
+        # A page of thumbnails is many requests for one file: cache the decision until rights, shots or the day change.
+        # Every rights row in full, not a timestamp: a clock stepping back must not leave a stale "allow".
+        fp = (hash(tuple(tuple(r) for r in self.db.q("SELECT * FROM rights WHERE asset_id=? ORDER BY id", (a["id"],)))),
+              tuple(self.db.q1("SELECT COUNT(*), MAX(id), SUM(start_s) FROM shots WHERE asset_id=? AND active=1", (a["id"],))),
+              str(date.today()))
+        key = (a["id"], still)
+        hit = self._media_cache.get(key)
+        if hit is None or hit[0] != fp:
+            hit = (fp, self._media_refusal(p, a["id"], asset_uid, still))
+            if len(self._media_cache) > 4096:
+                self._media_cache.clear()
+            self._media_cache[key] = hit
+        if hit[1]:
+            raise Forbidden(hit[1])
+
+    def _media_refusal(self, p: Principal, asset_id: int, asset_uid: str, still: bool) -> str:
+        # The file's own rights and every override always count, even before shots exist (the proxy is made
+        # first) or for overrides left on superseded shots; then every active shot.
+        rows = [{"shot_id": None}, *self.db.q("SELECT shot_id FROM rights WHERE asset_id=? AND shot_id IS NOT NULL", (asset_id,))]
+        verdicts = [(f"file {asset_uid}" if r["shot_id"] is None else f"#{r['shot_id']}",
+                     R.gate(R.get_rights(self.db, asset_id, r["shot_id"]), principal=p, mode="media")) for r in rows]
+        verdicts += R.range_gate(self.db, asset_id, 0.0, float("inf"), principal=p, mode="media")
+        for uid, v in verdicts:
+            if v.blocked:
+                return "this file holds blocked footage (not cleared or rights expired); agents cannot fetch its media"
+            if not still and not v.permitted:
+                return f"agents can fetch a file's video only when every shot is cleared as recorded; shot {uid}: {v.refusal}"
+        return ""
+
+    # ------------------------------------------------------------------ export records
+    # Every exported file or package gets a record of the time ranges it holds, so a download re-checks
+    # the rights as they are now (a shot blocked since the export does not leave) and agents only ever
+    # download their own exports.
+    def _record_dir(self) -> Path:
+        return self.settings.export_dir / ".rights"
+
+    def _record_export(self, p: Principal, rel: str, mode: str, ranges: list[tuple[int, float, float]],
+                       intended: dict[str, Any] | None = None, allow_restricted: bool = False) -> None:
+        f = self._record_dir() / f"{rel}.json"
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(dumps({"owner": p.username, "mode": mode, "intended": intended or {}, "allow_restricted": allow_restricted,
+                            "ranges": [[a, round(x, 4), round(y, 4)] for a, x, y in ranges]}))
+
+    def export_access(self, p: Principal, rel: str, is_dir: bool = False) -> None:
+        """May ``p`` download this file from the export folder (a clip, a package, a file inside one, or its zip)?
+        A folder is only downloadable (as a zip) when it is a package with a record."""
+        require(p, "media:export")
+        parts = Path(rel).parts
+        if any(x.startswith(".") for x in parts):
+            raise NotFound(rel)  # staging folders and the records themselves
+        candidates = [rel, *(str(Path(*parts[:i])) for i in range(len(parts) - 1, 0, -1))]
+        if rel.endswith(".zip"):
+            candidates.insert(1, rel[:-4])
+        rec = next((loads(f.read_text()) for c in candidates if (f := self._record_dir() / f"{c}.json").is_file()), None)
+        if rec is None and (is_dir or (rel.endswith(".zip") and (self.settings.export_dir / rel[:-4]).is_dir())):
+            raise Forbidden("only packages can be downloaded as a folder")  # or as the zip of one
+        if rec is None:
+            if p.is_agent:
+                raise Forbidden("agents can download only exports with a rights record (made by this version)")
+            return
+        if p.is_agent and rec["owner"] != p.username:
+            raise Forbidden("agents can download only their own exports")
+        for aid, x, y in rec["ranges"]:
+            for uid, v in R.range_gate(self.db, aid, x, y, principal=p, mode=rec["mode"], intended=rec["intended"] or None,
+                                       allow_restricted=rec["allow_restricted"]):
+                if not v.permitted:
+                    self._log(p, "export_download", rel, {"refused": v.verdict, "shot": uid}, write=True)
+                    raise Forbidden(f"shot {uid} in this export: {v.refusal}")
 
     # ------------------------------------------------------------------ read
     def health(self) -> dict[str, Any]:
@@ -452,7 +537,7 @@ class Library:
         for r in self.db.q("SELECT i.*, s.uid suid, s.asset_id FROM collection_items i JOIN shots s ON s.id=i.shot_id WHERE i.collection_id=? ORDER BY i.position", (c["id"],)):
             d = self.db.q1("SELECT doc FROM shot_index WHERE shot_id=?", (r["shot_id"],))
             summ = summarise_doc(loads(d["doc"])) if d else {"uid": r["suid"]}
-            rr = R.get_rights(self.db, r["asset_id"])
+            rr = R.get_rights(self.db, r["asset_id"], r["shot_id"])
             items.append({"item_id": r["id"], "position": r["position"], "in": r["in_s"], "out": r["out_s"], "note": r["note"],
                           "shot": summ, "rights_badge": R.summary_status(rr)})
         return {"uid": c["uid"], "name": c["name"], "description": c["description"], "kind": c["kind"], "brief": c["brief"],
@@ -520,23 +605,25 @@ class Library:
     def export_clip(self, p: Principal, shot_uid: str, in_s: float | None = None, out_s: float | None = None, mode: str = "proxy",
                     intended: dict[str, Any] | None = None) -> dict[str, Any]:
         require(p, "media:export")
+        # Blocked footage never leaves as media, for people or agents; agents also need an 'allowed' verdict.
+        # in/out may run past the shot, so every shot the range covers is checked, not only the one named.
+        doc = build_shot_doc(self.db, self._shot_id(shot_uid))
+        a_in = doc["start"] if in_s is None else float(in_s)
+        a_out = doc["end"] if out_s is None else float(out_s)
+        want = {k: (intended or {}).get(k) for k in ("use", "channel", "territory", "date")}
         if mode != "reference":
-            # Blocked footage (not cleared, or past expiry) never leaves as media, for people or agents.
-            doc = build_shot_doc(self.db, self._shot_id(shot_uid))
-            badge = R.summary_status(self._shot_rights(doc))
-            if badge in ("not_cleared", "expired"):
-                self._log(p, "export_clip", shot_uid, {"refused": badge}, write=True)
-                raise Forbidden("this shot is blocked (" + ("not cleared" if badge == "not_cleared" else "rights expired")
-                                + "); change its rights before exporting media")
-        if p.is_agent:
-            chk = self.check_rights(p, [shot_uid], use=(intended or {}).get("use"), channel=(intended or {}).get("channel"),
-                                    territory=(intended or {}).get("territory"))
-            if mode != "reference" and chk["verdict"] != "allowed":
-                self._log(p, "export_clip", shot_uid, {"refused": chk["verdict"]}, write=True)
-                raise Forbidden(f"rights verdict is '{chk['verdict']}': {'; '.join(chk['items'][0]['reasons'])}")
+            covered = R.range_gate(self.db, doc["asset_id"], a_in, a_out, principal=p, mode="media", intended=want)
+            if not covered:
+                raise ValueError("in/out covers no shot")
+            for uid, v in covered:
+                if not v.permitted:
+                    self._log(p, "export_clip", shot_uid, {"refused": v.verdict, "badge": v.badge, "shot": uid, "mode": mode}, write=True)
+                    raise Forbidden(v.refusal if uid == shot_uid else f"in/out {a_in:g}–{a_out:g} s covers shot {uid}: {v.refusal}")
         res = P.export_clip(self.db, self.settings, shot_uid, in_s, out_s, mode)
         if res.get("file"):
-            res["download"] = "/api/exports/file?path=" + str(Path(res["file"]).relative_to(self.settings.export_dir))
+            rel = Path(res["file"]).relative_to(self.settings.export_dir).as_posix()
+            self._record_export(p, rel, "media", [(doc["asset_id"], a_in, a_out)], want)
+            res["download"] = "/api/exports/file?path=" + rel
         self._log(p, "export_clip", shot_uid, {"mode": mode, "in": in_s, "out": out_s}, write=True)
         return res
 
@@ -551,12 +638,14 @@ class Library:
             brief = brief or c["brief"]
         if not items:
             raise ValueError("no shots to package")
-        res = P.build_package(self.db, self.settings, items, name or "Metachlorian package", brief, target, media_policy, mode, actor=p.username,
-                              zip_it=zip_it)
-        if p.is_agent and res["verdict"] != "allowed" and not allow_restricted:
-            shutil.rmtree(res["path"], ignore_errors=True)
-            self._log(p, "build_package", name, {"refused": res["verdict"], "counts": res["counts"]}, write=True)
-            raise Forbidden(f"package rights verdict is '{res['verdict']}' ({res['counts']}); remove those shots or ask a person to approve")
+        try:
+            # The package checks every item through rights.gate before it renders anything.
+            res = P.build_package(self.db, self.settings, items, name or "Metachlorian package", brief, target, media_policy, mode,
+                                  actor=p.username, zip_it=zip_it, principal=p, allow_restricted=allow_restricted)
+        except P.Refused as e:
+            self._log(p, "build_package", name, {"refused": e.verdict, "counts": e.counts}, write=True)
+            raise
+        self._record_export(p, Path(res["path"]).name, "package", res.pop("ranges"), res.pop("intended"), allow_restricted)
         res["download"] = "/api/exports/file?path=" + Path(res["path"]).name
         res.pop("manifest_obj", None)
         self._log(p, "build_package", name, {"items": len(items), "verdict": res["verdict"], "path": res["path"]}, write=True)

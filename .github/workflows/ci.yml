@@ -10,13 +10,16 @@ jobs:
       - uses: astral-sh/setup-uv@v6
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - run: uv venv -p 3.11 core/.venv && uv pip install -p core/.venv/bin/python -e "core[analysis,dev]"
-      - run: cd core && .venv/bin/python -m pytest -q
-      - name: Shot-boundary benchmark (no external media needed)
-        run: |
-          core/.venv/bin/python - <<'PY'
-          import subprocess, sys
-          print("SBD gold set needs local footage; see eval/README.md")
-          PY
+      # Fails under the coverage floor in core/pyproject.toml ([tool.coverage.report] fail_under).
+      - run: cd core && .venv/bin/python -m pytest -q --cov --cov-report=term --cov-report=xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: coverage, path: core/coverage.xml, if-no-files-found: ignore }
+      - name: Quality gates on synthetic media (shot boundaries, camera motion, query parser)
+        run: core/.venv/bin/python eval/ci_gates.py --json ci-gates.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: ci-gates, path: ci-gates.json, if-no-files-found: ignore }
   app:
     runs-on: ubuntu-latest
     defaults: { run: { working-directory: app } }

@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Any
 
 from .. import __version__, rights as R
+from ..auth import Forbidden, Principal
 from ..config import Settings
 from ..db import Database, loads
 from ..media import ffmpeg
@@ -35,6 +36,14 @@ _CROCK = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 TAG_FIELDS = {"camera.shot_size": "shot_size", "camera.movement": "camera_movement", "shot.role": "shot_role", "semantic.mood": "mood",
               "content.setting": "setting", "content.time_of_day": "time_of_day", "pacing.pace": "pace", "camera.angle": "camera_angle"}
 A_ROLES = {"interview", "piece_to_camera", "a_roll", "vox_pop"}
+
+
+class Refused(Forbidden):
+    """A package the rights gate turned down. Raised before any media is rendered or written."""
+
+    def __init__(self, message: str, verdict: str, counts: dict[str, int]):
+        super().__init__(message)
+        self.verdict, self.counts = verdict, counts
 
 
 def ulid() -> str:
@@ -113,7 +122,23 @@ def _words(db: Database, asset_id: int, a: float, b: float) -> list[dict[str, An
 def build_package(db: Database, settings: Settings, items: list[dict[str, Any]], name: str, brief: str = "",
                   target: dict[str, Any] | None = None, media_policy: str = "proxies", mode: str | None = None,
                   timelines: tuple[str, ...] = ("otio", "fcpxml", "edl"), handles: float = 1.0, actor: str = "",
-                  out_dir: Path | None = None, zip_it: bool = False, search_echo: dict[str, Any] | None = None) -> dict[str, Any]:
+                  out_dir: Path | None = None, zip_it: bool = False, search_echo: dict[str, Any] | None = None,
+                  principal: Principal | None = None, allow_restricted: bool = False) -> dict[str, Any]:
+    """Build a package. Every item goes through ``rights.gate`` (mode ``package``) first: blocked footage
+    refuses the package for anyone, and an agent (``principal``) needs every item allowed, or restricted /
+    unknown with ``allow_restricted``. A refusal raises ``Refused`` and leaves nothing on disk."""
+    staged: list[Path] = []
+    try:
+        return _build_package(db, settings, items, name, brief, target, media_policy, mode, timelines, handles, actor, out_dir, zip_it,
+                              search_echo, principal, allow_restricted, staged)
+    except BaseException:
+        for d in staged:
+            shutil.rmtree(d, ignore_errors=True)
+        raise
+
+
+def _build_package(db, settings, items, name, brief, target, media_policy, mode, timelines, handles, actor, out_dir, zip_it,
+                   search_echo, principal, allow_restricted, staged: list[Path]) -> dict[str, Any]:
     if not items:
         raise ValueError("a package needs at least one shot")
     if media_policy not in ("none", "proxies", "trimmed_originals", "stringout"):
@@ -124,9 +149,6 @@ def build_package(db: Database, settings: Settings, items: list[dict[str, Any]],
     pid = ulid()
     final = (out_dir or settings.export_dir) / f"{slug(name)}-{pid}"
     tmp = final.with_name("." + final.name + ".tmp")
-    shutil.rmtree(tmp, ignore_errors=True)
-    for d in ("media", "transcripts", "thumbs", "timelines"):
-        (tmp / d).mkdir(parents=True, exist_ok=True)
     reg = registry()
     # ------------------------------------------------------------ resolve shots
     resolved = []
@@ -139,6 +161,7 @@ def build_package(db: Database, settings: Settings, items: list[dict[str, Any]],
         a_out = float(it.get("out") if it.get("out") is not None else doc["end"])
         if not (doc["start"] - 1e-3 <= a_in < a_out <= doc["end"] + 1e-3):
             raise ValueError(f"in/out for {it['shot_uid']} must lie inside the shot ({doc['start']}–{doc['end']} s)")
+        a_in, a_out = max(a_in, doc["start"]), min(a_out, doc["end"])  # the tolerance must not reach the next shot's first frame
         roles = [r["term"] for r in (doc["fields"].get("shot.role", {}).get("value") or []) if isinstance(r, dict)]
         role = it.get("role") or (roles[0] if roles else "b_roll")
         resolved.append({"item_id": f"it_{n:02d}", "doc": doc, "in": a_in, "out": a_out, "role": role, "note": it.get("note", "")})
@@ -147,24 +170,21 @@ def build_package(db: Database, settings: Settings, items: list[dict[str, Any]],
     usages = target.get("usage") or [None]
     channels = target.get("channels") or [None]
     territories = target.get("territories") or [None]
-    order = {"allowed": 0, "unknown": 1, "restricted": 2, "blocked": 3}
+    intended = {"use": usages, "channel": channels, "territory": [None if t == "WORLD" else t for t in territories]}
+    order = R.VERDICT_ORDER
     records: dict[str, Any] = {}
     counts = {"allowed": 0, "restricted": 0, "blocked": 0, "unknown": 0}
     credits: list[str] = []
     earliest: str | None = None
+    refusals: list[str] = []
     for r in resolved:
         d = r["doc"]
-        override = db.q1("SELECT 1 FROM rights WHERE asset_id=? AND shot_id=?", (d["asset_id"], d["id"]))
-        rr = R.get_rights(db, d["asset_id"], d["id"] if override else None)
-        worst = {"verdict": "allowed", "reasons": []}
-        for u in usages:
-            for c in channels:
-                for t in territories:
-                    chk = R.check(rr, u, c, t if t not in (None, "WORLD") else None, people_visible=bool(_scalar(d, "people.count")))
-                    if order[chk["verdict"]] > order[worst["verdict"]]:
-                        worst = chk
-                    elif chk["verdict"] == worst["verdict"] and chk["verdict"] != "allowed":
-                        worst = {**worst, "reasons": list(dict.fromkeys(worst["reasons"] + chk["reasons"]))}
+        rr = R.get_rights(db, d["asset_id"], d["id"])
+        gv = R.gate(rr, principal=principal, mode="package", intended=intended, people_visible=bool(_scalar(d, "people.count")),
+                    allow_restricted=allow_restricted)
+        worst = gv.as_dict()
+        if not gv.permitted:
+            refusals.append(f"{r['item_id']} ({d['uid']}): {gv.refusal}")
         ref = f"r_{r['item_id']}"
         r["rights_ref"] = ref
         r["verdict"] = worst["verdict"]
@@ -189,7 +209,14 @@ def build_package(db: Database, settings: Settings, items: list[dict[str, Any]],
             rec["permitted"] = perm
         records[ref] = rec
     verdict = max((r["verdict"] for r in resolved), key=lambda v: order[v])
+    if refusals:
+        raise Refused(f"package refused, rights verdict '{verdict}' ({counts}): " + "; ".join(refusals[:10])
+                      + ("; …" if len(refusals) > 10 else "") + ". Remove those shots, or have a person review their rights.", verdict, counts)
     # ------------------------------------------------------------ media
+    staged.append(tmp)
+    shutil.rmtree(tmp, ignore_errors=True)
+    for d in ("media", "transcripts", "thumbs", "timelines"):
+        (tmp / d).mkdir(parents=True, exist_ok=True)
     seq_rate = T.rate_of(next(iter(asset_docs.values())).get("fps"))
     media_entries: list[dict[str, Any]] = []
     for r in resolved:
@@ -201,6 +228,13 @@ def build_package(db: Database, settings: Settings, items: list[dict[str, Any]],
         proxy = settings.media_dir / d["asset_uid"] / "proxy.mp4"
         h_in = max(0.0, r["in"] - handles)
         h_out = min(float(a.get("duration") or r["out"]), r["out"] + handles)
+        # Handles reach into the neighbouring shots: drop them on a side where a neighbour may not leave.
+        gkw = {"principal": principal, "mode": "package", "intended": intended, "allow_restricted": allow_restricted}
+        if h_in < r["in"] and not all(v.permitted for _, v in R.range_gate(db, d["asset_id"], h_in, r["in"], **gkw)):
+            h_in = r["in"]
+        if h_out > r["out"] and not all(v.permitted for _, v in R.range_gate(db, d["asset_id"], r["out"], h_out, **gkw)):
+            h_out = r["out"]
+        r["range"] = (d["asset_id"], h_in, h_out)
         r["asset_offset"] = h_in
         thumb_src = settings.media_dir / d["asset_uid"] / (d.get("thumb") or "")
         if d.get("thumb") and thumb_src.exists():
@@ -400,7 +434,9 @@ def build_package(db: Database, settings: Settings, items: list[dict[str, Any]],
     (tmp / "checksums.sha256").write_text("\n".join(sums) + "\n")
     (tmp / "manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False))
     os.replace(tmp, final)
-    result: dict[str, Any] = {"package_id": pid, "path": str(final), "manifest": manifest, "verdict": verdict, "counts": counts}
+    staged.clear()  # complete from here on
+    result: dict[str, Any] = {"package_id": pid, "path": str(final), "manifest": manifest, "verdict": verdict, "counts": counts,
+                              "ranges": [r["range"] for r in resolved], "intended": intended}
     if zip_it:
         zpath = final.with_suffix(".zip")
         with zipfile.ZipFile(zpath, "w", zipfile.ZIP_DEFLATED) as z:

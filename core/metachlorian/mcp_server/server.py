@@ -10,10 +10,11 @@ from __future__ import annotations
 import base64
 import contextvars
 import os
-from typing import Any, Literal
+from typing import Any, Literal, NoReturn
 
 from mcp.server import MCPServer
 from mcp.server.mcpserver import Context
+from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
 
 from ..auth import AGENT_DEFAULT, Forbidden, Principal, authenticate_token
@@ -55,8 +56,9 @@ def _principal(lib: Library, ctx: Context | None) -> Principal:
     raise Forbidden("authentication required: send 'Authorization: Bearer <token>'")
 
 
-def _err(e: Exception) -> dict[str, Any]:
-    return {"error": type(e).__name__, "message": str(e)}
+def _err(e: Exception) -> NoReturn:
+    """Anticipated failures reach the client as MCP tool errors (isError), not as data."""
+    raise ToolError(f"{type(e).__name__}: {e}") from e
 
 
 def build_server(lib: Library) -> MCPServer:
@@ -101,7 +103,7 @@ def build_server(lib: Library) -> MCPServer:
                                                        intended_use=intended_use, asset_uids=asset_ids, strict=strict,
                                                        limit=max(1, min(100, limit)), cursor=cursor))
         except (Forbidden, NotFound, ValueError, KeyError) as e:
-            return _err(e)
+            _err(e)
 
     @server.tool(annotations=RO)
     def get_shot(shot_id: str, intended_use: dict[str, Any] | None = None, ctx: Context | None = None) -> dict[str, Any]:
@@ -114,7 +116,7 @@ def build_server(lib: Library) -> MCPServer:
                 d.pop(k, None)
             return d
         except (Forbidden, NotFound, ValueError, KeyError) as e:
-            return _err(e)
+            _err(e)
 
     @server.tool(annotations=RO)
     def get_asset(asset_id: str, include_transcript: bool = True, ctx: Context | None = None) -> dict[str, Any]:
@@ -128,7 +130,7 @@ def build_server(lib: Library) -> MCPServer:
             d.pop("processing", None)
             return d
         except (Forbidden, NotFound, ValueError, KeyError) as e:
-            return _err(e)
+            _err(e)
 
     @server.tool(annotations=RO)
     def find_similar(shot_id: str | None = None, image_base64: str | None = None, limit: int = 12,
@@ -148,7 +150,7 @@ def build_server(lib: Library) -> MCPServer:
                 filters["collection"] = collection
             return call(ctx, lib.find_similar, shot_id, img, None, max(1, min(100, limit)), intended_use, filters, modality)
         except (Forbidden, NotFound, ValueError, KeyError) as e:
-            return _err(e)
+            _err(e)
 
     @server.tool(annotations=RO)
     def check_rights(shot_ids: list[str] | None = None, asset_ids: list[str] | None = None, use: str | None = None,
@@ -161,7 +163,7 @@ def build_server(lib: Library) -> MCPServer:
         try:
             return call(ctx, lib.check_rights, (shot_ids or [])[:200], (asset_ids or [])[:200], use, channel, territory, date)
         except (Forbidden, NotFound, ValueError, KeyError) as e:
-            return _err(e)
+            _err(e)
 
     @server.tool(annotations=EXPORT)
     def export_clip(shot_id: str, in_seconds: float | None = None, out_seconds: float | None = None,
@@ -173,7 +175,7 @@ def build_server(lib: Library) -> MCPServer:
         try:
             return call(ctx, lib.export_clip, shot_id, in_seconds, out_seconds, mode, intended_use)
         except (Forbidden, NotFound, ValueError, KeyError, FileNotFoundError) as e:
-            return _err(e)
+            _err(e)
 
     @server.tool(annotations=EXPORT)
     def build_package(name: str, items: list[dict[str, Any]] | None = None, collection_id: str | None = None, brief: str = "",
@@ -195,7 +197,7 @@ def build_server(lib: Library) -> MCPServer:
             res.pop("manifest", None)
             return res
         except (Forbidden, NotFound, ValueError, KeyError) as e:
-            return _err(e)
+            _err(e)
 
     @server.tool(annotations=RO)
     def library_stats(ctx: Context | None = None) -> dict[str, Any]:
@@ -205,7 +207,7 @@ def build_server(lib: Library) -> MCPServer:
         try:
             return call(ctx, lib.library_stats)
         except (Forbidden, NotFound, ValueError, KeyError) as e:
-            return _err(e)
+            _err(e)
 
     @server.tool(annotations=RO)
     def list_folders(query: str = "", parent: str | None = None, limit: int = 200, ctx: Context | None = None) -> dict[str, Any]:
@@ -215,7 +217,7 @@ def build_server(lib: Library) -> MCPServer:
         try:
             return call(ctx, lib.folders, query, parent, max(1, min(1000, limit)))
         except (Forbidden, NotFound, ValueError, KeyError) as e:
-            return _err(e)
+            _err(e)
 
     @server.tool(annotations=RO)
     def list_files(folder: str | None = None, collection: str | None = None, query: str = "", limit: int = 100, offset: int = 0,
@@ -226,7 +228,7 @@ def build_server(lib: Library) -> MCPServer:
         try:
             return call(ctx, lib.list_assets, query, None, None, max(1, min(500, limit)), max(0, offset), folder, collection)
         except (Forbidden, NotFound, ValueError, KeyError) as e:
-            return _err(e)
+            _err(e)
 
     @server.tool(annotations=RO)
     def get_collection(collection_id: str, ctx: Context | None = None) -> dict[str, Any]:
@@ -235,7 +237,7 @@ def build_server(lib: Library) -> MCPServer:
         try:
             return call(ctx, lib.collection, collection_id)
         except (Forbidden, NotFound, ValueError, KeyError) as e:
-            return _err(e)
+            _err(e)
 
     @server.tool(annotations=RO)
     def list_people(query: str = "", named_only: bool = True, limit: int = 50, ctx: Context | None = None) -> dict[str, Any]:
@@ -245,7 +247,7 @@ def build_server(lib: Library) -> MCPServer:
         try:
             return call(ctx, lib.people, query, True if named_only else None, max(1, min(200, limit)))
         except (Forbidden, NotFound, ValueError, KeyError) as e:
-            return _err(e)
+            _err(e)
 
     @server.tool(annotations=RO)
     def list_vocabularies(name: str | None = None, ctx: Context | None = None) -> dict[str, Any]:
@@ -254,7 +256,7 @@ def build_server(lib: Library) -> MCPServer:
         try:
             return call(ctx, lib.vocabularies, name)
         except (Forbidden, NotFound, ValueError, KeyError) as e:
-            return _err(e)
+            _err(e)
 
     @server.tool(annotations=RO)
     def list_collections(ctx: Context | None = None) -> dict[str, Any]:
@@ -262,7 +264,7 @@ def build_server(lib: Library) -> MCPServer:
         try:
             return {"collections": call(ctx, lib.collections)}
         except (Forbidden, NotFound, ValueError, KeyError) as e:
-            return _err(e)
+            _err(e)
 
     @server.tool(annotations=WRITE)
     def correct_tag(shot_id: str, field: str, note: str, add: list[str] | None = None, remove: list[str] | None = None,
@@ -286,7 +288,7 @@ def build_server(lib: Library) -> MCPServer:
             rec = call(ctx, lib.get_shot, shot_id)
             return {"correction_ids": out, "field": rec["fields"].get(field)}
         except (Forbidden, NotFound, ValueError, KeyError) as e:
-            return _err(e)
+            _err(e)
 
     @server.resource("metachlorian://vocabularies/{name}", mime_type="application/json")
     def vocabulary_resource(name: str) -> str:

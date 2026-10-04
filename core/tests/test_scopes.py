@@ -9,7 +9,7 @@ from metachlorian.search.engine import SearchEngine, SearchRequest
 from metachlorian.service import Library
 
 from .conftest import make_video
-from .test_ingest_pipeline import run_all
+from .conftest import run_all
 
 
 @pytest.fixture()

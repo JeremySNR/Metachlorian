@@ -6,23 +6,7 @@ from metachlorian.indexer import index_asset
 from metachlorian.ingest.scan import add_source, scan_source
 from metachlorian.jobs import queue
 
-
-def run_all(s, db):
-    pipeline.plan_all(db, s)
-    w = pipeline.Worker(db, s)
-    n = 0
-    while True:
-        job = queue.claim(db, "t")
-        if not job:
-            # jobs waiting on retry back-off: release them for the test
-            if db.q1("SELECT COUNT(*) n FROM jobs WHERE status='queued'")["n"]:
-                db.x("UPDATE jobs SET run_after=0")
-                continue
-            break
-        pipeline.run_job(db, s, job)
-        n += 1
-    _ = w
-    return n
+from .conftest import run_all
 
 
 def test_ingest_dedupe_and_unchanged(lib, footage):
