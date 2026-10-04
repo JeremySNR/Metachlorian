@@ -189,3 +189,28 @@ All are served with the same JSON-schema mechanism.
   template captions. Model quality caveat seen in testing: the 2B model hallucinated "snowfall" on a market scene; fusion
   weighs VLM labels against zero-shot and measured evidence rather than trusting them blindly.
 - Recommended GPU defaults stay as decided: Qwen3.5-4B (8 GB) or -9B (12 GB).
+
+### Hosted providers (owner decision, 2026-10-04)
+
+The owner asked for hosted options because they unlock much richer and faster captioning than a CPU-only box can
+manage (the local Qwen3.5-2B took 490–580 s per shot here). Options considered, mirroring Cutawan so both products work
+the same way:
+
+| Option | For | Against |
+|---|---|---|
+| OpenAI API key | Strong vision models, strict structured output, simple | Billed per token; content leaves the machine |
+| OpenRouter | One key for many vendors (OpenAI, Google, Anthropic…), public model catalogue with prices | Structured-output support varies by model |
+| ChatGPT subscription via Codex CLI | No API billing; uses a plan the user already pays for | Per-request CLI overhead, plan rate limits, needs `codex login` on the server |
+
+**Decision:** support all three behind the existing VLM/LLM endpoints (`provider` = `custom` | `openai` | `openrouter` |
+`codex`). Hosted providers always count as "leaves this machine" whatever the URL, and still require the admin's
+`allow_remote` consent. Keys live in `<library>/secrets.json` (0600) or the environment and are never returned by the API.
+The HTTP client sends strict-mode-safe schemas (validated locally afterwards), falls back from `json_schema` to
+`json_object` to plain JSON when a model rejects the mode, and retries 408/429/5xx with backoff. Codex runs `codex exec`
+read-only with tools, web search and API keys disabled, batches 6 shots per request, caches identical requests, and stops
+at a daily request cap (default 200) shared by all workers. When a file would not fit the remaining budget, captioning
+is deferred instead of half-done, and the 10-minute re-plan picks it up after the reset. API providers caption 4 shots
+in parallel by default.
+
+Local captioning stays the default. Face crops and embeddings are never sent to any provider; keyframes sent for
+captioning naturally contain whatever is in the frame, which the settings UI states before a provider is enabled.

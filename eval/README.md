@@ -83,6 +83,13 @@ Subtitle references paraphrase and omit lines (e.g. "We have main engine start�
 WER overstates errors. VAD settings were tuned on this set (19% → 15%). Language identification: 4/4 files correct (all English).
 Diarisation counts are approximate (TitaNet-small on 2 s utterances under-clusters; films over-cluster) — known weakness.
 
+## People (face identity)
+
+Demo library, CPU: 134 recognisable faces in 63 files → 67 people (19 s for the whole library). CREMA-D's 10 different
+speakers → 10 people. In a visual check of the 16 largest clusters, none mixes two people after the yaw gate (one did
+before it). The weakness is over-splitting: the two-person head-pose clip gives 7 clusters, merged in two clicks in
+the People view. There is no labelled identity set here, so these are sanity checks rather than accuracy figures.
+
 ## Search relevance — `search/`
 
 **Visual descriptions, pooled blind judgments.** 24 tuning queries plus 12 held-out queries (written before the ranking

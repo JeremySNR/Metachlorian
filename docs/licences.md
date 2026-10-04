@@ -22,7 +22,8 @@ project that ships ML pipelines; Apache-2.0 is compatible with Cutawan's MIT lic
 | NVIDIA TitaNet small (sherpa-onnx) | Speaker embeddings | CC-BY-4.0 | Yes | **Attribution required** (as above) |
 | CED-mini (weights) | Audio event tagging | Apache-2.0 | Yes | The CED *training code* is GPL-3.0; we do not use or ship it |
 | MediaPipe EfficientDet-Lite2 (COCO) | Object and person detection | Apache-2.0 | Yes | Keep notice |
-| OpenCV Zoo YuNet 2023mar | Face detection (no identity) | MIT | Yes | Keep notice |
+| OpenCV Zoo YuNet 2023mar | Face detection and landmarks | MIT | Yes | Keep notice |
+| OpenCV Zoo SFace 2021dec | Face recognition embeddings (people, local only) | Apache-2.0 | Yes | Keep notice |
 | PP-OCR models bundled in `rapidocr-onnxruntime` | OCR | Apache-2.0 | Yes | Keep notice |
 | Qwen3.5 (2B/4B/9B GGUF) — **optional**, not downloaded by default | Captions, fusion | Apache-2.0 | Yes | Keep notice; user installs via llama.cpp/Ollama |
 

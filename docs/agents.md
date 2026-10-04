@@ -54,6 +54,7 @@ Every agent call is written to the audit log (Settings → Audit log, filter "ag
 | `check_rights` | yes | Verdict (allowed / restricted / blocked / unknown) with reasons for a use, channel, territory and date |
 | `export_clip` | no | A clip as a reference, proxy file, trimmed original or one-clip OTIO/FCPXML/EDL |
 | `build_package` | no | A Cutawan / NLE hand-off package with manifest, media, transcript, timelines and rights summary |
+| `list_people` | yes | People recognised by face and named in the app; put a name in `search_shots` to require that person. Agents cannot name, merge or forget people |
 | `library_stats` | yes | What exists, coverage and gaps; tells "not in the library" from "not indexed yet" |
 | `list_vocabularies` | yes | The controlled vocabularies (term ids for filters) |
 | `list_collections` | yes | Collections and selects |

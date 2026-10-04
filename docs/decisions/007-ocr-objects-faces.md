@@ -176,3 +176,20 @@ There is no permissively licensed, general-purpose logo detector of good quality
   deliberate v1 shortcut: RF-DETR-N/S (better accuracy) needs a PyTorch→ONNX export step; it is the next detector upgrade
   and drops in as a `people` analyser version bump.
 - No identity: faces are counted, sized and positioned only (OPEN_QUESTIONS Q7).
+
+### Face identity (owner decision, 2026-10-04)
+
+The owner decided storing biometric data is acceptable for a local-first library, so identity recognition is built and
+on by default (OPEN_QUESTIONS Q7). Options considered: OpenCV Zoo **SFace** (Apache-2.0, 37 MB ONNX, CPU-fast, works with
+the YuNet landmarks already in use), InsightFace ArcFace models (strongest, but the pretrained weights are
+non-commercial), and FaceNet ports (MIT code, older accuracy and unclear weight provenance). **SFace** was chosen for its
+licence and its fit with YuNet.
+
+Faces smaller than 40 px, below a 0.8 detector score, or turned more than ~30% (nose offset from the eye midpoint) are
+skipped, because their embeddings are unreliable. The yaw gate removed the one mixed cluster among the 16 largest on the
+demo library. One face per person per shot is kept, clustered against identity centroids (cosine ≥ 0.42; SFace's own
+same-person threshold is 0.363). People's names are searchable and act as hard filters. Human decisions — naming,
+merging, moving a face, "not this person" — are never overridden and survive re-analysis. Agents can read names but not
+change them; an admin can forget a person, deleting their embeddings and crops. On the demo library, 134 faces in 63
+files give 67 people, CREMA-D's 10 speakers give 10 people, and the main failure is over-splitting one person across
+very different lighting or poses, which a merge fixes.

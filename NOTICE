@@ -12,7 +12,7 @@ Model weights downloaded by `metachlorian models fetch` are third-party works un
 - SigLIP base patch16-256 multilingual, (c) Google LLC, Apache-2.0. Modified: exported to ONNX; text embedding
   table quantised to 8 bits.
 - OpenAI Whisper base (MIT), Silero VAD (MIT), pyannote segmentation 3.0 (MIT), CED-mini (Apache-2.0),
-  MediaPipe EfficientDet-Lite2 (Apache-2.0), OpenCV Zoo YuNet (MIT), PaddleOCR PP-OCR models via RapidOCR (Apache-2.0).
+  MediaPipe EfficientDet-Lite2 (Apache-2.0), OpenCV Zoo YuNet (MIT), OpenCV Zoo SFace (Apache-2.0), PaddleOCR PP-OCR models via RapidOCR (Apache-2.0).
 
 Place names for GPS coordinates come from GeoNames (https://www.geonames.org), licensed under CC BY 4.0
 (cities with population of 1,000 or more, as packaged by the reverse_geocoder project, MIT).
