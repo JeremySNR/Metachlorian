@@ -93,11 +93,14 @@ def sync_once(db: Database, settings: Settings, transport: httpx.BaseTransport |
     endpoint = validate_endpoint(settings.community_url)
     sent = 0
     candidates = db.q("SELECT o.* FROM community_outbox o JOIN assets a ON a.id=o.asset_id WHERE o.status != 'suppressed'"
-                      " AND o.run_after<=? AND a.status='ready' AND a.deleted_at IS NULL ORDER BY o.updated_at LIMIT 5", (now(),))
+                      " AND o.run_after<=? AND a.status='ready' AND a.deleted_at IS NULL ORDER BY o.run_after, o.updated_at LIMIT 5", (now(),))
     for job in candidates:
         try:
             contribution = build_contribution(db, job["asset_id"])
             if not contribution:
+                # An unfinished or empty analysis must not occupy every bounded batch forever.
+                db.x("UPDATE community_outbox SET run_after=? WHERE asset_id=? AND status != 'suppressed'",
+                     (now() + 300, job["asset_id"]))
                 continue
             body = contribution.model_dump_json()
             digest = hashlib.sha256(body.encode()).hexdigest()
@@ -114,6 +117,8 @@ def sync_once(db: Database, settings: Settings, transport: httpx.BaseTransport |
                 break
             current = build_contribution(db, job["asset_id"])
             if current is None or current.model_dump_json() != body:
+                db.x("UPDATE community_outbox SET run_after=? WHERE asset_id=? AND status != 'suppressed'",
+                     (now() + 300, job["asset_id"]))
                 continue
             if content_hash(asset["local_path"] or asset["path"]) != job["imported_hash"]:
                 raise NotPublic("The downloaded file was changed locally")

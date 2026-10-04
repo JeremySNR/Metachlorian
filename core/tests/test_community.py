@@ -106,6 +106,30 @@ def test_sync_retries_deduplicates_and_updates_analysis(ready, monkeypatch):
     assert calls[-1]["shots"][0]["fields"]["content.caption"]["value"] == "Ocean waves"
 
 
+def test_unfinished_analysis_cannot_starve_later_contributions(ready, tmp_path, monkeypatch):
+    settings, db, aid, *_ = ready
+    settings.community_url = "https://community.example"
+    # Fill a whole batch with older downloads that have no useful analysis yet.
+    for i in range(5):
+        path = tmp_path / f"unfinished-{i}.mp4"
+        path.write_bytes(f"unfinished public download {i}".encode())
+        _, waiting = register_file(db, path)
+        db.x("UPDATE assets SET status='ready' WHERE id=?", (waiting,))
+        publisher.enroll(db, settings, waiting, "Youtube", {"id": VIDEO, "availability": "public"})
+        db.x("UPDATE community_outbox SET updated_at=0 WHERE asset_id=?", (waiting,))
+    enroll(ready)
+    db.x("UPDATE community_outbox SET updated_at=1 WHERE asset_id=?", (aid,))
+    monkeypatch.setattr(publisher, "verify_public", lambda *a: {})
+    received = []
+    def receive(request):
+        received.append(json.loads(request.content))
+        return httpx.Response(200)
+    transport = httpx.MockTransport(receive)
+    assert publisher.sync_once(db, settings, transport) == 0
+    assert publisher.sync_once(db, settings, transport) == 1
+    assert len(received) == 1 and received[0]["shots"][0]["fields"]["content.caption"]["value"] == "Coastal drone sunset"
+
+
 def test_opt_out_during_visibility_probe_sends_nothing(ready, monkeypatch):
     settings, db, *_ = ready
     enroll(ready)
