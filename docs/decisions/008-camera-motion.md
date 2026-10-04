@@ -150,3 +150,20 @@ ambiguous segments, after its licence has been verified. Not in the default stac
   - timelapse: `select='not(mod(n\,30))'`.
 
   Use these as unit tests for each primitive before tuning on real footage.
+
+## Outcome (as built, 2026-10-04)
+
+Implemented in `core/metachlorian/media/motion.py` as recommended: KLT feature tracking at 15 fps on 320×180 grey frames,
+RANSAC similarity fit per step, **translation measured at the frame centre** (so zooms are not read as pans — this bug was
+found by the gold set and fixed), parallax = median residual of near-inliers (dolly/truck vs pan/zoom), subject motion =
+share of large residuals, high-frequency jitter after a 0.8 s moving average (handheld vs gimbal vs static). Each movement
+term carries a confidence from its margin over the threshold and its direction consistency.
+
+**Gold set** (`eval/motion/make_gold.py`): 40 clips rendered from real 4K stills with exact virtual camera moves (static with
+sensor noise, pans, tilts, zooms, band-limited handheld shake, handheld + pan, slow pan) — **40/40 correct** after the fix
+(`eval/motion/evaluate.py`, results in `eval/results/motion.json`). Synthetic moves have no parallax or rolling shutter, so
+real footage is harder; real-footage behaviour is covered by the content gold set (`eval/content`). Drone/aerial is not
+measurable from flow alone and is fused from zero-shot and VLM evidence (ADR 004/005).
+
+Speed effects: slow motion and timelapse are not yet measured deterministically (VLM-only); metadata-based detection
+(capture fps vs playback fps) is the next step.

@@ -175,3 +175,17 @@ All are served with the same JSON-schema mechanism.
   JSON schema.
 - On user machines the same models are available as `ollama pull qwen3.5:4b` or from HF
   (`unsloth/Qwen3.5-4B-GGUF`).
+
+## Outcome (as built, 2026-10-04)
+
+- The VLM is an **optional** analyser (`caption`) talking to any OpenAI-compatible endpoint (llama.cpp server, Ollama,
+  LM Studio, vLLM) with `response_format: json_schema` built from the vocabularies, our own jsonschema validation, one
+  corrective retry, then a `vlm.error` flag on the shot. `extra_body` passes `chat_template_kwargs: {enable_thinking:
+  false}` for Qwen3.5, as the research found necessary. Hosted endpoints are refused unless `allow_remote` is set.
+- Verified end to end with **Qwen3.5-2B Q4_K_XL + mmproj** (Apache-2.0, from Docker Hub `ai/qwen3.5`) on llama.cpp b11382:
+  schema-valid output on the first attempt, and LLM fusion (`fusion` analyser, batched six shots per request) validated with
+  no retries. On this 4-vCPU box under heavy load it took 490–580 s per shot for captions and ~400 s for fusion, so the
+  CPU tier does **not** use a VLM by default: it relies on SigLIP zero-shot labels (accuracy in eval/README.md) and
+  template captions. Model quality caveat seen in testing: the 2B model hallucinated "snowfall" on a market scene; fusion
+  weighs VLM labels against zero-shot and measured evidence rather than trusting them blindly.
+- Recommended GPU defaults stay as decided: Qwen3.5-4B (8 GB) or -9B (12 GB).

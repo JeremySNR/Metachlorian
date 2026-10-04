@@ -100,3 +100,18 @@ Discovery and connection:
 - Users ask for a native tablet app (Capacitor would wrap the same UI).
 - Bundled core size passes ~1.5 GB, or relocatable-venv problems appear on any OS. Then switch to PyInstaller or Nuitka onedir.
 - Cutawan and Metachlorian start sharing more than shell plumbing. Then reconsider a shared package or workspace.
+
+## Outcome (as built, 2026-10-04)
+
+Built as decided: `core/` (Python, FastAPI + MCP SDK, `metachlorian serve`) serves `/api`, `/mcp`, `/media` and the web app
+from `app/dist` (looked up per request, so a rebuilt UI needs no restart); `app/` is the single React UI; `desktop/` is an
+Electron shell (Electron 39) that in **solo** mode starts a local core on a free loopback port and in **team** mode connects
+to a configured server URL (health-checked), exposing a small capability bridge (`window.metachlorian`: native file
+drag-out via `webContents.startDrag`, reveal/open, folder picker, server switch, "open in Cutawan"). Verified headlessly
+with a smoke mode (`METACHLORIAN_DESKTOP_SMOKE`) under Xvfb; an unsigned Linux AppImage builds (116 MB). Team mode ships as
+a Docker image + compose file; native servers use `scripts/install.sh` (uv venv + systemd user unit).
+
+Deviation: instead of a per-launch token in solo mode, the core accepts token-less requests only from loopback clients with
+a loopback `Host` header (DNS-rebinding defence) and requires a custom header on every state-changing request (CSRF
+defence); it refuses to bind to a network address without `require_auth`. A per-launch token remains a hardening option
+for shared multi-user machines.

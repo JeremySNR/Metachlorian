@@ -78,3 +78,12 @@ Constraints:
 - A permissively licensed multimodal (image-text) reranker small enough for CPU appears, so visual hits can be reranked too.
 - A small (<1B) permissively licensed local model parses filters in < 150 ms on CPU, which would allow LLM parsing on the hot path.
 - Jina, BGE or Mixedbread change licences, or the provenance of Ettin's training data turns out to be restrictive.
+
+## Outcome (as built, 2026-10-04)
+
+Implemented in `core/metachlorian/search/engine.py`: weighted RRF (k = 60) over up to five lists — visual vectors (SigLIP
+text→image), text vectors (transcript/caption semantics), FTS5 BM25 (column weights caption 1.0, transcript 0.8, OCR 0.9,
+tags 1.2, place 1.6, filename 0.5), vocabulary-term preferences (per-term top-k by confidence via an index), and
+query-by-example — plus small priors for preferred people count and quality, a usability penalty, rights filtering, and
+per-result explanations built from each retriever's contribution. Query parsing is rule- and vocabulary-based
+(`search/parse.py`, < 5 ms). No cross-encoder reranker in v1. Relevance numbers per variant are in `eval/README.md`.

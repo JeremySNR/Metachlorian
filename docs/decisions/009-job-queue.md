@@ -78,3 +78,13 @@ DBOS is the documented fallback if multi-step workflow orchestration grows beyon
 - Team deployments run more than ~8 concurrent workers, or write contention shows in `SQLITE_BUSY` metrics. Move to the Postgres backend, and consider Procrastinate or Oban there.
 - Distributed workers on several machines are required. Re-evaluate Hatchet or Temporal.
 - The queue code passes ~1,000 lines or keeps producing concurrency bugs.
+
+## Outcome (as built, 2026-10-04)
+
+Built as recommended (`core/metachlorian/jobs/queue.py`, `pipeline.py`): jobs table in the library database with
+`UNIQUE(asset, analyser, input_key)`, leases (120 s) with a heartbeat thread, retry with exponential back-off (3 attempts),
+priorities (asset priority × 1000 + analyser stage), atomic commit of analyser output + run record + job completion, and a
+planner that compares input keys so only stale analysers run. Resource classes: `cpu` analysers run in any worker; `model`
+analysers (ASR, VLM) are serialised on one worker to bound memory. Verified by tests: lease recovery after a simulated crash,
+idempotent planning, and "upgrade one analyser → only it and its dependants re-run" (`core/tests/test_ingest_pipeline.py`).
+The server re-plans the whole library at startup so analyser upgrades are picked up automatically.

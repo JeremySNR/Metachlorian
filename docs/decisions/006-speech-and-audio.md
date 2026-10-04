@@ -143,3 +143,15 @@ All confirmed reachable (HTTP 200) from the sandbox. `pip install sherpa-onnx==1
 - Tagging: `https://github.com/k2-fsa/sherpa-onnx/releases/download/audio-tagging-models/sherpa-onnx-ced-mini-audio-tagging-2024-04-19.tar.bz2` (48 MB). Base: `...ced-base-audio-tagging-2024-04-19.tar.bz2` (387 MB)
 - Do **not** fetch `sherpa-onnx-reverb-diarization-v1` (non-commercial) even though it is mirrored there.
 - Loudness: `ffmpeg -hide_banner -nostats -i in -af ebur128=peak=true:metadata=1,astats=metadata=1 -f null -`
+
+## Outcome (as built, 2026-10-04)
+
+As recommended, via sherpa-onnx: Silero VAD → Parakeet TDT 0.6B v3 int8 (word timings from token timestamps, confidence
+from token log-probs) → Whisper-base spoken language identification on the longest segments → pyannote segmentation 3.0
++ TitaNet-small diarisation (CAM++ is the planned swap). The analyser runs only when the audio tagger heard speech, which
+skips silent files instantly. CED-mini (Apache-2.0) tags 2 s windows; AudioSet labels map to the `audio_class` vocabulary and
+notable events become moments; the 527-d posterior is the audio similarity vector. Loudness is EBU R128 via ffmpeg.
+
+Measured (eval/README.md): WER 15% overall against subtitle references (1.3% on clean speech), 5/5 languages correct.
+VAD tuned to threshold 0.25 / min silence 0.8 s (WER 19% → 15% on this small set). Known weakness: speaker counts from
+diarisation are approximate (under-clusters very short utterances, over-clusters film dialogue).
