@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react'
 import { Link, Outlet, useNavigate } from '@tanstack/react-router'
 import { TooltipTrigger, Focusable } from 'react-aria-components'
-import { CircleHelp, HardDrive, Layers, Library, Settings, ShieldCheck, type LucideIcon } from 'lucide-react'
+import { CircleHelp, HardDrive, Layers, Library, Menu as MenuIcon, Search, Settings, ShieldCheck, type LucideIcon } from 'lucide-react'
 import { IconButton } from '../../components/Button'
+import { Menu, MenuItem, MenuPopover, MenuSeparator, MenuTrigger } from '../../components/Menu'
+import { useMediaQuery } from '../../hooks/useMediaQuery'
 import { Ic } from '../../components/Icon'
 import { Toaster, toast } from '../../components/Toast'
 import { Tooltip } from '../../components/Tooltip'
 import { isTyping, isMod, useDocumentKeys } from '../../hooks/useHotkeys'
-import { MOD, desktopInfo } from '../../lib/bridge'
+import { desktopInfo } from '../../lib/bridge'
+import { comboText } from '../../lib/keys'
 import { usePrefs, useUi } from '../../lib/store'
 import { useAddToCollection, useCollections, useCreateCollection } from '../../api/queries'
 import { SearchBar } from '../search/SearchBar'
@@ -46,6 +49,8 @@ export function AppShell() {
   const collections = useCollections()
   const add = useAddToCollection()
   const create = useCreateCollection()
+  // Below 480 px the section links fold into a menu and search takes its own row (WCAG 1.4.10 reflow).
+  const compactNav = useMediaQuery('(max-width: 479.98px)')
 
   useEffect(() => {
     desktopInfo().then((info) => {
@@ -145,6 +150,25 @@ export function AppShell() {
           </span>
           <span className={s.wordmark}>Metachlorian</span>
         </Link>
+        {compactNav ? (
+          <nav className={s.nav} aria-label="Sections">
+            <MenuTrigger>
+              <IconButton icon={MenuIcon} label="Sections" tooltip={false} />
+              <MenuPopover placement="bottom start">
+                <Menu aria-label="Go to" onAction={(k) => navigate({ to: String(k) as '/search' })}>
+                  <MenuItem id="/search" icon={Search}>Search</MenuItem>
+                  {NAV.map((n) => (
+                    <MenuItem key={n.to} id={n.to} icon={n.icon} shortcut={comboText(`Mod+${n.key}`)}>
+                      {n.label}
+                    </MenuItem>
+                  ))}
+                  <MenuSeparator />
+                  <MenuItem id="/settings" icon={Settings}>Settings</MenuItem>
+                </Menu>
+              </MenuPopover>
+            </MenuTrigger>
+          </nav>
+        ) : (
         <nav className={s.nav} aria-label="Sections">
           {NAV.map((n) => (
             <TooltipTrigger key={n.to} delay={500}>
@@ -164,11 +188,12 @@ export function AppShell() {
               </Focusable>
               <Tooltip>
                 {n.label}
-                <kbd>{MOD.trim()}{n.key}</kbd>
+                <kbd>{comboText(`Mod+${n.key}`)}</kbd>
               </Tooltip>
             </TooltipTrigger>
           ))}
         </nav>
+        )}
         <div className={s.searchSlot}>
           <SearchBar />
         </div>

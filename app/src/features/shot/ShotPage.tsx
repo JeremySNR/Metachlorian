@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useRouter } from '@tanstack/react-router'
 import { ArrowLeft, ChevronLeft, ChevronRight, ScanSearch } from 'lucide-react'
-import { mediaUrl } from '../../api/client'
+import { api, ApiError, mediaUrl } from '../../api/client'
+import type { SearchResponse } from '../../api/types'
+import { toast } from '../../components/Toast'
+import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { useShot, useVocabularies } from '../../api/queries'
 import { Button, IconButton } from '../../components/Button'
 import { EmptyState } from '../../components/EmptyState'
@@ -12,7 +15,7 @@ import { humanise } from '../../lib/format'
 import { rememberRecentShot, usePrefs, useUi } from '../../lib/store'
 import { Player, type PlayerHandle } from './Player'
 import { SignalTable } from './SignalTable'
-import { AddToCollectionButton, ExportMenu, InCollections, Moments, RightsBlock, Section, shotRightsState, SimilarStrip, Transcript, WhyMatched } from './ShotPanels'
+import { AddToCollectionButton, BlockedNote, ExportMenu, InCollections, Moments, RightsBlock, Section, shotRightsState, SimilarStrip, Transcript, WhyMatched } from './ShotPanels'
 import { techSummary } from './techSummary'
 import t from '../../styles/type.module.css'
 import s from './Shot.module.css'
@@ -30,7 +33,11 @@ export function ShotPage() {
   const order = useUi((u) => u.resultOrder)
   const result = useUi((u) => u.resultCache.get(shotId))
   const lastQuery = useUi((u) => u.lastQuery)
+  const resultTotal = useUi((u) => u.resultTotal)
+  const paging = useUi((u) => u.resultPaging)
+  const [loadingMore, setLoadingMore] = useState(false)
   const d = shot.data
+  useDocumentTitle(d ? `Shot ${d.idx + 1}` : 'Shot', d?.filename)
   const inOut = io.uid === shotId ? io : { uid: shotId, i: null, o: null }
 
   useEffect(() => {
@@ -41,13 +48,29 @@ export function ShotPage() {
   const pos = order.indexOf(shotId)
   const prevResult = pos > 0 ? order[pos - 1] : undefined
   const nextResult = pos >= 0 && pos < order.length - 1 ? order[pos + 1] : undefined
+  // The pager counts every result of the search; past the loaded page it fetches the next one.
+  const canLoadMore = pos >= 0 && pos === order.length - 1 && Boolean(paging?.next)
   const goShot = (uid?: string) => uid && navigate({ to: '/shot/$shotId', params: { shotId: uid }, replace: true })
+  const loadNext = async () => {
+    if (!paging?.next || loadingMore) return
+    setLoadingMore(true)
+    try {
+      const page = await api.post<SearchResponse>('/api/search', { ...paging.req, cursor: paging.next })
+      useUi.getState().appendResults(page.results, page.next_cursor)
+      if (page.results[0]) goShot(page.results[0].uid)
+    } catch (e) {
+      toast({ title: "Couldn't load more results", description: e instanceof ApiError ? e.detail : String(e), tone: 'error' })
+    } finally {
+      setLoadingMore(false)
+    }
+  }
+  const goNext = () => (nextResult ? goShot(nextResult) : canLoadMore ? loadNext() : undefined)
 
   useDocumentKeys((e) => {
     if (isTyping(e.target) || e.metaKey || e.ctrlKey || e.altKey || !usePrefs.getState().singleKeys) return
     if ((e.target as HTMLElement).closest('[data-testid="signals"], [role="group"]')) return
     if (e.key === '[') goShot(prevResult)
-    else if (e.key === ']') goShot(nextResult)
+    else if (e.key === ']') goNext()
     else if (e.key.toLowerCase() === 's' && d) navigate({ to: '/search', search: { similar: d.uid } })
     else if (e.key === 'Escape' && !document.querySelector('[role="dialog"]')) router.history.back()
   })
@@ -62,6 +85,8 @@ export function ShotPage() {
   if (!d) return <div className={s.page} aria-busy="true" />
 
   const fps = d.technical.fps
+  const iu = paging?.req.intended_use
+  const similarRights = { use: iu?.use ?? null, channel: iu?.channel ?? null, territory: iu?.territory ?? null, include: iu?.include ?? null, hideBlocked: paging?.req.hide_blocked ?? true }
   const state = shotRightsState(d)
   const edit = typeof d.edit_type === 'object' && d.edit_type ? d.edit_type.term : (d.edit_type as string | null)
   const shotCount = undefined as number | undefined
@@ -85,10 +110,10 @@ export function ShotPage() {
         {order.length > 0 && pos >= 0 && (
           <>
             <IconButton icon={ChevronLeft} label="Previous result" shortcut="[" isDisabled={!prevResult} onPress={() => goShot(prevResult)} />
-            <span className={t.slate}>
-              {pos + 1} / {order.length}
+            <span className={t.slate} aria-label={`Result ${pos + 1} of ${Math.max(resultTotal, order.length)}`}>
+              {pos + 1} / {Math.max(resultTotal, order.length)}
             </span>
-            <IconButton icon={ChevronRight} label="Next result" shortcut="]" isDisabled={!nextResult} onPress={() => goShot(nextResult)} />
+            <IconButton icon={ChevronRight} label="Next result" shortcut="]" isDisabled={(!nextResult && !canLoadMore) || loadingMore} onPress={goNext} />
           </>
         )}
       </div>
@@ -108,7 +133,7 @@ export function ShotPage() {
             onPrevShot={d.neighbours.previous ? () => goShot(d.neighbours.previous) : undefined}
             onNextShot={d.neighbours.next ? () => goShot(d.neighbours.next) : undefined}
             onPrevResult={prevResult ? () => goShot(prevResult) : undefined}
-            onNextResult={nextResult ? () => goShot(nextResult) : undefined}
+            onNextResult={nextResult || canLoadMore ? goNext : undefined}
             onTime={(tt) => {
               if (Math.abs(tt - now) > 0.2) setNow(tt)
             }}
@@ -134,7 +159,7 @@ export function ShotPage() {
             </Button>
           }
         >
-          <SimilarStrip uid={d.uid} limit={8} />
+          <SimilarStrip uid={d.uid} limit={8} rights={similarRights} />
         </Section>
       </main>
       <aside className={s.right} aria-label="Shot details">
@@ -143,15 +168,16 @@ export function ShotPage() {
           <TimecodeRange inS={d.start} outS={d.end} fps={fps} copyable />
           <div className={s.techLine}>{techSummary(d)}</div>
         </div>
+        <BlockedNote state={state} />
         <div className={s.actions}>
           <AddToCollectionButton uids={[d.uid]} inPoint={inOut.i} outPoint={inOut.o} />
           <ExportMenu shot={d} inPoint={inOut.i} outPoint={inOut.o} state={state} />
         </div>
-        <Section title="Signals" id="sig2" action={<span className={t.slate}>E edits</span>}>
-          <SignalTable shot={d} vocabs={vocabs} label={label} />
-        </Section>
         <Section title="Rights" id="r2">
           <RightsBlock shot={d} vocabs={vocabs} />
+        </Section>
+        <Section title="Signals" id="sig2" action={<span className={t.slate}>E edits</span>}>
+          <SignalTable shot={d} vocabs={vocabs} label={label} collapsible />
         </Section>
         <Section title="In collections" id="c2">
           <InCollections uid={d.uid} />

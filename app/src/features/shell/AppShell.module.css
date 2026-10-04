@@ -1,6 +1,6 @@
 .shell {
   display: grid;
-  grid-template-rows: var(--topbar-height) minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   block-size: 100dvh;
   background: var(--bg-canvas);
 }
@@ -32,6 +32,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
+  min-block-size: var(--topbar-height);
   padding-inline: var(--space-3) var(--space-2);
   background: var(--bg-panel);
   border-block-end: var(--border-width) solid var(--border-default);
@@ -151,6 +152,30 @@
   min-inline-size: 0;
   display: flex;
   justify-content: center;
+}
+
+/* Narrow (< 640 px): search gets its own full-width row under the brand, nav and status. */
+@media (width < 640px) {
+  .topbar {
+    flex-wrap: wrap;
+    row-gap: var(--space-2);
+    column-gap: var(--space-2);
+    padding-block: var(--space-2);
+    padding-inline: var(--space-2);
+  }
+  .searchSlot {
+    order: 10;
+    flex-basis: 100%;
+  }
+  .end {
+    margin-inline-start: auto;
+  }
+  .nav {
+    block-size: auto;
+  }
+  .navLink[data-status='active']::after {
+    inset-block-end: calc(-1 * var(--space-1));
+  }
 }
 
 .end {
@@ -331,6 +356,25 @@
   white-space: nowrap;
 }
 
-.shortcuts kbd + kbd {
-  margin-inline-start: var(--space-1);
+.keys {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.combo {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-0_5);
+}
+
+.plus,
+.or {
+  color: var(--fg-3);
+  font-size: var(--text-xs);
+}
+
+.or {
+  margin-inline: var(--space-0_5);
 }

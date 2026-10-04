@@ -2,8 +2,9 @@ import { createRootRoute, createRoute, createRouter, lazyRouteComponent, redirec
 import { AppShell } from '../features/shell/AppShell'
 import { SearchPage } from '../features/search/SearchPage'
 import { validateSearch } from '../features/search/searchParams'
+import { NotFound } from '../features/shell/NotFound'
 
-const rootRoute = createRootRoute({ component: AppShell })
+const rootRoute = createRootRoute({ component: AppShell, notFoundComponent: () => <NotFound /> })
 
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,

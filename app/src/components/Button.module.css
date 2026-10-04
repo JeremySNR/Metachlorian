@@ -160,3 +160,30 @@
     min-block-size: var(--target-coarse);
   }
 }
+
+/* Forced colours: system colours so the primary keeps a visible label and every button an edge. */
+@media (forced-colors: active) {
+  .button {
+    border-color: ButtonText;
+  }
+  .quiet {
+    border-color: transparent;
+  }
+  .primary {
+    forced-color-adjust: none;
+    background: Highlight;
+    color: HighlightText;
+    border-color: HighlightText;
+  }
+  .primary .kbd {
+    color: HighlightText;
+  }
+  .button[data-disabled],
+  .button[aria-disabled='true'],
+  .primary[data-disabled],
+  .primary[aria-disabled='true'] {
+    background: Canvas;
+    color: GrayText;
+    border-color: GrayText;
+  }
+}

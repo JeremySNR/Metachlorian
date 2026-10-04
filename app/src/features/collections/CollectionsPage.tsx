@@ -17,6 +17,8 @@ import { Menu, MenuItem, MenuPopover, MenuSeparator, MenuTrigger } from '../../c
 import { RightsBadge } from '../../components/RightsBadge'
 import { toast } from '../../components/Toast'
 import { MOD } from '../../lib/bridge'
+import { comboText } from '../../lib/keys'
+import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { formatDateTime, plural } from '../../lib/format'
 import { stateFromBadge } from '../../lib/rights'
 import { usePrefs, useUi } from '../../lib/store'
@@ -38,6 +40,7 @@ export function CollectionsPage() {
   const add = useAddToCollection()
   const [name, setName] = useState('')
   const [dropOn, setDropOn] = useState<string | null>(null)
+  useDocumentTitle(col.data?.name, 'Collections')
 
   const makeCollection = async () => {
     if (!name.trim()) return
@@ -102,14 +105,24 @@ export function CollectionsPage() {
       </nav>
       {col.data ? (
         <CollectionView key={col.data.uid} col={col.data} />
+      ) : col.isError ? (
+        <main id="main" className={s.main}>
+          <h1 className="visually-hidden">Collections</h1>
+          <EmptyState title="There's no collection here" role="alert" actions={<Button onPress={() => navigate({ to: '/collections' })}>All collections</Button>}>
+            It may have been deleted, or the link is mistyped.
+          </EmptyState>
+        </main>
       ) : cols.data && !cols.data.length ? (
         <main id="main" className={s.main}>
+          <h1 className="visually-hidden">Collections</h1>
           <EmptyState icon={Layers} title="No collections yet" actions={<Button variant="primary" onPress={() => navigate({ to: '/search' })}>Find shots</Button>}>
             Select shots in search and press <strong>B</strong> to start Selects, or create a collection on the left.
           </EmptyState>
         </main>
       ) : (
-        <main id="main" className={s.main} aria-busy="true" />
+        <main id="main" className={s.main} aria-busy="true">
+          <h1 className="visually-hidden">Collections</h1>
+        </main>
       )}
     </div>
   )
@@ -250,7 +263,7 @@ function CollectionView({ col }: { col: Collection }) {
           <Button variant="secondary" icon={Download} shortcut={`${MOD}E`} isDisabled={!items.length} onPress={() => useUi.getState().set({ sendDialog: { kind: 'collection', uid: col.uid, consumer: 'nle' } })} data-testid="export-timeline">
             Export timeline
           </Button>
-          <Button variant="primary" icon={Send} shortcut={`${MOD}⇧E`} isDisabled={!items.length} onPress={() => useUi.getState().set({ sendDialog: { kind: 'collection', uid: col.uid, consumer: 'cutawan' } })} data-testid="send-to-cutawan">
+          <Button variant="primary" icon={Send} shortcut={comboText('Mod+Shift+E')} isDisabled={!items.length} onPress={() => useUi.getState().set({ sendDialog: { kind: 'collection', uid: col.uid, consumer: 'cutawan' } })} data-testid="send-to-cutawan">
             Send to Cutawan
           </Button>
           <MenuTrigger>
@@ -349,8 +362,8 @@ function CollectionView({ col }: { col: Collection }) {
                       <MenuItem icon={Scissors} onAction={() => setTrim(it)}>Trim in and out…</MenuItem>
                       <MenuItem icon={PenLine} onAction={() => setNoteItem(it)}>Edit note…</MenuItem>
                       <MenuSeparator />
-                      <MenuItem icon={ArrowUp} shortcut="⌥↑" isDisabled={pos === 0} onAction={() => move(it.item_id, -1)}>Move up</MenuItem>
-                      <MenuItem icon={ArrowDown} shortcut="⌥↓" isDisabled={pos === items.length - 1} onAction={() => move(it.item_id, 1)}>Move down</MenuItem>
+                      <MenuItem icon={ArrowUp} shortcut={comboText('Alt+↑')} isDisabled={pos === 0} onAction={() => move(it.item_id, -1)}>Move up</MenuItem>
+                      <MenuItem icon={ArrowDown} shortcut={comboText('Alt+↓')} isDisabled={pos === items.length - 1} onAction={() => move(it.item_id, 1)}>Move down</MenuItem>
                       <MenuSeparator />
                       <MenuItem icon={Trash2} danger shortcut="Delete" onAction={() => removeItem(it)}>Remove from collection</MenuItem>
                     </Menu>

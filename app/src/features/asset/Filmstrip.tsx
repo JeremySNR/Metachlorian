@@ -1,4 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react'
+import { comboText } from '../../lib/keys'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { Maximize, ZoomIn, ZoomOut } from 'lucide-react'
 import type { AssetShot, Sprites } from '../../api/types'
@@ -158,7 +159,7 @@ export const Filmstrip = forwardRef<FilmstripHandle, Props>(function Filmstrip({
         <IconButton icon={ZoomOut} label="Zoom out" shortcut="-" size="sm" isDisabled={zoom <= 1} onPress={() => setZoom((z) => Math.max(1, z / 2))} />
         <span className={s.meta}>{zoom}×</span>
         <IconButton icon={ZoomIn} label="Zoom in" shortcut="+" size="sm" isDisabled={zoom >= 64} onPress={() => setZoom((z) => Math.min(64, z * 2))} />
-        <IconButton icon={Maximize} label="Fit" shortcut="⇧Z" size="sm" onPress={() => setZoom(1)} />
+        <IconButton icon={Maximize} label="Fit" shortcut={comboText('Shift+Z')} size="sm" onPress={() => setZoom(1)} />
       </div>
       <div className={s.lanes}>
         <div className={s.laneLabels} aria-hidden="true">
@@ -189,6 +190,7 @@ export const Filmstrip = forwardRef<FilmstripHandle, Props>(function Filmstrip({
         >
           <div className={s.inner} style={{ inlineSize: total }}>
             <div className={s.matchLane} aria-hidden="true">
+              {!matches.length && <span className={s.laneEmpty}>No search matches in this file. Open it from a search to see where they are.</span>}
               {matches.map((m, i) => (
                 <div key={i} className={s.match} style={{ insetInlineStart: m.start * pps, inlineSize: Math.max(2, (m.end - m.start) * pps) }} />
               ))}

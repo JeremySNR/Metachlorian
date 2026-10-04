@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildRows, gridGeometry, moveIndex, rowOfItem, weakSplit } from './gridLayout'
+import { buildRows, gridGeometry, moveIndex, noStrongMatches, rowOfItem, strongDivider } from './gridLayout'
 
 describe('grid geometry', () => {
   it('fits columns and stretches cards up to 1.35×', () => {
@@ -39,8 +39,28 @@ describe('rows and divider', () => {
     expect(moveIndex(rows, 9, 'right', 10)).toBe(9)
     expect(moveIndex(rows, 0, 'up', 10)).toBe(0)
   })
-  it('finds the weak split', () => {
-    expect(weakSplit([1, 0.9, 0.6, 0.4], 0.5, 4)).toBe(3)
-    expect(weakSplit([1, 0.9], 0.5, 10)).toBeNull()
+})
+
+describe('match-strength divider', () => {
+  it('sits after the strong results of the whole list', () => {
+    expect(strongDivider({ total: 268, strong_count: 35, strictness: 'balanced' })).toBe(35)
+    // The divider may lie beyond the loaded page: it is placed in the full (pre-allocated) list.
+    const rows = buildRows(268, 4, strongDivider({ total: 268, strong_count: 130, strictness: 'strict' }))
+    expect(rows[32]).toEqual({ kind: 'items', start: 128, count: 2 })
+    expect(rows[33]).toEqual({ kind: 'divider' })
+    expect(rows[34]).toEqual({ kind: 'items', start: 130, count: 4 })
+  })
+  it('has no divider without a score, or when every or no result is strong', () => {
+    expect(strongDivider({ total: 154, strong_count: 154, strictness: null })).toBeNull()
+    expect(strongDivider({ total: 40, strong_count: 40, strictness: 'loose' })).toBeNull()
+    expect(strongDivider({ total: 40, strong_count: 0, strictness: 'strict' })).toBeNull()
+    expect(strongDivider(undefined)).toBeNull()
+    expect(strongDivider({ total: 10 })).toBeNull()
+  })
+  it('reports "no strong matches" only for a scored query with results', () => {
+    expect(noStrongMatches({ total: 40, strong_count: 0, strictness: 'strict' })).toBe(true)
+    expect(noStrongMatches({ total: 0, strong_count: 0, strictness: 'strict' })).toBe(false)
+    expect(noStrongMatches({ total: 40, strong_count: 0, strictness: null })).toBe(false)
+    expect(noStrongMatches({ total: 40, strong_count: 3, strictness: 'balanced' })).toBe(false)
   })
 })

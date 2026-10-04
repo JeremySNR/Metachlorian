@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Check, PenLine, Undo2, X } from 'lucide-react'
+import { Check, ChevronRight, PenLine, Undo2, X } from 'lucide-react'
 import type { CorrectionKind, FieldValue, ShotDoc, Vocabulary } from '../../api/types'
 import { useCorrect, useCorrections, useRevertCorrection, type CorrectionInput } from '../../api/queries'
 import { ApiError } from '../../api/client'
@@ -21,13 +21,17 @@ interface Props {
   /** Start with this field in edit mode (E from the grid). */
   editField?: string | null
   groups?: string[]
+  /** Fold the measurement groups (Quality, Look) behind a disclosure, so rights and content come first. */
+  collapsible?: boolean
 }
+
+const FOLDED: string[] = ['Quality', 'Look']
 
 /**
  * Signals with source, confidence and human-correction state (system.md §3.10).
  * Keyboard: ↑/↓ move, Enter confirms, Delete removes, E edits, Esc cancels.
  */
-export function SignalTable({ shot, vocabs, label, editField, groups }: Props) {
+export function SignalTable({ shot, vocabs, label, editField, groups, collapsible }: Props) {
   const corrections = useCorrections()
   const correctable = corrections.data?.correctable.shot ?? {}
   const rows = signalRows(shot.fields, correctable)
@@ -36,6 +40,9 @@ export function SignalTable({ shot, vocabs, label, editField, groups }: Props) {
   const rootRef = useRef<HTMLDivElement>(null)
   const correct = useCorrect()
   const revert = useRevertCorrection()
+  const [showFolded, setShowFolded] = useState(false)
+  const folded = (g: string) => Boolean(collapsible && !showFolded && FOLDED.includes(g) && !(editField && rows.get(g as never)?.some((r) => r.field === editField)))
+  const foldedCount = collapsible ? FOLDED.reduce((n, g) => n + (rows.get(g as never)?.length ?? 0), 0) : 0
 
   const [seenEdit, setSeenEdit] = useState(editField)
   if (editField !== seenEdit) {
@@ -46,7 +53,7 @@ export function SignalTable({ shot, vocabs, label, editField, groups }: Props) {
     }
   }
 
-  const flat: SignalRow[] = SIGNAL_GROUPS.flatMap((g) => (groups && !groups.includes(g) ? [] : rows.get(g) ?? []))
+  const flat: SignalRow[] = SIGNAL_GROUPS.flatMap((g) => (groups && !groups.includes(g)) || folded(g) ? [] : rows.get(g) ?? [])
   const current = focusField ?? flat[0]?.field
 
   const send = async (c: Omit<CorrectionInput, 'shot_uid'>, what: string) => {
@@ -115,6 +122,18 @@ export function SignalTable({ shot, vocabs, label, editField, groups }: Props) {
     <div className={s.signals} ref={rootRef} role="grid" aria-label="Signals" onKeyDown={onKeyDown} data-testid="signals">
       {SIGNAL_GROUPS.map((g) => {
         if (groups && !groups.includes(g)) return null
+        if (folded(g)) {
+          if (g !== FOLDED[0] || !foldedCount) return null
+          return (
+            <div key="folded" role="row">
+              <span role="gridcell">
+                <Button variant="quiet" size="sm" icon={ChevronRight} onPress={() => setShowFolded(true)} aria-expanded={false} className={s.foldButton}>
+                  {`Show quality and look measurements (${foldedCount})`}
+                </Button>
+              </span>
+            </div>
+          )
+        }
         if (g === 'Technical') {
           const tech = technicalRows(shot.technical)
           if (!tech.length) return null
@@ -203,12 +222,17 @@ function Row({ row, focused, editing, vocabs, label, onFocus, onEdit, onCancel, 
   const vocab = VOCAB_FIELDS[field]?.vocab
   const corrected = Boolean(fv.corrected)
   const confirmed = isConfirmed(fv)
-  const modelSaid = corrected ? valueText(field, fv.machine, label) : null
+  const modelSaid = corrected && !confirmed ? valueText(field, fv.machine, label) : null
   const termLabel = (term: string) => (vocab ? label(vocab, term) : humanise(term))
   const machineTerms = new Set(termIds(fv.machine))
   const removedTerms = corrected && r.kind === 'terms' ? [...machineTerms].filter((x) => !r.items.some((i) => i.term === x)) : []
+  // Multi-value rows: each value carries its own confidence and its own remove button.
+  const multi = r.kind === 'terms' && row.kind === 'terms' && (r.items.length > 1 || VOCAB_FIELDS[field]?.multi === true)
+  const perValue = multi && r.kind === 'terms' && r.items.some((i) => i.confidence !== null)
 
-  const name = `${row.label}: ${valueText(field, fv.value, label)}. ${corrected ? (confirmed ? 'Confirmed by a person' : 'Corrected by a person') : `${sourceLabel(fv)}${fv.confidence !== null ? `, confidence ${Math.round((fv.confidence ?? 0) * 100)}` : ''}`}`
+  const conf = (c: number | null) => (c === null || c >= 1 ? '' : `${Math.round(c * 100)}${c < 0.6 ? ' low' : ''}`)
+  const valueNames = r.kind === 'terms' ? r.items.map((i) => `${termLabel(i.term)}${!corrected && conf(i.confidence) ? ` (confidence ${conf(i.confidence)})` : ''}`).join(', ') : valueText(field, fv.value, label)
+  const name = `${row.label}: ${valueNames}. ${corrected ? (confirmed ? 'Confirmed by a person' : `Corrected by a person${modelSaid ? `. Model said: ${modelSaid}` : ''}`) : `${sourceLabel(fv)}${!perValue && fv.confidence !== null ? `, confidence ${Math.round((fv.confidence ?? 0) * 100)}` : ''}`}`
 
   return (
     <div className={s.row} role="row" tabIndex={focused ? 0 : -1} data-field={field} aria-label={name} onFocus={(e) => e.target === e.currentTarget && onFocus()} data-corrected={corrected || undefined}>
@@ -217,17 +241,33 @@ function Row({ row, focused, editing, vocabs, label, onFocus, onEdit, onCancel, 
       </span>
       <span className={s.rowValue} role="gridcell">
         {(r.kind === 'terms' || removedTerms.length > 0) && (
-          <span>
+          <span className={multi ? s.termList : undefined}>
             {r.kind === 'terms' &&
-              r.items.map((i, k) => (
-                <span key={i.term} title={i.confidence !== null && i.confidence < 1 ? `Confidence ${Math.round(i.confidence * 100)}` : undefined}>
-                  {k > 0 ? ', ' : ''}
-                  {termLabel(i.term)}
-                </span>
-              ))}
+              r.items.map((i, k) =>
+                multi ? (
+                  <span key={i.term} className={s.valueChip}>
+                    <span>{termLabel(i.term)}</span>
+                    {!corrected && conf(i.confidence) && <span className={`${s.valueConf} ${(i.confidence ?? 1) < 0.6 ? s.valueLow : ''}`}>{conf(i.confidence)}</span>}
+                    <IconButton
+                      icon={X}
+                      label={`Remove ${termLabel(i.term)} from ${row.label}`}
+                      size="sm"
+                      className={s.valueRemove}
+                      excludeFromTabOrder
+                      tooltip={false}
+                      onPress={() => onSend({ field, op: 'remove', value: i.term }, `${row.label}: removed ${termLabel(i.term)}`)}
+                    />
+                  </span>
+                ) : (
+                  <span key={i.term} title={i.confidence !== null && i.confidence < 1 ? `Confidence ${Math.round(i.confidence * 100)}` : undefined}>
+                    {k > 0 ? ', ' : ''}
+                    {termLabel(i.term)}
+                  </span>
+                ),
+              )}
             {removedTerms.map((term, k) => (
               <span key={term}>
-                {k > 0 || (r.kind === 'terms' && r.items.length) ? ', ' : ''}
+                {!multi && (k > 0 || (r.kind === 'terms' && r.items.length)) ? ', ' : ''}
                 <span className={s.removed} aria-label={`${termLabel(term)}, removed`}>
                   {termLabel(term)}
                 </span>
@@ -244,11 +284,12 @@ function Row({ row, focused, editing, vocabs, label, onFocus, onEdit, onCancel, 
           <>
             <HumanMarker by={fv.corrected_by} at={fv.corrected_at} modelSaid={modelSaid} confirmed={confirmed} />
             <span>{confirmed ? 'Confirmed' : 'Human'}</span>
+            {modelSaid && <span className={s.modelSaid}>Model said: {modelSaid}</span>}
           </>
         ) : (
           <>
             <span>{sourceLabel(fv)}</span>
-            {r.kind !== 'empty' && <ConfidenceMeter value={fv.confidence} label={row.label} />}
+            {r.kind !== 'empty' && !perValue && <ConfidenceMeter value={fv.confidence} label={row.label} />}
           </>
         )}
       </span>
@@ -257,19 +298,7 @@ function Row({ row, focused, editing, vocabs, label, onFocus, onEdit, onCancel, 
           {corrected ? (
             <IconButton icon={Undo2} label={`Undo correction to ${row.label}`} size="sm" onPress={onRevert} excludeFromTabOrder />
           ) : (
-            <>
-              {r.kind !== 'empty' && <IconButton icon={Check} label={`Confirm ${row.label}`} shortcut="Enter" size="sm" onPress={onConfirm} excludeFromTabOrder />}
-              {row.kind === 'terms' && r.kind === 'terms' && r.items.length > 0 && (
-                <IconButton
-                  icon={X}
-                  label={`Remove ${termLabel(r.items[r.items.length - 1].term)} from ${row.label}`}
-                  shortcut="Delete"
-                  size="sm"
-                  excludeFromTabOrder
-                  onPress={() => onSend({ field, op: 'remove', value: r.items[r.items.length - 1].term }, `${row.label}: removed ${termLabel(r.items[r.items.length - 1].term)}`)}
-                />
-              )}
-            </>
+            r.kind !== 'empty' && <IconButton icon={Check} label={`Confirm ${row.label}`} shortcut="Enter" size="sm" onPress={onConfirm} excludeFromTabOrder />
           )}
           <IconButton icon={PenLine} label={`Edit ${row.label}`} shortcut="E" size="sm" onPress={onEdit} excludeFromTabOrder data-testid={`edit-${field}`} />
         </span>

@@ -14,7 +14,7 @@ import { MOD } from '../../lib/bridge'
 import { useUi } from '../../lib/store'
 import { VOCAB_SLATE } from '../../lib/chips'
 import { shortLabel } from '../../lib/format'
-import type { SearchParams } from './searchParams'
+import { similarRightsOf, type SearchParams } from './searchParams'
 import t from '../../styles/type.module.css'
 import s from './SearchBar.module.css'
 
@@ -148,11 +148,14 @@ export function SearchBar() {
     }
     setExampleBusy(true)
     try {
-      const response = await searchByExample(file)
-      useUi.getState().set({ example: { name: file.name, kind, response }, selection: new Set() })
+      // Same rights verdict, intended use and Hide blocked as text search (keep only the rights params).
+      const keep: SearchParams = { use: params.use, ch: params.ch, terr: params.terr, inc: params.inc, blocked: params.blocked, strict: params.strict }
+      const rights = similarRightsOf(keep)
+      const response = await searchByExample(file, 120, rights)
+      useUi.getState().set({ example: { name: file.name, kind, response, file, rightsKey: JSON.stringify(rights) }, selection: new Set() })
       lastSent.current = ''
       setDraft('')
-      navigate({ to: '/search', search: {} })
+      navigate({ to: '/search', search: Object.fromEntries(Object.entries(keep).filter(([, v]) => v)) as SearchParams })
     } catch (e) {
       toast({ title: "Couldn't search by example", description: e instanceof ApiError ? e.detail : String(e), tone: 'error' })
     } finally {

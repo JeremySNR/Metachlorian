@@ -45,6 +45,26 @@
   font-variant-numeric: tabular-nums;
 }
 
+.cropWarn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--status-caution);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+.cropText {
+  color: var(--fg-1);
+}
+
+.hint {
+  margin-block-start: var(--space-1_5);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-2);
+}
+
 .shots {
   max-block-size: 220px;
   overflow: auto;
@@ -53,7 +73,7 @@
 
 .shot {
   display: grid;
-  grid-template-columns: 24px 64px minmax(0, 1fr) auto;
+  grid-template-columns: 24px 64px minmax(0, 1fr) auto auto;
   gap: var(--space-2);
   align-items: center;
   padding-block: var(--space-1);

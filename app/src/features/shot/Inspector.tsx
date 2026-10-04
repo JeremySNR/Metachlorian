@@ -6,12 +6,13 @@ import { mediaUrl } from '../../api/client'
 import { useShot, useVocabularies } from '../../api/queries'
 import { Button, IconButton } from '../../components/Button'
 import { EmptyState } from '../../components/EmptyState'
+import { RightsBadge } from '../../components/RightsBadge'
 import { Timecode, TimecodeRange } from '../../components/Timecode'
 import { MOD } from '../../lib/bridge'
 import { humanise } from '../../lib/format'
 import { Player, type PlayerHandle } from './Player'
 import { SignalTable } from './SignalTable'
-import { AddToCollectionButton, ExportMenu, InCollections, RightsBlock, Section, shotRightsState, WhyMatched } from './ShotPanels'
+import { AddToCollectionButton, BlockedNote, ExportMenu, InCollections, RightsBlock, Section, shotRightsState, WhyMatched } from './ShotPanels'
 import { techSummary } from './techSummary'
 import t from '../../styles/type.module.css'
 import s from './Shot.module.css'
@@ -63,10 +64,23 @@ export function Inspector({ uid, result, intended, query, onClose, onCollapse, e
           <span className={t.slate}>Shot {d ? d.idx + 1 : ''}</span>
           <Timecode seconds={result?.in ?? start} fps={fps} size="sm" />
         </h2>
+        {d && <RightsBadge state={state} record={d.rights} reasons={d.rights_check?.reasons} />}
         <IconButton icon={Maximize2} label="Open shot detail" shortcut="Enter" size="sm" onPress={() => navigate({ to: '/shot/$shotId', params: { shotId: uid } })} />
         {onClose && <IconButton icon={X} label="Close" shortcut="Esc" size="sm" onPress={onClose} />}
         {onCollapse && <IconButton icon={PanelRightClose} label="Collapse inspector" shortcut={`${MOD}I`} size="sm" onPress={onCollapse} />}
       </div>
+      {(d || result) && (
+        <div className={s.panelSub}>
+          {d ? (
+            <Link to="/file/$assetId" params={{ assetId: d.asset_uid }} search={{ shot: d.uid }} className={s.fileLink} title={d.path}>
+              {d.filename}
+            </Link>
+          ) : (
+            <span className={s.fileLink}>{result?.filename}</span>
+          )}
+          {edit && <span className={t.slate}>{humanise(edit)}</span>}
+        </div>
+      )}
       <div className={s.scroll} data-testid="inspector">
         {d || result ? (
           <Player
@@ -97,6 +111,7 @@ export function Inspector({ uid, result, intended, query, onClose, onCollapse, e
               <TimecodeRange inS={start} outS={end} fps={fps} copyable />
               <div className={s.techLine}>{techSummary(d)}</div>
             </div>
+            <BlockedNote state={state} />
             <div className={s.actions}>
               <AddToCollectionButton uids={[uid]} inPoint={io.i} outPoint={io.o} />
               <Button variant="secondary" icon={ScanSearch} shortcut="S" onPress={() => navigate({ to: '/search', search: { similar: uid } })}>
@@ -104,16 +119,16 @@ export function Inspector({ uid, result, intended, query, onClose, onCollapse, e
               </Button>
               <ExportMenu shot={d} inPoint={io.i} outPoint={io.o} state={state} />
             </div>
+            <Section title="Rights" id="rights">
+              <RightsBlock shot={d} vocabs={vocabs} intended={intended} />
+            </Section>
             {result && (
               <Section title="Why it matched" id="why">
                 <WhyMatched why={result.why} label={label} query={query} />
               </Section>
             )}
             <Section title="Signals" id="signals" action={<span className={t.slate}>E edits</span>}>
-              <SignalTable shot={d} vocabs={vocabs} label={label} editField={editField} />
-            </Section>
-            <Section title="Rights" id="rights">
-              <RightsBlock shot={d} vocabs={vocabs} intended={intended} />
+              <SignalTable shot={d} vocabs={vocabs} label={label} editField={editField} collapsible />
             </Section>
             <Section title="In collections" id="cols">
               <InCollections uid={uid} />

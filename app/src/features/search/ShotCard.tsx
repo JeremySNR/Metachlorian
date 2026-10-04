@@ -10,7 +10,8 @@ import { previewPool, type PreviewHandle } from '../../lib/previewPool'
 import { describeRights, type RightsState } from '../../lib/rights'
 import { SCRUB_STEPS, scrubStep, scrubTime, spriteIndexAt, tileAspect, tileBackground } from '../../lib/sprite'
 import { prefersReducedMotion, usePrefs } from '../../lib/store'
-import { durationAriaLabel, formatDuration, formatTimecode, fpsLabel, splitLeadingZeros, timecodeAriaLabel } from '../../lib/timecode'
+import { durationAriaLabel, formatDuration, formatTimecode, fpsLabel, fpsTitle, splitLeadingZeros, timecodeAriaLabel } from '../../lib/timecode'
+import { preferenceMatch } from '../../lib/chips'
 import { can, bridge } from '../../lib/bridge'
 import { dragFiles, prepareDrag } from '../../lib/dragOut'
 import s from './ResultsGrid.module.css'
@@ -45,12 +46,18 @@ export const SHOT_MIME = 'application/x-metachlorian-shots'
 const HOVER_INTENT = 150
 const DWELL = 400
 
+/**
+ * "Close-up, hands at a food stall. Starts 1 minute, 6 seconds, 5 frames, 4 seconds long.
+ * Restricted: credit required. Matches 2 of 3 preferences."
+ */
 export function shotAccessibleName(r: SearchResult, rights: RightsState): string {
   const desc = r.caption || r.summary || `${r.filename}, shot ${r.idx + 1}`
   const inS = r.in ?? r.start
   const outS = r.out ?? r.end
-  const d = describeRights(rights)
-  return `${desc.replace(/\.$/, '')}. ${timecodeAriaLabel(inS, r.fps)}, ${durationAriaLabel(outS - inS)}. ${d.short}.`
+  const d = describeRights(rights, null, r.rights?.reasons)
+  const pm = preferenceMatch(r.why)
+  const prefs = pm && pm.total > 1 ? ` Matches ${pm.matched} of ${pm.total} preferences.` : ''
+  return `${desc.replace(/\.$/, '')}. Starts ${timecodeAriaLabel(inS, r.fps)}, ${durationAriaLabel(outS - inS)} long. ${d.long.replace(/\.$/, '')}.${prefs}`
 }
 
 function aspectFromResolution(res: string | null): number | null {
@@ -262,6 +269,7 @@ export const ShotCard = memo(function ShotCard({ r, index, colIndex, focused, se
   const ar = aspectFromResolution(r.resolution)
   const arLabel = ar && Math.abs(ar - 16 / 9) > 0.03 ? aspectLabel(ar) : null
   const blocked = rights === 'blocked' || rights === 'expired'
+  const pm = preferenceMatch(r.why)
 
   return (
     <div
@@ -354,10 +362,17 @@ export const ShotCard = memo(function ShotCard({ r, index, colIndex, focused, se
         </span>
         <span className={s.stripMeta}>
           <span>{formatDuration(outS - inS)}</span>
-          {r.fps ? <span>· {fpsLabel(r.fps)}</span> : null}
+          {r.fps ? <span title={fpsTitle(r.fps)}>· {fpsLabel(r.fps)}</span> : null}
           <RightsGlyph state={rights} reasons={r.rights?.reasons} />
         </span>
-        <span className={s.title}>{r.caption || r.summary || r.filename}</span>
+        <span className={s.titleLine}>
+          {pm && pm.total > 1 && (
+            <span className={s.prefCue} title={`Matches ${pm.matched} of ${pm.total} preferences`}>
+              {pm.matched}/{pm.total}
+            </span>
+          )}
+          <span className={s.title}>{r.caption || r.summary || r.filename}</span>
+        </span>
       </div>
     </div>
   )

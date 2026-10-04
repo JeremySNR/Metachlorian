@@ -2,11 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import s from './ResultsGrid.module.css'
 
 /**
- * Match-strength rail (system.md §3.22): a sparkline of scores down the result
+ * Match-strength rail (system.md §3.22): a sparkline of match strength (absolute, 0..1) down the result
  * list, a tick at the "Weaker matches below" divider and a viewport thumb.
  * Click or drag to jump; PageUp/PageDown on the grid are the keyboard route.
  */
-export function MatchRail({ scroller, scores, total, split, gridId }: { scroller: React.RefObject<HTMLDivElement | null>; scores: number[]; total: number; split: number | null; gridId: string }) {
+export function MatchRail({ scroller, values, total, split, gridId }: { scroller: React.RefObject<HTMLDivElement | null>; values: number[]; total: number; split: number | null; gridId: string }) {
   const [view, setView] = useState({ top: 0, height: 1 })
   const railRef = useRef<HTMLDivElement>(null)
   const dragging = useRef(false)
@@ -29,12 +29,11 @@ export function MatchRail({ scroller, scores, total, split, gridId }: { scroller
   }, [scroller, total])
 
   if (total < 2) return null
-  const top = scores[0] || 1
   const n = Math.max(total, 1)
-  const step = Math.max(1, Math.ceil(scores.length / 200))
+  const step = Math.max(1, Math.ceil(values.length / 200))
   const pts: string[] = []
-  for (let i = 0; i < scores.length; i += step) {
-    const x = 2 + Math.max(0, Math.min(1, scores[i] / top)) * 8
+  for (let i = 0; i < values.length; i += step) {
+    const x = 2 + Math.max(0, Math.min(1, values[i])) * 8
     pts.push(`${x.toFixed(1)},${((i / n) * 1000).toFixed(1)}`)
   }
 

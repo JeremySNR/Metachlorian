@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  durationAriaLabel, formatDuration, formatLength, formatTimecode, fpsLabel, framesToParts, isDropFrame,
-  nominalFps, parseTimecode, splitLeadingZeros, timecodeAriaLabel,
+  durationAriaLabel, formatDuration, formatLength, formatTimecode, fpsLabel, fpsTitle, framesToParts, isDropFrame,
+  nominalFps, parseTimecode, snapFps, splitLeadingZeros, timecodeAriaLabel,
 } from './timecode'
 
 describe('timecode', () => {
@@ -81,5 +81,33 @@ describe('timecode', () => {
     expect(fpsLabel(23.976)).toBe('23.98p')
     expect(fpsLabel(29.97)).toBe('29.97p')
     expect(fpsLabel(59.94)).toBe('59.94p')
+  })
+})
+
+describe('frame-rate snapping (±0.1%)', () => {
+  it('snaps measured averages to the nearest standard rate', () => {
+    expect(fpsLabel(59.981)).toBe('60p')
+    expect(fpsLabel(30.017)).toBe('30p')
+    expect(fpsLabel(29.95)).toBe('29.97p')
+    expect(fpsLabel(29.944)).toBe('29.97p')
+    expect(fpsLabel(23.999)).toBe('24p')
+    expect(fpsLabel(59.97)).toBe('59.94p')
+    expect(fpsLabel(119.9)).toBe('119.88p')
+    expect(snapFps(59.981)).toMatchObject({ snapped: true, exact: 59.981 })
+    expect(snapFps(59.981)?.fps).toBeCloseTo(60)
+  })
+  it('leaves rates outside the tolerance as measured', () => {
+    // 24.03 is 0.125% off 24 and 29.93 is 0.13% off 29.97: shown as measured.
+    expect(fpsLabel(24.03)).toBe('24.03p')
+    expect(fpsLabel(29.93)).toBe('29.93p')
+    expect(fpsLabel(12)).toBe('12p')
+    expect(snapFps(24.03)).toMatchObject({ snapped: false })
+    expect(snapFps(null)).toBeNull()
+    expect(fpsLabel(0)).toBe('')
+  })
+  it('explains a snapped value in the tooltip', () => {
+    expect(fpsTitle(59.981)).toBe('Measured 59.981 fps, shown as 60')
+    expect(fpsTitle(25)).toBe('25 fps')
+    expect(fpsTitle(null)).toBeUndefined()
   })
 })

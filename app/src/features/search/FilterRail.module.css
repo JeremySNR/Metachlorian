@@ -26,6 +26,27 @@
   flex: 1;
 }
 
+/* Tablet drawer: a titled, sticky header with a close button (the footer applies). */
+.drawerHead {
+  block-size: auto;
+  min-block-size: 48px;
+  padding-block: var(--space-2);
+  position: sticky;
+  inset-block-start: 0;
+  background: var(--bg-panel);
+  z-index: var(--z-sticky);
+}
+
+.drawerTitle {
+  font-size: var(--text-lg);
+  line-height: var(--leading-lg);
+  font-weight: var(--weight-semibold);
+}
+
+.drawerHead .headCount {
+  font-size: var(--text-lg);
+}
+
 .scroll {
   overflow-y: auto;
   flex: 1;

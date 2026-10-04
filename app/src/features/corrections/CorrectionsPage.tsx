@@ -2,7 +2,10 @@ import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { Undo2 } from 'lucide-react'
 import { ApiError } from '../../api/client'
-import { useCorrections, useRevertCorrection, useVocabularies } from '../../api/queries'
+import { useAssets, useCorrections, useRevertCorrection, useVocabularies } from '../../api/queries'
+import type { Correction } from '../../api/types'
+import { useDocumentTitle } from '../../hooks/useDocumentTitle'
+import { formatTimecode } from '../../lib/timecode'
 import { Button } from '../../components/Button'
 import { EmptyState, StatusText } from '../../components/EmptyState'
 import { HumanMarker } from '../../components/HumanMarker'
@@ -23,11 +26,54 @@ export function CorrectionsPage() {
   const { label } = useVocabularies()
   const [filter, setFilter] = useState<'active' | 'all'>('active')
   const rows = (q.data?.corrections ?? []).filter((c) => filter === 'all' || c.active)
+  const assets = useAssets()
+  const fpsOf = new Map((assets.data?.assets ?? []).map((a) => [a.uid, a.fps]))
+  useDocumentTitle('Corrections', 'Library')
 
-  const valueText = (field: string, v: unknown) => {
+  const valueText = (field: string, v: unknown): string => {
     const vocab = field === 'structure.edit_type' ? 'edit_type' : VOCAB_FIELDS[field]?.vocab
-    const one = (x: unknown) => (typeof x === 'string' && vocab ? label(vocab, x) : typeof x === 'boolean' ? (x ? 'Yes' : 'No') : String(x))
+    const one = (x: unknown): string => {
+      if (x && typeof x === 'object') {
+        const o = x as { term?: unknown; value?: unknown }
+        if (o.term !== undefined) return one(o.term)
+        if (o.value !== undefined) return one(o.value)
+      }
+      return typeof x === 'string' && vocab ? label(vocab, x) : typeof x === 'boolean' ? (x ? 'Yes' : 'No') : x === null || x === undefined ? 'nothing' : String(x)
+    }
     return Array.isArray(v) ? v.map(one).join(', ') : one(v)
+  }
+
+  /** "Night → Morning" for a set; "Removed Night" / "Added Rain" otherwise. */
+  const change = (c: Correction) => {
+    const before = c.model_value ? valueText(c.field, c.model_value.value) : null
+    const after = valueText(c.field, c.value)
+    if (c.op === 'set' && before && before !== 'nothing') {
+      return (
+        <>
+          <span className={s.before}>{before}</span>
+          {c.model_value?.confidence != null && <span className={s.conf}> ({c.model_value.confidence.toFixed(2)})</span>} → <strong>{after}</strong>
+        </>
+      )
+    }
+    return (
+      <>
+        {OPS[c.op] ?? c.op} <strong>{after}</strong>
+        {before && c.op !== 'set' ? <span className={s.conf}> · model had {before}</span> : null}
+      </>
+    )
+  }
+
+  const where = (c: Correction) => {
+    const start = c.shot?.start ?? c.anchor_start
+    const num = c.shot?.number ?? (c.shot?.idx !== undefined ? c.shot.idx + 1 : null)
+    if (!c.shot_uid) return null
+    return (
+      <>
+        {' › '}
+        {num ? `Shot ${num}` : 'Shot'}
+        {start !== null && start !== undefined && <span className={s.tc}> · {formatTimecode(start, fpsOf.get(c.asset_uid) ?? null)}</span>}
+      </>
+    )
   }
 
   return (
@@ -71,6 +117,7 @@ export function CorrectionsPage() {
                       {c.shot_uid ? (
                         <Link to="/shot/$shotId" params={{ shotId: c.shot_uid }}>
                           {c.filename ?? c.asset_uid}
+                          {where(c)}
                         </Link>
                       ) : (
                         <Link to="/file/$assetId" params={{ assetId: c.asset_uid }}>
@@ -79,9 +126,7 @@ export function CorrectionsPage() {
                       )}
                     </td>
                     <td>{FIELD_META[c.field]?.label ?? (c.field === 'structure.edit_type' ? 'Edit stage' : humanise(c.field.split('.').pop()))}</td>
-                    <td>
-                      {OPS[c.op] ?? c.op} <strong>{valueText(c.field, c.value)}</strong>
-                    </td>
+                    <td>{change(c)}</td>
                     <td className={s.note}>{c.note || '—'}</td>
                     <td>{c.active ? <StatusText tone="cleared">In effect</StatusText> : <StatusText tone="neutral">Reverted</StatusText>}</td>
                     <td>

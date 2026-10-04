@@ -9,6 +9,7 @@ import { Segmented } from '../../components/Segmented'
 import { formatBytes, formatNumber, humanise, plural, shortLabel } from '../../lib/format'
 import { stateFromBadge, RIGHTS_SHORT } from '../../lib/rights'
 import s from './Library.module.css'
+import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 
 const COVERAGE: [string, string][] = [
   ['shot_size', 'Shot size'],
@@ -46,6 +47,7 @@ export function LibraryTabs() {
 /** Library overview (system.md §9.5): what exists, coverage and gaps. */
 export function LibraryPage() {
   const stats = useLibraryStats({ refetchInterval: 15_000 })
+  useDocumentTitle('Library')
   const { label } = useVocabularies()
   const [view, setView] = useState<'matrix' | 'table'>(() => (window.matchMedia?.('(prefers-contrast: more)').matches ? 'table' : 'matrix'))
   const d = stats.data

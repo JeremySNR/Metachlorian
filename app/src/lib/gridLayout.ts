@@ -89,11 +89,27 @@ export function moveIndex(rows: VRow[], i: number, key: 'up' | 'down' | 'left' |
   }
 }
 
-/** First index whose score falls below `ratio` × the top score (null when none among those loaded). */
-export function weakSplit(scores: number[], ratio: number, total: number): number | null {
-  if (scores.length < 2) return null
-  const top = scores[0]
-  if (!(top > 0)) return null
-  for (let i = 1; i < scores.length; i++) if (scores[i] < top * ratio) return i
-  return scores.length >= total ? null : null
+/** What the core says about match strength for a result list (POST /api/search, /api/similar). */
+export interface StrengthInfo {
+  total: number
+  strong_count?: number | null
+  /** null when the query has nothing to score (a filter-only browse): every result is strong. */
+  strictness?: string | null
+}
+
+/**
+ * Where the "Weaker matches below" divider goes: after the first `strong_count` results of the
+ * whole list (the core orders strong matches first). Null when there is no divider: nothing to
+ * score, every result is strong, or none is (that case is the "No strong matches" state).
+ */
+export function strongDivider(info: StrengthInfo | null | undefined): number | null {
+  if (!info || !info.strictness || typeof info.strong_count !== 'number') return null
+  const n = info.strong_count
+  if (n <= 0 || n >= info.total) return null
+  return n
+}
+
+/** True when a scored query found results but none clears the strictness threshold. */
+export function noStrongMatches(info: StrengthInfo | null | undefined): boolean {
+  return Boolean(info && info.strictness && info.strong_count === 0 && info.total > 0)
 }

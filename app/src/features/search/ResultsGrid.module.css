@@ -160,7 +160,12 @@
 .card:hover .overlay,
 .card:focus-within .overlay,
 .card:focus .overlay,
-.card[aria-selected='true'] .check {
+.card[aria-selected='true'] .tl {
+  opacity: 1;
+}
+
+/* Every selected card shows its checked box, not only the focused one (shape, not just colour). */
+.card[aria-selected='true'] .tl .check {
   opacity: 1;
 }
 
@@ -285,8 +290,13 @@
   .card[data-previewing] .playBtn {
     display: none;
   }
-  .overlay {
-    opacity: 1;
+  /* Touch: actions only on the focused (tapped) card, so they never cover every frame; 44 px targets. */
+  .card:not(:focus-within):not(:focus) .playBtn {
+    display: none;
+  }
+  .scrimBtn {
+    inline-size: var(--target-coarse);
+    block-size: var(--target-coarse);
   }
 }
 
@@ -335,10 +345,29 @@
   margin-block: -3px;
 }
 
+.titleLine {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1_5);
+  min-inline-size: 0;
+}
+
 .title {
   composes: cardTitle from '../../styles/type.module.css';
-  grid-column: 1 / -1;
   color: var(--fg-2);
+  min-inline-size: 0;
+  flex: 1;
+}
+
+/* "2/3": preferences this shot matches (the query's chips are preferences, not filters) */
+.prefCue {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-3);
+  font-variant-numeric: tabular-nums;
 }
 
 .placeholder .frame {
@@ -572,4 +601,30 @@
 
 .matchRail:focus-visible {
   outline: var(--focus-ring-width) solid var(--focus-ring);
+}
+
+/* ---------------------------------------------------------------- forced colours (WCAG 1.4.11 in Windows High Contrast) */
+@media (forced-colors: active) {
+  /* box-shadow rings vanish here: selection becomes a Highlight outline, focus stays an outline further out */
+  .card[aria-selected='true'] .frame {
+    outline: 3px solid Highlight;
+    outline-offset: 2px;
+  }
+  .card:focus-visible {
+    outline-color: CanvasText;
+    outline-offset: 7px;
+  }
+  .card[aria-selected='true'] .check {
+    forced-color-adjust: none;
+    background: Highlight;
+    color: HighlightText;
+  }
+  .item[aria-selected='true'] {
+    outline: 2px solid Highlight;
+    outline-offset: -3px;
+  }
+  .scrimBtn,
+  .badge {
+    border: 1px solid CanvasText;
+  }
 }

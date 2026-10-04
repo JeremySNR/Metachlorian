@@ -240,6 +240,20 @@
   row-gap: 4px;
 }
 
+.laneEmpty {
+  position: sticky;
+  inset-inline-start: var(--space-1);
+  display: block;
+  inline-size: max-content;
+  margin-block-start: -4px;
+  font-family: var(--font-sans);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-3);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
 .matchLane,
 .shotLane,
 .rightsLane,

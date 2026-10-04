@@ -8,7 +8,7 @@
  * (remove, promote to required, toggle exclude) to the search state. Removing an
  * inferred chip edits the words, because the server re-parses the text each time.
  */
-import type { IntendedUse, SearchFilters, SearchResponse, TermMap } from '../api/types'
+import type { IntendedUse, SearchFilters, SearchResponse, TermMap, WhyItem } from '../api/types'
 import { humanise } from './format'
 
 export type ChipKind = 'prefer' | 'require' | 'exclude' | 'filter' | 'use' | 'place'
@@ -586,4 +586,50 @@ export function activeFilterCount(state: SearchState): number {
   for (const g of Object.keys(FILTER_KEYS) as FilterGroup[]) if (FILTER_KEYS[g].some((k) => has(f[k]))) n++
   if (state.use && (state.use.use || state.use.channel || state.use.territory)) n++
   return n
+}
+
+// ---------------------------------------------------------------- why it matched
+
+/** Preferences the result has, out of those the query asked for ("3 of 5 preferences"). */
+export function preferenceMatch(why: readonly Pick<WhyItem, 'signal' | 'term' | 'missing'>[] | undefined): { matched: number; total: number } | null {
+  const prefs = (why ?? []).filter((w) => w.term)
+  if (!prefs.length) return null
+  return { matched: prefs.filter((w) => !w.missing).length, total: prefs.length }
+}
+
+function parseFilterValue(v: string): unknown {
+  const t = v.trim()
+  if (t === 'True' || t === 'true') return true
+  if (t === 'False' || t === 'false') return false
+  if (/^-?\d+(\.\d+)?$/.test(t)) return Number(t)
+  if (t.startsWith('[')) {
+    try {
+      return JSON.parse(t.replace(/'/g, '"'))
+    } catch {
+      return t
+    }
+  }
+  return t
+}
+
+/**
+ * "Matches your filters" lines from a result's `why` (signal "filter", detail "min height: 1080"):
+ * grouped like the filter chips ("1080p or higher", "2s – 10s", "Not log"), never raw keys.
+ */
+export function whyFilterLabels(why: { signal: string; detail: string; filter?: string }[] | undefined, label?: LabelFn): string[] {
+  const f: Record<string, unknown> = {}
+  const unknown: string[] = []
+  for (const w of why ?? []) {
+    if (w.signal !== 'filter') continue
+    const key = w.filter ?? w.detail.split(':')[0].trim().replace(/\s+/g, '_')
+    const raw = w.detail.includes(':') ? w.detail.slice(w.detail.indexOf(':') + 1) : ''
+    if (Object.values(FILTER_KEYS).some((keys) => (keys as string[]).includes(key))) f[key] = parseFilterValue(raw)
+    else unknown.push(humanise(w.detail.replace(/:\s*/, ': ')))
+  }
+  const out: string[] = []
+  for (const group of Object.keys(FILTER_KEYS) as FilterGroup[]) {
+    const text = filterLabel(group, f as SearchFilters, label)
+    if (text) out.push(text)
+  }
+  return [...out, ...unknown]
 }

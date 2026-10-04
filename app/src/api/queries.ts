@@ -11,6 +11,7 @@ import type {
   SearchResponse, ShotDoc, Source, Sprites, TokensResponse, User, Verdict, Vocabulary,
 } from './types'
 import { humanise, shortLabel } from '../lib/format'
+import type { Locality } from '../lib/egress'
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -74,13 +75,26 @@ export function useSearch(req: SearchRequest | null) {
   })
 }
 
-export const useSimilar = (uid: string | null | undefined, limit = 24) =>
-  useQuery({ queryKey: ['similar', uid, limit], queryFn: () => api.get<SearchResponse>(`/api/shots/${uid}/similar${qs({ limit })}`), enabled: Boolean(uid), staleTime: 5 * 60_000 })
+/** Rights options for similar-shot searches: the same verdict, intended use and Hide blocked as search. */
+export interface SimilarRights {
+  use?: string | null
+  channel?: string | null
+  territory?: string | null
+  include?: Verdict[] | null
+  hideBlocked?: boolean
+}
 
-export function searchByExample(file: File, limit = 120) {
+function similarQs(limit: number, r: SimilarRights = {}) {
+  return qs({ limit, use: r.use, channel: r.channel, territory: r.territory, include: r.include?.length ? r.include.join(',') : undefined, hide_blocked: r.hideBlocked === false ? 'false' : undefined })
+}
+
+export const useSimilar = (uid: string | null | undefined, limit = 24, rights: SimilarRights = {}) =>
+  useQuery({ queryKey: ['similar', uid, limit, rights], queryFn: () => api.get<SearchResponse>(`/api/shots/${uid}/similar${similarQs(limit, rights)}`), enabled: Boolean(uid), staleTime: 5 * 60_000 })
+
+export function searchByExample(file: File, limit = 120, rights: SimilarRights = {}) {
   const form = new FormData()
   form.append('file', file)
-  return api.post<SearchResponse>(`/api/similar${qs({ limit })}`, form)
+  return api.post<SearchResponse>(`/api/similar${similarQs(limit, rights)}`, form)
 }
 
 // ---------------------------------------------------------------- shots and assets
@@ -289,6 +303,18 @@ export const useProcessing = (enabled = true) =>
 export const useSources = () => useQuery({ queryKey: ['sources'], queryFn: () => api.get<{ sources: Source[] }>('/api/sources').then((r) => r.sources) })
 
 // ---------------------------------------------------------------- admin
+export const useEndpointLocality = (url: string) =>
+  useQuery({
+    queryKey: ['admin', 'locality', url.trim()],
+    queryFn: ({ signal }) => api.get<Locality>(`/api/admin/endpoint-locality${qs({ url: url.trim() })}`, signal),
+    enabled: Boolean(url.trim()),
+    staleTime: 60_000,
+    retry: false,
+  })
+
+export const checkEndpointLocality = (url: string) =>
+  queryClient.fetchQuery({ queryKey: ['admin', 'locality', url.trim()], queryFn: () => api.get<Locality>(`/api/admin/endpoint-locality${qs({ url: url.trim() })}`), staleTime: 60_000 })
+
 export const useAdminSettings = () => useQuery({ queryKey: ['admin', 'settings'], queryFn: () => api.get<AdminSettings>('/api/admin/settings'), retry: false })
 export const useTokens = () => useQuery({ queryKey: ['admin', 'tokens'], queryFn: () => api.get<TokensResponse>('/api/admin/tokens'), retry: false })
 export const useUsers = () => useQuery({ queryKey: ['admin', 'users'], queryFn: () => api.get<{ users: User[] }>('/api/admin/users').then((r) => r.users), retry: false })

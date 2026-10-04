@@ -175,10 +175,37 @@ export function formatLength(seconds: number | null | undefined): string {
   return h ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`
 }
 
-/** Frame-rate label for the edge strip: 25p, 23.98p, 29.97p, 50p. */
-export function fpsLabel(fps: number | null | undefined): string {
-  if (!fps || !Number.isFinite(fps)) return ''
+/** Standard production frame rates (NTSC rates are 1000/1001 of the integer rate). */
+export const STANDARD_FPS = [24000 / 1001, 24, 25, 30000 / 1001, 30, 48000 / 1001, 48, 50, 60000 / 1001, 60, 120000 / 1001, 120]
+
+/**
+ * Snap a measured average frame rate to the nearest standard rate when it is within ±0.1%
+ * (59.98 → 60, 30.01 → 30, 29.95 → 29.97). Containers often report a measured average;
+ * people think in nominal rates. Returns the rate to display and whether it was snapped.
+ */
+export function snapFps(fps: number | null | undefined): { fps: number; snapped: boolean; exact: number } | null {
+  if (!fps || !Number.isFinite(fps) || fps <= 0) return null
+  let best = STANDARD_FPS[0]
+  for (const r of STANDARD_FPS) if (Math.abs(r - fps) < Math.abs(best - fps)) best = r
+  const within = Math.abs(best - fps) / best <= 0.001
+  return within ? { fps: best, snapped: Math.abs(best - fps) > 1e-6, exact: fps } : { fps, snapped: false, exact: fps }
+}
+
+function rateText(fps: number): string {
   const r = Math.round(fps)
-  if (Math.abs(fps - r) < 0.005) return `${r}p`
-  return `${(Math.round(fps * 100) / 100).toFixed(2).replace(/0$/, '')}p`
+  if (Math.abs(fps - r) < 0.005) return String(r)
+  return (Math.round(fps * 100) / 100).toFixed(2).replace(/0$/, '')
+}
+
+/** Frame-rate label for the edge strip: 25p, 23.98p, 29.97p, 50p (snapped to a standard rate within ±0.1%). */
+export function fpsLabel(fps: number | null | undefined): string {
+  const s = snapFps(fps)
+  return s ? `${rateText(s.fps)}p` : ''
+}
+
+/** Tooltip for a frame-rate label: the measured value when it was snapped ("Measured 59.981 fps"). */
+export function fpsTitle(fps: number | null | undefined): string | undefined {
+  const s = snapFps(fps)
+  if (!s) return undefined
+  return s.snapped ? `Measured ${Math.round(s.exact * 1000) / 1000} fps, shown as ${rateText(s.fps)}` : `${Math.round(s.exact * 1000) / 1000} fps`
 }

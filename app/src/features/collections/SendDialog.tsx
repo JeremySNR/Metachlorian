@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
-import { Download, ExternalLink, FolderOpen, Package, Send } from 'lucide-react'
-import type { Collection, CutawanMode, MediaPolicy, PackageResult, Verdict } from '../../api/types'
+import { useQueries } from '@tanstack/react-query'
+import { Download, ExternalLink, FolderOpen, Package, Send, TriangleAlert } from 'lucide-react'
+import type { Collection, CutawanMode, MediaPolicy, PackageResult, ShotDoc, Verdict } from '../../api/types'
 import { ApiError, mediaUrl } from '../../api/client'
-import { buildCollectionPackage, buildPackage, useCollection, useRightsCheck, useVocabularies, verdictCounts } from '../../api/queries'
+import { buildCollectionPackage, buildPackage, shotQuery, useCollection, useRightsCheck, useVocabularies, verdictCounts } from '../../api/queries'
 import { Button } from '../../components/Button'
 import { Dialog } from '../../components/Dialog'
 import { Checkbox, Radio, RadioGroup, Select, TextField } from '../../components/Field'
@@ -35,6 +36,25 @@ const A_ROLES = new Set(['interview', 'piece_to_camera', 'a_roll', 'vox_pop'])
 
 const today = () => formatDate(new Date())
 
+export type CropFit = 'ok' | 'none' | 'check' | 'unknown' | 'na'
+
+/**
+ * Whether a shot has a safe crop for a delivery aspect, from the shot's composition.vertical_crop
+ * (a 9:16 window that keeps the subject). A 9:16 window also fits inside a 1:1 or 4:5 one.
+ */
+export function cropFit(doc: Pick<ShotDoc, 'fields' | 'technical'> | undefined, aspect: string): CropFit {
+  if (aspect === 'original' || aspect === '16:9') return 'na'
+  if (!doc) return 'unknown'
+  const ar = doc.technical?.aspect_ratio ?? (doc.technical?.width && doc.technical?.height ? doc.technical.width / doc.technical.height : null)
+  const target = aspect === '9:16' ? 9 / 16 : aspect === '4:5' ? 4 / 5 : 1
+  if (ar && ar <= target * 1.05) return 'na'
+  const v = doc.fields?.['composition.vertical_crop']?.value as { safe?: boolean; value?: { safe?: boolean } } | undefined
+  const safe = v?.value?.safe ?? v?.safe
+  if (safe === true) return 'ok'
+  if (safe === false) return aspect === '9:16' ? 'none' : 'check'
+  return 'unknown'
+}
+
 /**
  * Send to Cutawan / Export timeline (system.md §3.17). Runs the rights check for
  * the chosen use first: blocked and unknown shots are dropped and listed;
@@ -57,6 +77,10 @@ function SendDialogBody({ req, collection }: { req: SendReq; collection?: Collec
   const cache = useUi((u) => u.resultCache)
   const { vocabs } = useVocabularies()
   const def = usePrefs((p) => p.defaultUse)
+  // Intended use: the search's own, else the workspace default (Rights → Policies), else none. Say which.
+  const fromSearch = req.use && (req.use.use || req.use.channel || req.use.territory) ? req.use : null
+  const hasDefault = Boolean(def.use || def.channel || def.territory)
+  const [useSource, setUseSource] = useState<'search' | 'default' | 'none' | 'edited'>(fromSearch ? 'search' : hasDefault ? 'default' : 'none')
 
   const items: Item[] = useMemo(() => {
     if (req.kind === 'collection')
@@ -71,9 +95,9 @@ function SendDialogBody({ req, collection }: { req: SendReq; collection?: Collec
   const [brief, setBrief] = useState(() => (collection ? collection.brief || collection.description : ''))
   const [mode, setMode] = useState<CutawanMode>(() => (items.some((i) => i.role && A_ROLES.has(i.role)) ? 'a_roll_with_inserts' : 'stringout'))
   const [aspect, setAspect] = useState<Aspect>(consumer === 'nle' ? 'original' : '9:16')
-  const [use, setUse] = useState(def.use ?? 'marketing')
-  const [channel, setChannel] = useState(def.channel ?? 'organic_social')
-  const [territory, setTerritory] = useState(def.territory ?? 'GB')
+  const [use, setUse] = useState(fromSearch ? (fromSearch.use ?? '') : (def.use ?? ''))
+  const [channel, setChannel] = useState(fromSearch ? (fromSearch.channel ?? '') : (def.channel ?? ''))
+  const [territory, setTerritory] = useState(fromSearch ? (fromSearch.territory ?? '') : (def.territory ?? ''))
   const [media, setMedia] = useState<MediaPolicy>(consumer === 'nle' ? 'none' : 'proxies')
   const [includeRestricted, setIncludeRestricted] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -88,6 +112,11 @@ function SendDialogBody({ req, collection }: { req: SendReq; collection?: Collec
   const aRoll = kept.filter((i) => i.role && A_ROLES.has(i.role)).length
   const effectiveMode: CutawanMode = mode === 'a_roll_with_inserts' && aRoll === 0 ? 'stringout' : mode
   const credits = [...new Set((check.data?.items ?? []).map((i) => i.rights.attribution).filter(Boolean))]
+  const docs = useQueries({ queries: consumer === 'cutawan' ? items.slice(0, 80).map((i) => ({ ...shotQuery(i.uid), staleTime: 5 * 60_000 })) : [] })
+  const docOf = new Map(docs.map((q) => [q.data?.uid, q.data]))
+  const fitOf = (uid: string) => cropFit(docOf.get(uid), aspect)
+  const noCrop = consumer === 'cutawan' ? kept.filter((i) => fitOf(i.uid) === 'none').length : 0
+  const checkCrop = consumer === 'cutawan' ? kept.filter((i) => fitOf(i.uid) === 'check').length : 0
   const expiries = (check.data?.items ?? []).map((i) => i.rights.expires).filter(Boolean).sort() as string[]
 
   const close = () => set({ sendDialog: null })
@@ -213,10 +242,10 @@ function SendDialogBody({ req, collection }: { req: SendReq; collection?: Collec
                 <Radio value="broll_library" description="No project; feeds Cutawan's B-roll picker.">B-roll library</Radio>
               </RadioGroup>
               <RadioGroup label="Media" value={media} onChange={(v) => setMedia(v as MediaPolicy)}>
-                <Radio value="stringout">Stringout</Radio>
-                <Radio value="proxies">Proxies</Radio>
-                <Radio value="trimmed_originals">Trimmed originals</Radio>
-                <Radio value="none">None</Radio>
+                <Radio value="stringout" description="Every shot in order, rendered as one file.">One rendered video</Radio>
+                <Radio value="proxies" description="One small clip per shot.">Proxy clips</Radio>
+                <Radio value="trimmed_originals" description="Full-quality clips cut from the source files.">Trimmed originals</Radio>
+                <Radio value="none" description="Timelines only, pointing at the original files.">No media</Radio>
               </RadioGroup>
             </div>
           </>
@@ -224,10 +253,19 @@ function SendDialogBody({ req, collection }: { req: SendReq; collection?: Collec
         <div>
           <span className={s.legend}>Intended use</span>
           <div className={s.cols3}>
-            <Select aria-label="Usage" options={[{ id: '', label: 'Any use' }, ...opt('usage')]} selectedKey={use} onSelectionChange={(k) => setUse(String(k))} />
-            <Select aria-label="Channel" options={[{ id: '', label: 'Any channel' }, ...opt('channel')]} selectedKey={channel} onSelectionChange={(k) => setChannel(String(k))} />
-            <TextField aria-label="Territory (ISO code)" value={territory} onChange={(v) => setTerritory(v.toUpperCase().slice(0, 2))} placeholder="GB" mono />
+            <Select aria-label="Usage" options={[{ id: '', label: 'Any use' }, ...opt('usage')]} selectedKey={use} onSelectionChange={(k) => { setUse(String(k)); setUseSource('edited') }} />
+            <Select aria-label="Channel" options={[{ id: '', label: 'Any channel' }, ...opt('channel')]} selectedKey={channel} onSelectionChange={(k) => { setChannel(String(k)); setUseSource('edited') }} />
+            <TextField aria-label="Territory (ISO code)" value={territory} onChange={(v) => { setTerritory(v.toUpperCase().slice(0, 2)); setUseSource('edited') }} placeholder="Any territory (e.g. GB)" mono />
           </div>
+          {useSource !== 'edited' && (
+            <p className={s.hint} data-testid="use-source">
+              {useSource === 'search'
+                ? 'From your search.'
+                : useSource === 'default'
+                  ? 'Workspace default from Rights → Policies. Change it if this edit is for something else.'
+                  : 'No use chosen: shots are checked for blocks only. Pick what this edit is for to check permissions too.'}
+            </p>
+          )}
         </div>
         <div className={s.summary} role="status" data-testid="rights-summary">
           <span className={s.summaryCounts}>
@@ -236,10 +274,22 @@ function SendDialogBody({ req, collection }: { req: SendReq; collection?: Collec
           {credits.length > 0 && <span>Credits: {credits.join('; ')}</span>}
           {expiries.length > 0 && <span>Earliest expiry {formatDate(expiries[0])}</span>}
           {(counts.blocked > 0 || counts.unknown > 0) && <span style={{ color: 'var(--fg-2)' }}>Blocked and unknown shots are left out.</span>}
+          {noCrop > 0 && (
+            <span className={s.cropWarn} data-testid="crop-summary">
+              <TriangleAlert size={14} strokeWidth={2} aria-hidden="true" />
+              {`${plural(noCrop, 'shot')} ${noCrop === 1 ? 'has' : 'have'} no safe ${aspect} crop`}
+            </span>
+          )}
+          {checkCrop > 0 && (
+            <span className={s.cropWarn}>
+              <TriangleAlert size={14} strokeWidth={2} aria-hidden="true" />
+              {`${plural(checkCrop, 'shot')} may need reframing for ${aspect}`}
+            </span>
+          )}
         </div>
         {counts.restricted > 0 && (
           <Checkbox isSelected={includeRestricted} onChange={setIncludeRestricted}>
-            {`${counts.restricted} of ${items.length} shots are restricted${credits.length ? ' (credit required)' : ''}. Include them`}
+            {`${counts.restricted} of ${plural(items.length, 'shot')} ${counts.restricted === 1 ? 'is' : 'are'} restricted${credits.length ? ' (credit required)' : ''}. Include ${counts.restricted === 1 ? 'it' : 'them'}?`}
           </Checkbox>
         )}
         <div>
@@ -249,6 +299,7 @@ function SendDialogBody({ req, collection }: { req: SendReq; collection?: Collec
               const v = verdictOf.get(i.uid)
               const st = v ? stateFromVerdict(v.verdict, v.reasons, v.rights.expires) : 'unknown'
               const out = !keep(v?.verdict)
+              const fit = consumer === 'cutawan' ? fitOf(i.uid) : 'na'
               return (
                 <div key={`${i.uid}-${n}`} className={`${s.shot} ${out ? s.dropped : ''}`}>
                   <span className={s.idx}>{n + 1}</span>
@@ -257,6 +308,14 @@ function SendDialogBody({ req, collection }: { req: SendReq; collection?: Collec
                     <span>{i.title}</span>
                     <span>{i.duration ? formatDuration(i.duration) : ''}{out ? ' · left out' : ''}</span>
                   </span>
+                  {(fit === 'none' || fit === 'check') && !out ? (
+                    <span className={s.cropWarn} title={fit === 'none' ? `No safe ${aspect} crop: the subject doesn't fit a ${aspect} window` : `May need reframing for ${aspect}`}>
+                      <TriangleAlert size={14} strokeWidth={2} aria-hidden="true" />
+                      <span className={s.cropText}>{fit === 'none' ? `No safe ${aspect} crop` : 'Check crop'}</span>
+                    </span>
+                  ) : (
+                    <span />
+                  )}
                   {v && <RightsBadge state={st} reasons={v.reasons} record={v.rights} />}
                 </div>
               )

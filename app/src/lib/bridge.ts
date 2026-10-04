@@ -68,5 +68,5 @@ export function desktopInfo(): Promise<DesktopInfo | null> {
 
 export const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)
 
-/** Platform modifier label for shortcut hints. */
-export const MOD = isMac ? '⌘' : 'Ctrl '
+/** Platform modifier prefix for shortcut hints: "⌘K" on macOS, "Ctrl+K" elsewhere (see lib/keys.ts). */
+export const MOD = isMac ? '⌘' : 'Ctrl+'

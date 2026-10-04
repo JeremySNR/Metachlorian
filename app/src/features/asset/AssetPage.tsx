@@ -12,9 +12,10 @@ import { Menu, MenuItem, MenuPopover, MenuTrigger } from '../../components/Menu'
 import { RightsBadge } from '../../components/RightsBadge'
 import { Timecode } from '../../components/Timecode'
 import { toast } from '../../components/Toast'
-import { formatBytes, formatDateTime, formatNumber, humanise, percent, shortLabel } from '../../lib/format'
+import { formatBytes, formatDate, formatDateTime, formatNumber, humanise, percent, plural, shortLabel, tidyNumbers } from '../../lib/format'
+import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { stateFromBadge } from '../../lib/rights'
-import { formatDuration, formatLength, fpsLabel } from '../../lib/timecode'
+import { formatDuration, formatLength, fpsLabel, fpsTitle } from '../../lib/timecode'
 import { useUi } from '../../lib/store'
 import { Player, type PlayerHandle } from '../shot/Player'
 import { Transcript } from '../shot/ShotPanels'
@@ -40,6 +41,7 @@ export function AssetPage() {
   const [io, setIo] = useState<{ i: number | null; o: number | null }>({ i: null, o: null })
   const cache = useUi((u) => u.resultCache)
   const order = useUi((u) => u.resultOrder)
+  useDocumentTitle(asset.data?.filename ?? 'File')
 
   if (asset.isError && !a) {
     return (
@@ -64,6 +66,8 @@ export function AssetPage() {
   const tech = a.technical as Record<string, string | number | boolean | null>
   const scores = edit?.scores ?? {}
   const maxScore = Math.max(0.001, ...Object.values(scores))
+  // Evidence as a share of the total, not raw rule scores.
+  const scoreSum = Math.max(0.001, Object.values(scores).reduce((x, y) => x + y, 0))
   const failed = a.processing.filter((p) => p.status === 'failed')
   const pendingJobs = a.jobs.filter((j) => j.status !== 'failed')
 
@@ -176,10 +180,10 @@ export function AssetPage() {
                 {STAGE_ORDER.filter((k) => k in scores).map((k) => (
                   <div key={k} className={`${s.stage} ${edit.term === k ? s.win : ''}`}>
                     <span>{label('edit_type', k)}</span>
-                    <span className={s.bar} role="img" aria-label={`${label('edit_type', k)} evidence score ${scores[k]}`}>
+                    <span className={s.bar} role="img" aria-label={`${label('edit_type', k)}: ${percent(scores[k] / scoreSum)} of the evidence`}>
                       <span className={s.fill} style={{ display: 'block', inlineSize: `${(scores[k] / maxScore) * 100}%` }} />
                     </span>
-                    <span className={s.stageScore}>{scores[k].toFixed(1)}</span>
+                    <span className={s.stageScore} title={`Rule score ${scores[k].toFixed(1)}`}>{percent(scores[k] / scoreSum)}</span>
                   </div>
                 ))}
                 <p className={s.meta} style={{ whiteSpace: 'normal' }}>
@@ -194,31 +198,35 @@ export function AssetPage() {
           </div>
           <div className={s.block}>
             <span className={s.blockHead}>Summary</span>
-            <p>{st.summary?.story || st.summary?.text || 'No summary yet.'}</p>
+            <p>{tidyNumbers(st.summary?.story || st.summary?.text || 'No summary yet.')}</p>
           </div>
           <dl className={s.kv}>
             <dt>Path</dt>
             <dd className={s.mono}>{a.path}</dd>
             <dt>Video</dt>
             <dd className={s.mono}>
-              {[a.width && a.height ? `${a.width}×${a.height}` : null, fpsLabel(a.fps), String(tech.video_codec ?? '').toUpperCase(), tech.bit_depth ? `${tech.bit_depth}-bit` : null, tech.hdr ? 'HDR' : 'SDR', tech.chroma].filter(Boolean).join(' · ')}
+              <span title={fpsTitle(a.fps)}>{[a.width && a.height ? `${a.width}×${a.height}` : null, fpsLabel(a.fps), String(tech.video_codec ?? '').toUpperCase(), tech.bit_depth ? `${tech.bit_depth}-bit` : null, tech.hdr ? 'HDR' : 'SDR', tech.chroma].filter(Boolean).join(' · ')}</span>
             </dd>
             <dt>Audio</dt>
             <dd className={s.mono}>{tech.audio_codec ? `${String(tech.audio_codec).toUpperCase()} · ${tech.audio_channels ?? '?'} ch · ${tech.audio_sample_rate ?? '?'} Hz` : 'None'}</dd>
             <dt>Size</dt>
             <dd className={s.mono}>{formatBytes(a.size)}</dd>
             <dt>Shot on</dt>
-            <dd className={s.mono}>{tech.capture_date ? String(tech.capture_date).slice(0, 10) : 'Unknown'}{tech.camera_model ? ` · ${tech.camera_make ?? ''} ${tech.camera_model}` : ''}</dd>
+            <dd>{tech.capture_date ? formatDate(String(tech.capture_date).slice(0, 10)) : 'Unknown'}{tech.camera_model ? ` · ${tech.camera_make ?? ''} ${tech.camera_model}` : ''}</dd>
             <dt>Ingested</dt>
             <dd>{formatDateTime(a.created_at)}</dd>
             <dt>Processing</dt>
             <dd>
               {processing(a) ? (
                 <StatusText tone="info" icon={LoaderCircle}>
-                  Analysing · {pendingJobs.length} steps left
+                  Analysing · {plural(pendingJobs.length, 'step')} left
+                </StatusText>
+              ) : a.status === 'updating' ? (
+                <StatusText tone="info" icon={RefreshCw}>
+                  Searchable · updating {plural(pendingJobs.length, 'step')}
                 </StatusText>
               ) : failed.length ? (
-                <StatusText tone="blocked">{failed.length} steps failed</StatusText>
+                <StatusText tone="blocked">{plural(failed.length, 'step')} failed</StatusText>
               ) : (
                 <StatusText tone="cleared">Analysed</StatusText>
               )}{' '}

@@ -18,6 +18,7 @@ import { usePrefs, useUi } from '../../lib/store'
 import type { RightsTab } from '../../routes/router'
 import l from '../library/Library.module.css'
 import s from './Rights.module.css'
+import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 
 const TABS: { id: RightsTab; label: string; states?: RightsState[] }[] = [
   { id: 'expiring', label: 'Expiring soon', states: ['expiring'] },
@@ -33,6 +34,7 @@ const TABS: { id: RightsTab; label: string; states?: RightsState[] }[] = [
 export function RightsPage() {
   const search = useSearch({ from: '/rights' })
   const navigate = useNavigate()
+  useDocumentTitle('Rights and governance')
   const assets = useAssets()
   const list = useMemo(() => assets.data?.assets ?? [], [assets.data])
   const counts = useMemo(() => {

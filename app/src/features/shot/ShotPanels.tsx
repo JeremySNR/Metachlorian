@@ -1,17 +1,18 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useQueries } from '@tanstack/react-query'
-import { ChevronDown, Download, Layers, Plus, ShieldCheck } from 'lucide-react'
+import { ChevronDown, Download, Layers, Plus, ShieldCheck, ShieldX } from 'lucide-react'
 import type { IntendedUse, Moment, SearchResult, ShotDoc, TranscriptSegment, Verdict, Vocabulary, WhyItem } from '../../api/types'
 import { api, mediaUrl, ApiError } from '../../api/client'
-import { checkRights, exportClip, useAddToCollection, useCollections, useSimilar, useVocabularies } from '../../api/queries'
-import { buildPhraseIndex, locateTerm } from '../../lib/chips'
+import { checkRights, exportClip, useAddToCollection, useCollections, useSimilar, useVocabularies, type SimilarRights } from '../../api/queries'
+import { buildPhraseIndex, locateTerm, preferenceMatch, whyFilterLabels } from '../../lib/chips'
 import type { Collection } from '../../api/types'
 import { Button } from '../../components/Button'
 import { ConfidenceMeter } from '../../components/ConfidenceMeter'
 import { Select } from '../../components/Field'
 import { Menu, MenuItem, MenuPopover, MenuSeparator, MenuTrigger } from '../../components/Menu'
-import { RightsFull, RightsBadge } from '../../components/RightsBadge'
+import { RightsFull, RightsBadge, RightsGlyph } from '../../components/RightsBadge'
+import { StatusText } from '../../components/EmptyState'
 import { toast } from '../../components/Toast'
 import { Timecode } from '../../components/Timecode'
 import { Snippet } from '../search/ResultsGrid'
@@ -51,14 +52,18 @@ export function WhyMatched({ why, label, query }: { why: WhyItem[]; label: (v: s
   const index = useMemo(() => buildPhraseIndex(vocabs), [vocabs])
   const words = (vocab: string, term?: string) => (query && term ? locateTerm(query, index, vocab, term)?.text : undefined)
   if (!why.length) return <p className={s.empty}>Open this shot from a search to see why it matched.</p>
+  const pm = preferenceMatch(why)
+  const filters = whyFilterLabels(why, label)
   return (
     <div className={s.why} data-testid="why">
-      {query && (
+      {(query || pm) && (
         <p style={{ color: 'var(--fg-2)', fontSize: 'var(--text-sm)' }}>
-          For “{query}”
+          {query ? `For “${query}”` : null}
+          {query && pm ? ' · ' : null}
+          {pm ? <strong style={{ color: 'var(--fg-1)', fontWeight: 600 }}>{`Matches ${pm.matched} of ${pm.total} ${pm.total === 1 ? 'preference' : 'preferences'}`}</strong> : null}
         </p>
       )}
-      {why.map((w, i) => {
+      {why.filter((w) => w.signal !== 'filter').map((w, i) => {
         const field = SIGNAL_NAME[w.signal] ?? w.signal.replace(/_/g, ' ')
         const isVocab = Boolean(w.term)
         const value = w.term ? label(w.signal, w.term) : null
@@ -111,6 +116,16 @@ export function WhyMatched({ why, label, query }: { why: WhyItem[]; label: (v: s
           </div>
         )
       })}
+      {filters.length > 0 && (
+        <div className={s.whyFilters}>
+          <span className={t.slate}>Matches your filters</span>
+          <ul>
+            {filters.map((f) => (
+              <li key={f}>{f}</li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   )
 }
@@ -252,19 +267,22 @@ export function Moments({ moments, fps, onSeek }: { moments: Moment[]; fps: numb
 }
 
 // ---------------------------------------------------------------- similar shots
-export function SimilarStrip({ uid, limit = 8 }: { uid: string; limit?: number }) {
-  const q = useSimilar(uid, limit)
+export function SimilarStrip({ uid, limit = 8, rights }: { uid: string; limit?: number; rights?: SimilarRights }) {
+  const q = useSimilar(uid, limit, rights)
   if (q.isLoading) return <div className={s.similar}>{Array.from({ length: Math.min(limit, 4) }, (_, i) => <span key={i} className={s.simWell} />)}</div>
   const results = q.data?.results ?? []
   if (!results.length) return <p className={s.empty}>{q.isError ? "Couldn't load similar shots." : 'Nothing visually similar yet.'}</p>
   return (
     <div className={s.similar} data-testid="similar">
       {results.slice(0, limit).map((r: SearchResult) => (
-        <Link key={r.uid} to="/shot/$shotId" params={{ shotId: r.uid }} className={s.simCard} aria-label={`${r.caption ?? r.filename}, ${formatDuration(r.duration)}`}>
+        <Link key={r.uid} to="/shot/$shotId" params={{ shotId: r.uid }} className={s.simCard} aria-label={`${r.caption ?? r.filename}, ${formatDuration(r.duration)}. ${describeRights(r.rights ? stateFromVerdict(r.rights.verdict, r.rights.reasons) : stateFromBadge(r.rights_badge), null, r.rights?.reasons).long}`}>
           {r.thumb ? <img src={mediaUrl(r.thumb)} alt="" loading="lazy" decoding="async" /> : <span className={s.simWell} />}
           <span className={s.simMeta}>
             <Timecode seconds={r.start} fps={r.fps} size="xs" />
-            <span>{formatDuration(r.duration)}</span>
+            <span className={s.simMetaEnd}>
+              {formatDuration(r.duration)}
+              <RightsGlyph state={r.rights ? stateFromVerdict(r.rights.verdict, r.rights.reasons) : stateFromBadge(r.rights_badge)} reasons={r.rights?.reasons} />
+            </span>
           </span>
           <span className={s.simTitle}>{r.caption ?? r.filename}</span>
         </Link>
@@ -325,17 +343,30 @@ export function AddToCollectionButton({ uids, inPoint, outPoint }: { uids: strin
 }
 
 // ---------------------------------------------------------------- export
-const EXPORTS: { mode: 'proxy' | 'file' | 'otio' | 'fcpxml' | 'edl' | 'reference'; label: string }[] = [
-  { mode: 'proxy', label: 'Proxy clip (MP4)' },
-  { mode: 'file', label: 'Trimmed original' },
+const EXPORTS: { mode: 'proxy' | 'file' | 'otio' | 'fcpxml' | 'edl' | 'reference'; label: string; media?: boolean }[] = [
+  { mode: 'proxy', label: 'Proxy clip (MP4)', media: true },
+  { mode: 'file', label: 'Trimmed original', media: true },
   { mode: 'otio', label: 'OpenTimelineIO (.otio)' },
   { mode: 'fcpxml', label: 'FCPXML 1.10' },
   { mode: 'edl', label: 'CMX 3600 EDL' },
   { mode: 'reference', label: 'Copy reference (JSON)' },
 ]
 
+export const isBlockedState = (state: RightsState) => state === 'blocked' || state === 'expired'
+
+/** A blocked shot says so next to its actions (finding: no rights cue by Add / Export). */
+export function BlockedNote({ state }: { state: RightsState }) {
+  if (!isBlockedState(state)) return null
+  return (
+    <StatusText tone="blocked" icon={ShieldX} className={s.blockedNote}>
+      {state === 'expired' ? 'Licence expired' : 'Blocked (not cleared)'}: no media export, and Send to Cutawan leaves it out.
+    </StatusText>
+  )
+}
+
 export function ExportMenu({ shot, inPoint, outPoint, state }: { shot: ShotDoc; inPoint: number | null; outPoint: number | null; state: RightsState }) {
   const [busy, setBusy] = useState(false)
+  const blocked = isBlockedState(state)
   const run = async (mode: (typeof EXPORTS)[number]['mode']) => {
     setBusy(true)
     try {
@@ -353,23 +384,31 @@ export function ExportMenu({ shot, inPoint, outPoint, state }: { shot: ShotDoc; 
         toast({ title: 'Export ready', description: res.file?.split('/').pop() })
       }
     } catch (e) {
-      toast({ title: "Couldn't export", description: e instanceof ApiError ? e.detail : String(e), tone: 'error' })
+      if (e instanceof ApiError && e.status === 403) toast({ title: "This shot can't be exported as media", description: e.detail, tone: 'error' })
+      else toast({ title: "Couldn't export", description: e instanceof ApiError ? e.detail : String(e), tone: 'error' })
     } finally {
       setBusy(false)
     }
   }
-  const warn = state === 'blocked' || state === 'expired' || state === 'unknown'
+  const warn = state === 'unknown' || state === 'restricted'
+  const reason = blocked ? `${state === 'expired' ? 'The licence has expired' : 'This shot is blocked (not cleared)'}. Change its rights before exporting media; timelines and references still work.` : null
   return (
     <MenuTrigger>
-      <Button variant="secondary" icon={Download} iconEnd={ChevronDown} busy={busy} data-testid="export-clip">
+      <Button variant="secondary" icon={Download} iconEnd={ChevronDown} busy={busy} data-testid="export-clip" aria-description={reason ?? undefined}>
         Export clip
       </Button>
       <MenuPopover placement="bottom end">
-        <Menu aria-label="Export clip" onAction={(k) => run(k as (typeof EXPORTS)[number]['mode'])}>
+        {reason && (
+          <p className={s.menuNote} data-testid="export-blocked-reason">
+            <ShieldX size={14} strokeWidth={2} aria-hidden="true" />
+            <span>{reason}</span>
+          </p>
+        )}
+        <Menu aria-label="Export clip" disabledKeys={blocked ? EXPORTS.filter((x) => x.media).map((x) => x.mode) : []} onAction={(k) => run(k as (typeof EXPORTS)[number]['mode'])}>
           {EXPORTS.map((x, i) => [
             i === 2 || i === 5 ? <MenuSeparator key={`sep${i}`} /> : null,
-            <MenuItem key={x.mode} id={x.mode}>
-              {x.label}
+            <MenuItem key={x.mode} id={x.mode} aria-label={blocked && x.media ? `${x.label}, unavailable: the shot is blocked` : undefined}>
+              {blocked && x.media ? `${x.label} · blocked` : x.label}
             </MenuItem>,
           ])}
         </Menu>

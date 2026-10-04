@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { SearchResponse } from '../api/types'
 import {
   activeFilterCount, buildPhraseIndex, chipsFromQuery, filterLabel, locateFilter, locateTerm, norm, promoteChip,
-  removeChip, tidy, toggleExcludeChip, type SearchState,
+  preferenceMatch, removeChip, tidy, toggleExcludeChip, whyFilterLabels, type SearchState,
 } from './chips'
 
 const vocabs = {
@@ -120,5 +120,31 @@ describe('chip edits', () => {
   })
   it('counts active filters', () => {
     expect(activeFilterCount({ q: '', require: { a: ['x', 'y'] }, exclude: { b: ['z'] }, filters: { min_fps: 50, max_fps: 60, log: true }, use: { use: 'marketing' } })).toBe(6)
+  })
+})
+
+describe('why it matched', () => {
+  it('counts preferences matched', () => {
+    const why = [
+      { signal: 'visual similarity', detail: 'x' },
+      { signal: 'time_of_day', detail: 'Night', term: 'night' },
+      { signal: 'shot_size', detail: 'not labelled', term: 'close_up', missing: true },
+      { signal: 'setting', detail: 'Street', term: 'street' },
+    ]
+    expect(preferenceMatch(why)).toEqual({ matched: 2, total: 3 })
+    const kw = [{ signal: 'keywords', detail: 'x' }]
+    expect(preferenceMatch(kw)).toBeNull()
+  })
+  it('writes filter matches as people would', () => {
+    const why = [
+      { signal: 'filter', detail: 'min height: 1080', filter: 'min_height' },
+      { signal: 'filter', detail: 'min fps: 25', filter: 'min_fps' },
+      { signal: 'filter', detail: 'orientation: horizontal', filter: 'orientation' },
+      { signal: 'filter', detail: 'log: False', filter: 'log' },
+      { signal: 'filter', detail: 'min duration: 2', filter: 'min_duration' },
+      { signal: 'filter', detail: 'max duration: 10', filter: 'max_duration' },
+      { signal: 'setting', detail: 'Street', term: 'street' },
+    ]
+    expect(whyFilterLabels(why)).toEqual(['2s – 10s', '25 fps or more', '1080p or higher', 'Horizontal', 'Not log'])
   })
 })

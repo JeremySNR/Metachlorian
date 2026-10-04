@@ -5,7 +5,7 @@
  */
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { SearchResponse, SearchResult } from '../api/types'
+import type { IntendedUse, SearchRequest, SearchResponse, SearchResult } from '../api/types'
 import type { TimecodeFormat } from './timecode'
 
 export type Theme = 'system' | 'light' | 'dark'
@@ -93,6 +93,10 @@ export interface ExampleSearch {
   name: string
   kind: 'image' | 'clip'
   response: SearchResponse
+  /** Kept so the search can re-run when the rights filters change. */
+  file?: File
+  /** Rights options the response was computed with (JSON of SimilarRights). */
+  rightsKey?: string
 }
 
 interface UiState {
@@ -102,6 +106,10 @@ interface UiState {
   /** Ordered result ids of the last search, for [ / ] in Shot detail. */
   resultOrder: string[]
   resultCache: Map<string, SearchResult>
+  /** Total results of the last search (the pager in Shot detail counts these, not just the loaded page). */
+  resultTotal: number
+  /** Request and next-page cursor of the last search, to page on from Shot detail. */
+  resultPaging: { req: SearchRequest; next: string | null } | null
   lastQuery: string
   example: ExampleSearch | null
   railDrawer: boolean
@@ -109,14 +117,15 @@ interface UiState {
   focusResultsPending: string | null
   commandOpen: boolean
   shortcutsOpen: boolean
-  sendDialog: ({ kind: 'collection'; uid: string } | { kind: 'shots'; uids: string[] }) & { consumer?: 'cutawan' | 'nle' } | null
+  sendDialog: ({ kind: 'collection'; uid: string } | { kind: 'shots'; uids: string[] }) & { consumer?: 'cutawan' | 'nle'; use?: IntendedUse | null } | null
   rightsDialog: { assetUids: string[]; shotUid?: string; title?: string } | null
   addToDialog: string[] | null
   setSelection: (s: Set<string>) => void
   toggleSelected: (uid: string) => void
   clearSelection: () => void
   inspect: (uid: string | null) => void
-  rememberResults: (results: SearchResult[], query?: string) => void
+  rememberResults: (results: SearchResult[], query?: string, total?: number, paging?: { req: SearchRequest; next: string | null } | null) => void
+  appendResults: (results: SearchResult[], next: string | null) => void
   set: (p: Partial<UiState>) => void
 }
 
@@ -125,6 +134,8 @@ export const useUi = create<UiState>()((set, get) => ({
   inspected: null,
   resultOrder: [],
   resultCache: new Map(),
+  resultTotal: 0,
+  resultPaging: null,
   lastQuery: '',
   example: null,
   railDrawer: false,
@@ -143,10 +154,17 @@ export const useUi = create<UiState>()((set, get) => ({
   },
   clearSelection: () => set({ selection: new Set() }),
   inspect: (uid) => set({ inspected: uid }),
-  rememberResults: (results, query = '') => {
+  rememberResults: (results, query = '', total, paging = null) => {
     const cache = get().resultCache
     for (const r of results) cache.set(r.uid, r)
-    set({ resultOrder: results.map((r) => r.uid), lastQuery: query })
+    set({ resultOrder: results.map((r) => r.uid), lastQuery: query, resultTotal: Math.max(total ?? results.length, results.length), resultPaging: paging })
+  },
+  appendResults: (results, next) => {
+    const cache = get().resultCache
+    for (const r of results) cache.set(r.uid, r)
+    const seen = new Set(get().resultOrder)
+    const paging = get().resultPaging
+    set({ resultOrder: [...get().resultOrder, ...results.map((r) => r.uid).filter((u) => !seen.has(u))], resultPaging: paging ? { ...paging, next } : null })
   },
   set: (p) => set(p),
 }))

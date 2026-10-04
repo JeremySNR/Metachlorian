@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { Button as RacButton, Disclosure, DisclosurePanel, Heading } from 'react-aria-components'
-import { ChevronRight, Info, PanelLeftClose } from 'lucide-react'
+import { ChevronRight, Info, PanelLeftClose, X } from 'lucide-react'
 import type { FacetValue, SearchFilters, Verdict, Vocabulary } from '../../api/types'
 import { Button, IconButton } from '../../components/Button'
 import { Checkbox, ComboBox, NumberField, Select, Switch } from '../../components/Field'
@@ -10,7 +10,7 @@ import { activeFilterCount } from '../../lib/chips'
 import { formatNumber, humanise, shortLabel } from '../../lib/format'
 import { COMMON_TERRITORIES } from '../../lib/rights'
 import { MOD } from '../../lib/bridge'
-import { ALL_VERDICTS, DEFAULT_INCLUDE, fromState, hasUse, includeFrom, toState, type SearchParams } from './searchParams'
+import { DEFAULT_INCLUDE, fromState, hasUse, includeFrom, showsBlocked, toState, withBlocked, type SearchParams } from './searchParams'
 import t from '../../styles/type.module.css'
 import s from './FilterRail.module.css'
 
@@ -22,13 +22,15 @@ interface Props {
   label: (vocab: string, term: string) => string
   onChange: (p: SearchParams) => void
   onCollapse?: () => void
+  /** Tablet drawer: close without applying. */
+  onClose?: () => void
   drawer?: boolean
 }
 
 const VERDICT_LABEL: Record<Verdict, string> = { allowed: 'Cleared', restricted: 'Restricted', unknown: 'Rights unknown', blocked: 'Blocked' }
 
 /** Filter rail (system.md §3.4). Each facet maps 1:1 to a search filter. */
-export function FilterRail({ params, facets, excludedByRights, vocabs, label, onChange, onCollapse, drawer }: Props) {
+export function FilterRail({ params, facets, excludedByRights, vocabs, label, onChange, onCollapse, onClose, drawer }: Props) {
   const state = toState(params)
   const [showAllEdit, setShowAllEdit] = useState(false)
   const active = activeFilterCount(state)
@@ -83,28 +85,29 @@ export function FilterRail({ params, facets, excludedByRights, vocabs, label, on
   const channelOptions = [{ id: '', label: 'Any channel' }, ...(vocabs.channel?.terms ?? []).map((x) => ({ id: x.id, label: shortLabel(x.label) }))]
   const terrOptions = COMMON_TERRITORIES.map(([code, name]) => ({ id: code, label: `${code} · ${name}` }))
 
+  const hideBlocked = !showsBlocked(params)
   const setInclude = (list: Verdict[]) => {
     const same = (a: Verdict[], b: Verdict[]) => a.length === b.length && a.every((x) => b.includes(x))
-    onChange({ ...params, inc: same(list, DEFAULT_INCLUDE) ? undefined : same(list, ALL_VERDICTS) ? 'all' : list.join(',') })
+    const verdicts = list.filter((v) => v !== 'blocked')
+    onChange({ ...params, inc: same(verdicts, DEFAULT_INCLUDE) ? undefined : verdicts.join(',') || undefined })
   }
 
   const count = (keys: (string | undefined)[]) => keys.filter(Boolean).length
 
   return (
     <div className={s.rail}>
-      {!drawer && (
-        <div className={s.head}>
-          <h2 className={t.slate}>Filters</h2>
-          {active > 0 && <span className={s.headCount} aria-label={`${active} active`}>{active}</span>}
-          <span className={s.headSpacer} />
-          {active > 0 && (
-            <Button variant="quiet" size="sm" onPress={() => onChange({ q: params.q, similar: params.similar, group: params.group })}>
-              Clear all
-            </Button>
-          )}
-          {onCollapse && <IconButton icon={PanelLeftClose} label="Collapse filters" shortcut={`${MOD}\\`} size="sm" onPress={onCollapse} />}
-        </div>
-      )}
+      <div className={`${s.head} ${drawer ? s.drawerHead : ''}`}>
+        <h2 className={drawer ? s.drawerTitle : t.slate}>Filters</h2>
+        {active > 0 && <span className={s.headCount} aria-label={`${active} active`}>{drawer ? `· ${active}` : active}</span>}
+        <span className={s.headSpacer} />
+        {active > 0 && (
+          <Button variant="quiet" size="sm" onPress={() => onChange({ q: params.q, similar: params.similar, group: params.group, strict: params.strict })}>
+            Clear all
+          </Button>
+        )}
+        {onCollapse && <IconButton icon={PanelLeftClose} label="Collapse filters" shortcut={`${MOD}\\`} size="sm" onPress={onCollapse} />}
+        {onClose && <IconButton icon={X} label="Close filters" shortcut="Esc" size="sm" onPress={onClose} />}
+      </div>
       <div className={s.scroll}>
         <Section title="Edit stage" count={editSelected.length} defaultExpanded>
           <div className={s.group}>
@@ -149,19 +152,23 @@ export function FilterRail({ params, facets, excludedByRights, vocabs, label, on
             />
           </div>
           <div className={s.group}>
-            <span className={s.groupLabel}>Verdict for this use</span>
-            {(['allowed', 'restricted', 'unknown', 'blocked'] as Verdict[]).map((v) => (
-              <div key={v} className={s.value}>
-                <Checkbox isDisabled={!useSet} isSelected={include.includes(v)} onChange={(on) => setInclude(on ? [...include, v] : include.filter((x) => x !== v))}>
-                  <span className={s.valueLabel}>{VERDICT_LABEL[v]}</span>
-                </Checkbox>
-              </div>
-            ))}
-            <Switch isDisabled={!useSet} isSelected={!include.includes('blocked')} onChange={(on) => setInclude(on ? include.filter((x) => x !== 'blocked') : [...include, 'blocked'])}>
+            <Switch isSelected={hideBlocked} onChange={(on) => onChange(withBlocked(params, !on))}>
               Hide blocked
             </Switch>
-            {useSet && excludedByRights > 0 && <span className={s.hidden}>{formatNumber(excludedByRights)} shots hidden by rights for this use</span>}
-            {!useSet && <span className={s.note}>Choose a use to check every shot against it.</span>}
+            <span className={s.note}>Blocked footage (not cleared, or past its licence) is blocked for every use.</span>
+            <span className={s.groupLabel}>Verdict for this use</span>
+            {useSet ? (
+              (['allowed', 'restricted', 'unknown'] as Verdict[]).map((v) => (
+                <div key={v} className={s.value}>
+                  <Checkbox isSelected={include.includes(v)} onChange={(on) => setInclude(on ? [...include, v] : include.filter((x) => x !== v))}>
+                    <span className={s.valueLabel}>{VERDICT_LABEL[v]}</span>
+                  </Checkbox>
+                </div>
+              ))
+            ) : (
+              <span className={s.note}>Choose a use above to check every shot against it and filter by the verdict.</span>
+            )}
+            {excludedByRights > 0 && <span className={s.hidden} data-testid="rail-rights-hidden">{formatNumber(excludedByRights)} shots hidden by rights{useSet ? ' for this use' : ''}</span>}
           </div>
           <p className={s.note}>
             <Ic icon={Info} size={14} />

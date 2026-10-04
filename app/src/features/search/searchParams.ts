@@ -1,8 +1,8 @@
 /**
  * URL ⇄ search state. Every search is a shareable URL (ADR 013 §5):
- * /search?q=…&req=…&exc=…&f=…&use=…&ch=…&terr=…&inc=…&similar=…
+ * /search?q=…&req=…&exc=…&f=…&use=…&ch=…&terr=…&inc=…&blocked=show&strict=…&similar=…
  */
-import type { SearchFilters, SearchRequest, TermMap, Verdict } from '../../api/types'
+import type { SearchFilters, SearchRequest, Strictness, TermMap, Verdict } from '../../api/types'
 import type { SearchState } from '../../lib/chips'
 
 export interface SearchParams {
@@ -15,6 +15,10 @@ export interface SearchParams {
   terr?: string
   /** Rights verdicts to include when an intended use is set: "all" or a comma list. */
   inc?: string
+  /** "show": include shots blocked for every use (not cleared or expired). Hidden by default. */
+  blocked?: 'show'
+  /** Where strong matches end; absent = balanced. */
+  strict?: 'loose' | 'strict'
   similar?: string
   assets?: string
   group?: 'files'
@@ -68,6 +72,8 @@ export function validateSearch(raw: Record<string, unknown>): SearchParams {
     if (v) p[k] = v
   }
   if (raw.group === 'files') p.group = 'files'
+  if (raw.blocked === 'show') p.blocked = 'show'
+  if (raw.strict === 'loose' || raw.strict === 'strict') p.strict = raw.strict
   return p
 }
 
@@ -99,11 +105,31 @@ export function fromState(s: SearchState, prev: SearchParams = {}): SearchParams
 export const ALL_VERDICTS: Verdict[] = ['allowed', 'restricted', 'unknown', 'blocked']
 export const DEFAULT_INCLUDE: Verdict[] = ['allowed', 'restricted', 'unknown']
 
+/** Blocked footage is shown only when asked (blocked=show, or the older inc=all / inc=…,blocked). */
+export function showsBlocked(p: SearchParams): boolean {
+  return p.blocked === 'show' || p.inc === 'all' || Boolean(p.inc?.split(',').includes('blocked'))
+}
+
+/** Verdicts for the intended use; "blocked" follows the Hide blocked switch. */
 export function includeFrom(p: SearchParams): Verdict[] {
-  if (!p.inc) return DEFAULT_INCLUDE
-  if (p.inc === 'all') return ALL_VERDICTS
-  const list = p.inc.split(',').filter((v): v is Verdict => (ALL_VERDICTS as string[]).includes(v))
-  return list.length ? list : DEFAULT_INCLUDE
+  let list: Verdict[] = DEFAULT_INCLUDE
+  if (p.inc === 'all') list = ALL_VERDICTS
+  else if (p.inc) {
+    const parsed = p.inc.split(',').filter((v): v is Verdict => (ALL_VERDICTS as string[]).includes(v))
+    if (parsed.length) list = parsed
+  }
+  list = list.filter((v) => v !== 'blocked')
+  return showsBlocked(p) ? [...list, 'blocked'] : list
+}
+
+/** Turn Hide blocked on or off (system.md §3.4: on by default, whatever the intended use). */
+export function withBlocked(p: SearchParams, show: boolean): SearchParams {
+  const inc = p.inc === 'all' ? undefined : p.inc?.split(',').filter((v) => v !== 'blocked').join(',') || undefined
+  return { ...p, inc: inc === DEFAULT_INCLUDE.join(',') ? undefined : inc, blocked: show ? 'show' : undefined }
+}
+
+export function strictnessOf(p: SearchParams): Strictness {
+  return p.strict ?? 'balanced'
 }
 
 export function hasUse(p: SearchParams): boolean {
@@ -117,7 +143,14 @@ export function toRequest(p: SearchParams): SearchRequest {
   if (p.exc) req.exclude = p.exc
   if (p.f) req.filters = p.f
   if (hasUse(p)) req.intended_use = { use: p.use ?? null, channel: p.ch ?? null, territory: p.terr ?? null, include: includeFrom(p) }
+  req.hide_blocked = !showsBlocked(p)
+  if (p.strict) req.strictness = p.strict
   if (p.similar) req.similar_to = p.similar
   if (p.assets) req.asset_uids = p.assets.split(',')
   return req
+}
+
+/** Rights options for similar-shot searches (GET /api/shots/{uid}/similar, POST /api/similar). */
+export function similarRightsOf(p: SearchParams): { use: string | null; channel: string | null; territory: string | null; include: Verdict[] | null; hideBlocked: boolean } {
+  return { use: p.use ?? null, channel: p.ch ?? null, territory: p.terr ?? null, include: hasUse(p) ? includeFrom(p) : null, hideBlocked: !showsBlocked(p) }
 }

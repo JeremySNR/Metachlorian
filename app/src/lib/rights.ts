@@ -4,7 +4,7 @@
  * treated as cleared.
  */
 import type { RightsBadge, RightsRecord, Verdict } from '../api/types'
-import { daysUntil, formatDate, formatDayMonth } from './format'
+import { daysUntil, formatDate, formatDayMonth, humanise } from './format'
 
 export type RightsState = 'cleared' | 'restricted' | 'expiring' | 'expired' | 'blocked' | 'unknown'
 
@@ -52,20 +52,36 @@ export interface RightsDisplay {
   long: string
 }
 
-/** Short and long text for a state, given the record (when known) and reasons. */
+/**
+ * The narrowest use a record allows, when it is narrow enough to be the headline
+ * ("Editorial only", "Editorial and internal only"); null for broad or unknown scopes.
+ */
+export function usesOnly(record?: Partial<RightsRecord> | null): string | null {
+  const uses = record?.permitted_uses ?? []
+  if (!uses.length || uses.length > 2) return null
+  const words = uses.map((u) => humanise(u).toLowerCase())
+  const text = words.length === 1 ? words[0] : `${words[0]} and ${words[1]}`
+  return `${text.charAt(0).toUpperCase()}${text.slice(1)} only`
+}
+
+/** Short and long text for a state, given the record (when known) and reasons. The most restrictive fact comes first. */
 export function describeRights(state: RightsState, record?: Partial<RightsRecord> | null, reasons: string[] = []): RightsDisplay {
   const exp = record?.expires ?? null
   const first = reasons.find((r) => !/^Cleared/.test(r))
+  const only = usesOnly(record)
   switch (state) {
     case 'cleared': {
       const scope = record?.permitted_uses?.length ? `for ${record.permitted_uses.join(', ')}` : 'for all uses'
-      return { state, short: 'Cleared', long: `Cleared ${scope}${exp ? ` · expires ${formatDate(exp)}` : ''}` }
+      return { state, short: only ?? 'Cleared', long: `Cleared ${scope}${exp ? ` · expires ${formatDate(exp)}` : ''}` }
     }
     case 'restricted':
       return { state, short: 'Restricted', long: `Restricted${first ? `: ${first.replace(/\.$/, '')}` : ''}` }
     case 'expiring': {
       const d = daysUntil(exp)
-      return { state, short: exp ? `Expires ${formatDayMonth(exp)}` : 'Expiring', long: exp ? `Licence expires ${formatDate(exp)}${d !== null ? ` (${d} day${d === 1 ? '' : 's'})` : ''}` : 'Licence expires soon' }
+      const when = exp ? `expires ${formatDayMonth(exp)}` : 'expiring'
+      const short = only ? `${only} · ${when}` : `${when.charAt(0).toUpperCase()}${when.slice(1)}`
+      const long = exp ? `Licence expires ${formatDate(exp)}${d !== null ? ` (${d} day${d === 1 ? '' : 's'})` : ''}` : 'Licence expires soon'
+      return { state, short, long: only ? `${only.replace(/ only$/, ' use only')} · ${long.charAt(0).toLowerCase()}${long.slice(1)}` : long }
     }
     case 'expired':
       return { state, short: 'Expired', long: exp ? `Licence expired ${formatDate(exp)}` : 'Licence expired' }

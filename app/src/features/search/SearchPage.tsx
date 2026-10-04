@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearch as useRouteSearch } from '@tanstack/react-router'
 import { useQueries, useQuery } from '@tanstack/react-query'
-import { CircleAlert, FolderPlus, Info, LayoutGrid, ListVideo, PanelLeftOpen, PanelRightOpen, Rows3, SlidersHorizontal, TriangleAlert } from 'lucide-react'
-import type { SearchRequest, SearchResponse, SearchResult } from '../../api/types'
+import { CircleAlert, FolderPlus, Info, LayoutGrid, ListVideo, PanelLeftOpen, PanelRightOpen, Rows3, SearchX, SlidersHorizontal, TriangleAlert } from 'lucide-react'
+import type { SearchRequest, SearchResponse, SearchResult, Strictness } from '../../api/types'
 import { api, ApiError } from '../../api/client'
 import {
-  buildPackage, useAddToCollection, useCollections, useCreateCollection, useLibraryStats, useSearch, useShot, useVocabularies,
+  buildPackage, PAGE_SIZE, searchByExample, useAddToCollection, useCollections, useCreateCollection, useLibraryStats, useSearch, useShot, useVocabularies,
 } from '../../api/queries'
 import { Button, IconButton } from '../../components/Button'
 import { Sheet } from '../../components/Dialog'
@@ -15,22 +15,33 @@ import { toast } from '../../components/Toast'
 import { isDrawerRail, isOverlayInspector, useTier } from '../../hooks/useMediaQuery'
 import { isMod, isTyping, useDocumentKeys } from '../../hooks/useHotkeys'
 import { useDebounced } from '../../hooks/useDebounced'
+import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { activeFilterCount, buildPhraseIndex, chipsFromQuery, removeChip, type SearchState } from '../../lib/chips'
 import { MOD } from '../../lib/bridge'
-import { weakSplit } from '../../lib/gridLayout'
+import { noStrongMatches, strongDivider } from '../../lib/gridLayout'
 import { formatNumber, plural } from '../../lib/format'
 import { stateFromBadge, stateFromVerdict } from '../../lib/rights'
-import { usePrefs, useUi, type ResultsView, type Strictness, type ThumbSize } from '../../lib/store'
+import { usePrefs, useUi, type ResultsView, type ThumbSize } from '../../lib/store'
 import { Inspector } from '../shot/Inspector'
 import { ChipRow, type ExtraChip } from './ChipRow'
 import { FilterRail } from './FilterRail'
 import { FilesView } from './FilesView'
 import { ResultsGrid } from './ResultsGrid'
 import { SelectionBar } from './SelectionBar'
-import { fromState, toRequest, toState, type SearchParams } from './searchParams'
+import { fromState, showsBlocked, similarRightsOf, strictnessOf, toRequest, toState, withBlocked, type SearchParams } from './searchParams'
 import s from './SearchPage.module.css'
 
-const STRICT_RATIO: Record<Strictness, number> = { loose: 0.25, balanced: 0.5, strict: 0.7 }
+const STRICT_LABEL: Record<Strictness, string> = { loose: 'loose', balanced: 'balanced', strict: 'strict' }
+
+/** Error copy that fits the failure (§3.16): offline, unreachable, server error, or the core's own message. */
+export function searchErrorText(err: unknown): string {
+  if (err instanceof ApiError) {
+    if (err.status === 0) return err.detail
+    if (err.status >= 500) return `The search service hit an error (HTTP ${err.status}). Try again; if it keeps failing, check the core's log.`
+    return err.detail || `The search was refused (HTTP ${err.status}).`
+  }
+  return "The search didn't complete."
+}
 
 export function rightsOf(r: SearchResult) {
   return r.rights ? stateFromVerdict(r.rights.verdict, r.rights.reasons) : stateFromBadge(r.rights_badge)
@@ -62,6 +73,24 @@ export function SearchPage() {
 
   const req = useMemo(() => toRequest(params), [params])
   const search = useSearch(example ? null : req)
+  const strictness = strictnessOf(params)
+
+  // Query by example follows the rights filters too: re-run it when they change.
+  const rightsKey = JSON.stringify(similarRightsOf(params))
+  const exampleFile = example?.file
+  useEffect(() => {
+    const ex = useUi.getState().example
+    if (!ex?.file || ex.rightsKey === rightsKey) return
+    let live = true
+    searchByExample(ex.file, 120, JSON.parse(rightsKey))
+      .then((response) => {
+        if (live && useUi.getState().example?.file === ex.file) useUi.getState().set({ example: { ...ex, response, rightsKey } })
+      })
+      .catch((e) => toast({ title: "Couldn't refresh the example search", description: e instanceof ApiError ? e.detail : String(e), tone: 'error' }))
+    return () => {
+      live = false
+    }
+  }, [rightsKey, exampleFile])
   const pages = useMemo(() => search.data?.pages ?? [], [search.data])
   const first: SearchResponse | undefined = example ? example.response : pages[0]
   const results = useMemo(() => (example ? example.response.results : pages.flatMap((p) => p.results)), [example, pages])
@@ -76,15 +105,20 @@ export function SearchPage() {
   const setShotsAtSearch = (n: number | null) => setSeen({ at: search.dataUpdatedAt, shots: n })
   const newShots = stats.data && shotsAtSearch !== null ? stats.data.shots - shotsAtSearch : 0
 
+  const lastNext = example ? null : (pages[pages.length - 1]?.next_cursor ?? null)
   useEffect(() => {
-    if (results.length) useUi.getState().rememberResults(results, params.q ?? '')
-  }, [results, params.q])
+    if (results.length) useUi.getState().rememberResults(results, params.q ?? '', total, example ? null : { req: { ...req, limit: PAGE_SIZE, facets: false }, next: lastNext })
+  }, [results, params.q, total, req, lastNext, example])
 
   const setParams = useCallback((p: SearchParams, replace = true) => navigate({ search: p, replace }), [navigate])
   const setState = (st: SearchState) => setParams(fromState(st, params), false)
 
   const hasQuery = Boolean(params.q?.trim() || params.similar || example)
-  const split = hasQuery ? weakSplit(results.map((r) => r.score), STRICT_RATIO[prefs.strictness], total) : null
+  // The core orders strong matches first; the divider sits after the first strong_count of the whole list.
+  const strength = first ? { total, strong_count: first.strong_count, strictness: first.strictness } : null
+  const split = strongDivider(strength)
+  const noStrong = !search.isError && noStrongMatches(strength)
+  const scored = Boolean(first?.strictness)
 
   const overlay = isOverlayInspector(tier)
   const drawer = isDrawerRail(tier)
@@ -149,11 +183,40 @@ export function SearchPage() {
 
   const selected = [...selection]
 
+  // Select all: every result of the query, paging through next_cursor (not just the loaded page).
+  const [selectingAll, setSelectingAll] = useState(false)
+  const selectAll = async () => {
+    if (example || results.length >= total) {
+      useUi.getState().setSelection(new Set(results.map((r) => r.uid)))
+      return
+    }
+    setSelectingAll(true)
+    try {
+      const uids = results.map((r) => r.uid)
+      let cursor = lastNext
+      let guard = 0
+      while (cursor && guard++ < 40) {
+        const page = await api.post<SearchResponse>('/api/search', { ...req, cursor, limit: 500, facets: false })
+        for (const r of page.results) {
+          uids.push(r.uid)
+          useUi.getState().resultCache.set(r.uid, r)
+        }
+        cursor = page.next_cursor
+      }
+      useUi.getState().setSelection(new Set(uids))
+    } catch (e) {
+      toast({ title: "Couldn't select every result", description: e instanceof ApiError ? e.detail : String(e), tone: 'error' })
+    } finally {
+      setSelectingAll(false)
+    }
+  }
+  const openSend = () => setUi({ sendDialog: { kind: 'shots', uids: [...useUi.getState().selection], use: state.use ?? null } })
+
   useDocumentKeys((e) => {
     if (isTyping(e.target)) return
     if (isMod(e) && e.key.toLowerCase() === 'e' && selection.size) {
       e.preventDefault()
-      if (e.shiftKey) setUi({ sendDialog: { kind: 'shots', uids: selected } })
+      if (e.shiftKey) openSend()
       else exportTimeline(selected)
     }
     if (isMod(e) && (e.key === '=' || e.key === '-' || e.key === '0')) {
@@ -179,7 +242,8 @@ export function SearchPage() {
   // No results: what removing each chip would show (§3.16).
   const index = useMemo(() => buildPhraseIndex(vocabs), [vocabs])
   const noResults = search.isSuccess && !example && total === 0
-  const chips = useMemo(() => (noResults && first ? chipsFromQuery(first.query, state, label, index).slice(0, 4) : []), [noResults, first, state, label, index])
+  const wantSuggestions = (noResults || noStrong) && !example
+  const chips = useMemo(() => (wantSuggestions && first ? chipsFromQuery(first.query, state, label, index).slice(0, 4) : []), [wantSuggestions, first, state, label, index])
   const suggestions = useQueries({
     queries: chips.map((c) => {
       const next = removeChip(state, c, index)
@@ -198,11 +262,18 @@ export function SearchPage() {
 
   const files = new Set(results.map((r) => r.asset_uid)).size
   const secs = first?.timings_ms?.total ? (first.timings_ms.total / 1000).toFixed(1) : null
-  const countText = example
-    ? `${plural(total, 'similar shot')} to ${example.name}`
-    : search.isLoading && !first
-      ? 'Searching…'
-      : `${plural(total, 'shot')}${total && results.length >= total ? ` in ${plural(files, 'file')}` : ''}${secs ? ` · ${secs} s` : ''}`
+  const hiddenByRights = first?.excluded_by_rights ?? 0
+  const strongText = scored && typeof first?.strong_count === 'number' ? `${formatNumber(first.strong_count)} strong (${STRICT_LABEL[strictness]})` : null
+  const rightsText = hiddenByRights > 0 ? `${plural(hiddenByRights, 'shot')} hidden by rights` : null
+  const countText =
+    search.isError && !first
+      ? ''
+      : example
+        ? [`${plural(total, 'similar shot')} to ${example.name}`, strongText, rightsText].filter(Boolean).join(' · ')
+        : search.isLoading && !first
+          ? 'Searching…'
+          : [`${plural(total, 'shot')}${total && results.length >= total ? ` in ${plural(files, 'file')}` : ''}`, strongText, rightsText, secs ? `${secs} s` : null].filter(Boolean).join(' · ')
+  useDocumentTitle(params.q ? `“${params.q}”` : example ? `Similar to ${example.name}` : params.similar ? 'Similar shots' : null, 'Search')
 
   const rail = (
     <FilterRail
@@ -213,6 +284,7 @@ export function SearchPage() {
       label={label}
       onChange={(p) => (drawer ? setStaged(p) : setParams(p, false))}
       onCollapse={drawer ? undefined : () => prefs.set({ railOpen: false })}
+      onClose={drawer ? () => { setUi({ railDrawer: false }); setStaged(null) } : undefined}
       drawer={drawer}
     />
   )
@@ -244,7 +316,7 @@ export function SearchPage() {
     const err = search.error
     body = (
       <EmptyState icon={CircleAlert} title="Search didn't work" role="alert" actions={<Button onPress={() => search.refetch()}>Try again</Button>}>
-        <p>{err instanceof ApiError && err.status === 0 ? err.detail : "The search service didn't respond."}</p>
+        <p>{searchErrorText(err)}</p>
         <details style={{ marginBlockStart: 'var(--space-2)' }}>
           <summary>Details</summary>
           <code style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)' }}>
@@ -290,7 +362,42 @@ export function SearchPage() {
   } else if (params.group === 'files' && !example) {
     body = <FilesView results={results} onOpen={(r) => onOpen(r, 'click')} />
   } else {
+    const sugg = chips
+      .map((c, i) => ({ c, n: noStrong ? suggestions[i]?.data?.strong_count : suggestions[i]?.data?.total }))
+      .filter((x) => x.n)
+      .sort((a, b) => (b.n ?? 0) - (a.n ?? 0))
+    const noStrongNotice = noStrong ? (
+      <div className={s.noStrong} role="status" data-testid="no-strong-matches">
+        <SearchX size={20} strokeWidth={1.75} aria-hidden="true" className={s.noStrongIcon} />
+        <div className={s.noStrongBody}>
+          <h2>{params.q ? `No strong matches for “${params.q}”` : 'No strong matches'}</h2>
+          <p>
+            {sugg.length
+              ? sugg.slice(0, 2).map(({ c, n }, i) => (
+                  <span key={c.key}>
+                    {i ? ' ' : ''}Removing <strong>{c.label.toLowerCase()}</strong> would give {plural(n ?? 0, 'strong match', 'strong matches')}.
+                  </span>
+                ))
+              : `Nothing clears the ${STRICT_LABEL[strictness]} threshold. The ${plural(total, 'weaker match', 'weaker matches')} below may still be useful.`}
+          </p>
+          <div className={s.noStrongActions}>
+            {sugg.map(({ c, n }) => (
+              <Button key={c.key} variant="secondary" size="sm" onPress={() => { const next = removeChip(state, c, index); if (next) setState(next) }}>
+                {`Remove ${c.label.toLowerCase()} (${formatNumber(n ?? 0)})`}
+              </Button>
+            ))}
+            {strictness !== 'loose' && (
+              <Button variant="quiet" size="sm" onPress={() => setParams({ ...params, strict: 'loose' })}>
+                Match loosely
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+    ) : null
     body = (
+      <>
+      {noStrongNotice}
       <ResultsGrid
         results={results}
         total={total}
@@ -320,7 +427,9 @@ export function SearchPage() {
         activeName={activeName}
         queryText={first?.query.text ?? ''}
         label={params.q ? `Results for ${params.q}` : 'All shots'}
+        onSelectAll={selectAll}
       />
+      </>
     )
   }
 
@@ -339,6 +448,7 @@ export function SearchPage() {
           </aside>
         ))}
       <main id="main" className={s.main} aria-busy={search.isFetching || undefined} tabIndex={-1}>
+        <h1 className="visually-hidden">{params.q ? `Search results for ${params.q}` : example ? `Shots similar to ${example.name}` : 'Search'}</h1>
         <ChipRow query={first?.query} state={state} vocabs={vocabs} label={label} onChange={setState} extra={extra} />
         <div className={s.header}>
           {drawer && (
@@ -349,6 +459,11 @@ export function SearchPage() {
           <p className={s.count} role="status" data-testid="result-count">
             {countText}
           </p>
+          {(first?.hidden_blocked ?? 0) > 0 && !showsBlocked(params) && (
+            <Button variant="quiet" size="sm" className={s.hideNarrow} onPress={() => setParams(withBlocked(params, true), false)}>
+              {`Show ${plural(first?.hidden_blocked ?? 0, 'blocked shot')}`}
+            </Button>
+          )}
           <div className={s.headerControls}>
             {!example && (
               <Segmented
@@ -381,8 +496,8 @@ export function SearchPage() {
               <Segmented
                 className={s.hideNarrow}
                 label="Match strictness"
-                value={prefs.strictness}
-                onChange={(v) => prefs.set({ strictness: v })}
+                value={strictness}
+                onChange={(v) => setParams({ ...params, strict: v === 'balanced' ? undefined : v })}
                 segments={[{ id: 'loose', label: 'Loose' }, { id: 'balanced', label: 'Balanced' }, { id: 'strict', label: 'Strict' }]}
               />
             )}
@@ -444,14 +559,15 @@ export function SearchPage() {
         <SelectionBar
           total={total}
           loaded={results.length}
+          selectingAll={selectingAll}
           activeName={activeName}
-          onSelectAll={() => useUi.getState().setSelection(new Set(results.map((r) => r.uid)))}
+          onSelectAll={selectAll}
           onAddToActive={() => addToActive(selected)}
           onAddTo={() => setUi({ addToDialog: selected })}
           onSimilar={() => similar(selected)}
           onRights={() => rights(selected)}
           onExport={() => exportTimeline(selected)}
-          onSend={() => setUi({ sendDialog: { kind: 'shots', uids: selected } })}
+          onSend={openSend}
         />
       </div>
     </div>

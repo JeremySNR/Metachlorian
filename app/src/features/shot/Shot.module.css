@@ -15,6 +15,28 @@
   flex: none;
 }
 
+.panelSub {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-1_5) var(--space-4);
+  border-block-end: var(--border-width) solid var(--border-subtle);
+  min-inline-size: 0;
+  flex: none;
+}
+
+.fileLink {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-2);
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
 .panelHead h2 {
   flex: 1;
   min-inline-size: 0;
@@ -188,6 +210,62 @@
 .removed {
   text-decoration: line-through;
   color: var(--fg-3);
+}
+
+/* Multi-value signal rows: one chip per value with its own confidence and remove (§3.10). */
+.termList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  align-items: center;
+}
+
+.valueChip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding-inline-start: var(--space-1_5);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  min-block-size: var(--control-sm);
+}
+
+.valueConf {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  color: var(--fg-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.valueLow {
+  color: var(--fg-3);
+}
+
+.valueRemove {
+  opacity: 0;
+}
+
+.row:hover .valueRemove,
+.row:focus-within .valueRemove,
+.row:focus .valueRemove {
+  opacity: 1;
+}
+
+@media (pointer: coarse) {
+  .valueRemove {
+    opacity: 1;
+  }
+}
+
+/* "Model said: Night (0.70)" on its own line, under a correction */
+.modelSaid {
+  flex-basis: 100%;
+  color: var(--fg-2);
+}
+
+.foldButton {
+  margin-block-start: var(--space-2);
 }
 
 .editTerm {
@@ -397,10 +475,54 @@
 .simMeta {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   gap: var(--space-2);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   color: var(--fg-2);
+}
+
+.simMetaEnd {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.blockedNote {
+  align-items: flex-start;
+}
+
+.menuNote {
+  display: flex;
+  gap: var(--space-1_5);
+  align-items: flex-start;
+  padding: var(--space-2) var(--space-3);
+  max-inline-size: 300px;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--status-blocked);
+  border-block-end: var(--border-width) solid var(--border-subtle);
+}
+
+.menuNote svg {
+  flex: none;
+  margin-block-start: 1px;
+}
+
+.whyFilters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-block-start: var(--space-1);
+  border-block-start: var(--border-width) solid var(--border-subtle);
+}
+
+.whyFilters ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--fg-1);
 }
 
 .simTitle {

@@ -120,3 +120,8 @@ export function aspectLabel(ratio: number | null | undefined): string | null {
   if (Math.abs(best[0] - ratio) / ratio > 0.03) return `${ratio.toFixed(2)}:1`
   return best[1]
 }
+
+/** Round long decimals in generated text to one place ("12.49 cuts/min" → "12.5"), matching the figures beside it. */
+export function tidyNumbers(text: string): string {
+  return text.replace(/\b(\d+\.\d{2,})\b/g, (m) => String(Math.round(Number(m) * 10) / 10))
+}

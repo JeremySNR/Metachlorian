@@ -174,7 +174,13 @@ export interface SearchResult extends ShotSummary {
   moment: Moment | null
   rights_badge?: RightsBadge
   rights?: { verdict: Verdict; reasons: string[] }
+  /** Absolute match strength 0..1, comparable across queries (null when nothing was scored). */
+  strength?: number | null
+  /** At or above the strictness threshold; strong results come first. */
+  strong?: boolean
 }
+
+export type Strictness = 'loose' | 'balanced' | 'strict'
 
 export interface SearchFilters {
   min_duration?: number | null
@@ -210,6 +216,9 @@ export interface SearchRequest {
   limit?: number
   cursor?: string | null
   strict?: boolean
+  /** Hide shots that are blocked for every use (not cleared, or expired). Default true. */
+  hide_blocked?: boolean
+  strictness?: Strictness
   facets?: boolean
   parse_query?: boolean
 }
@@ -252,6 +261,13 @@ export interface SearchResponse {
   facets: Record<string, FacetValue[]>
   notes: string[]
   excluded_by_rights: number
+  /** Blocked shots hidden by hide_blocked (also counted in excluded_by_rights). */
+  hidden_blocked?: number
+  /** Results at or above the strictness threshold; they come first. */
+  strong_count?: number
+  /** Null when the query has nothing to score (filter-only browse): every result is strong. */
+  strictness?: Strictness | null
+  strength_thresholds?: Record<Strictness, number>
   next_cursor: string | null
   timings_ms: Record<string, number>
 }
@@ -522,6 +538,10 @@ export interface Correction {
   created_at: number
   active: number
   filename?: string
+  /** The shot the correction applies to (number is 1-based). */
+  shot?: { idx: number; number: number; start: number; end: number } | null
+  /** What the model said before the correction. */
+  model_value?: { value: unknown; source: string; confidence: number | null } | null
 }
 
 export interface CorrectionsResponse {
@@ -631,6 +651,8 @@ export interface ProcessingAsset {
   done: number
   failed: number
   unavailable: number
+  /** Analysers queued or running for this file, when the core reports them. */
+  pending?: string[]
 }
 
 export interface AnalyserInfo {

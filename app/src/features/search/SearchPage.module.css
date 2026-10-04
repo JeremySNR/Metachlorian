@@ -76,24 +76,41 @@
 .chipScroller {
   flex: 1;
   min-inline-size: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-  mask-image: linear-gradient(to right, transparent 0, var(--fg-1) 8px, var(--fg-1) calc(100% - 16px), transparent 100%);
-  padding: 4px 8px;
-  margin-inline: -8px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1_5) var(--space-3);
+  padding-block: 4px;
+}
+
+.tagGroup {
+  min-inline-size: 0;
 }
 
 .tagList {
   display: flex;
   gap: var(--space-1_5);
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   outline: none;
+}
+
+.prefGroup {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1_5);
+  flex-wrap: wrap;
+  min-inline-size: 0;
+}
+
+.prefLabel {
+  composes: slate from '../../styles/type.module.css';
 }
 
 .chip {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1_5);
+  max-inline-size: 100%;
   block-size: 24px;
   padding-inline: var(--space-2) 0;
   border: var(--border-width) solid var(--border-control);
@@ -131,6 +148,17 @@
   text-underline-offset: 3px;
 }
 
+/* Preference: ranks, never filters. Outline only (no fill) and a dotted edge, distinct by shape. */
+.preferred {
+  background: transparent;
+  border-style: dotted;
+}
+
+.preferred .chipValue {
+  font-weight: var(--weight-regular);
+  color: var(--fg-2);
+}
+
 .excluded {
   border-style: dashed;
 }
@@ -143,7 +171,13 @@
   content: ' ·';
 }
 
+.chipValue {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .chipBtn {
+  flex: none;
   display: inline-grid;
   place-items: center;
   inline-size: 24px;
@@ -165,27 +199,33 @@
   border-inline-start: var(--border-width) solid var(--border-subtle);
 }
 
+/* Touch: 44 px chip targets (system.md §1.4 --target-coarse) */
+@media (pointer: coarse) {
+  .chip {
+    block-size: var(--target-coarse);
+  }
+  .chipBtn {
+    inline-size: var(--target-coarse);
+    block-size: calc(var(--target-coarse) - 2px);
+  }
+}
+
 /* ---------------------------------------------------------------- header */
 .header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-3);
-  block-size: var(--results-header-height);
-  padding-inline: var(--space-4);
+  gap: var(--space-1) var(--space-3);
+  min-block-size: var(--results-header-height);
+  padding: var(--space-1) var(--space-4);
   flex: none;
   min-inline-size: 0;
 }
 
 .count {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-1_5);
   font-size: var(--text-sm);
   color: var(--fg-2);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-inline-size: 0;
+  min-inline-size: min(100%, 12rem);
   flex: 1;
 }
 
@@ -197,9 +237,53 @@
 
 .headerControls {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
   flex: none;
+  max-inline-size: 100%;
+}
+
+/* No strong matches (§3.16 suggestions), above the weaker results */
+.noStrong {
+  display: flex;
+  gap: var(--space-3);
+  margin: var(--space-2) var(--space-4) var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-block: var(--border-width) solid var(--border-subtle);
+  max-inline-size: calc(var(--measure-prose) + 4rem);
+}
+
+.noStrongIcon {
+  color: var(--fg-3);
+  flex: none;
+  margin-block-start: 2px;
+}
+
+.noStrongBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1_5);
+  min-inline-size: 0;
+}
+
+.noStrongBody h2 {
+  font-size: var(--text-lg);
+  line-height: var(--leading-lg);
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.noStrongBody p {
+  font-size: var(--text-md);
+  line-height: var(--leading-md);
+  color: var(--fg-2);
+}
+
+.noStrongActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
 }
 
 @container results (width < 720px) {

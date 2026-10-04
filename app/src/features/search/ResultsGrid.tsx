@@ -18,7 +18,7 @@ import { buildRows, gridGeometry, moveIndex, rowOfItem, type VRow } from '../../
 import { humanise } from '../../lib/format'
 import type { RightsState } from '../../lib/rights'
 import { usePrefs, useUi, type ResultsView } from '../../lib/store'
-import { formatDuration, formatTimecode, fpsLabel } from '../../lib/timecode'
+import { formatDuration, formatTimecode, fpsLabel, fpsTitle } from '../../lib/timecode'
 import { MatchRail } from './MatchRail'
 import { PlaceholderCard, ShotCard, type CardController } from './ShotCard'
 import o from '../../components/Overlay.module.css'
@@ -51,6 +51,15 @@ export interface ResultsGridProps {
   label: string
   /** Query text of the results shown (for ⌘Enter focus). */
   queryText: string
+  /** Select every result of the query (pages through the core, not just the loaded rows). */
+  onSelectAll?: () => void
+}
+
+/** Match-rail values 0..1: the core's absolute strength, or the score relative to the top when nothing was scored. */
+export function railValues(results: { score: number; strength?: number | null }[]): number[] {
+  if (results.some((r) => typeof r.strength === 'number')) return results.map((r) => (typeof r.strength === 'number' ? r.strength : 0))
+  const top = results[0]?.score || 1
+  return results.map((r) => Math.max(0, Math.min(1, r.score / top)))
 }
 
 export function shotReference(r: SearchResult): string {
@@ -98,6 +107,12 @@ export function ResultsGrid(props: ResultsGridProps) {
   const cols = view === 'grid' ? geo.cols : 1
   const rowH = view === 'grid' ? geo.rowH : view === 'list' ? LIST_ROW : LOG_ROW
   const rows = useMemo(() => buildRows(total, cols, split), [total, cols, split])
+  // Screen readers count rows of shots, not the divider ("Row 2 of 30").
+  const rowNumbers = useMemo(() => {
+    let n = 0
+    return rows.map((r) => (r.kind === 'items' ? ++n : 0))
+  }, [rows])
+  const itemRows = rowNumbers.reduce((a, b) => Math.max(a, b), 0)
 
   const virtualizer = useVirtualizer({
     count: rows.length,
@@ -249,6 +264,7 @@ export function ResultsGrid(props: ResultsGridProps) {
     if (mod && k.toLowerCase() === 'a') {
       e.preventDefault()
       if (e.shiftKey) ui().clearSelection()
+      else if (props.onSelectAll) props.onSelectAll()
       else ui().setSelection(new Set(results.map((x) => x.uid)))
       return
     }
@@ -344,8 +360,9 @@ export function ResultsGrid(props: ResultsGridProps) {
         <div
           ref={gridRef}
           role="grid"
+          id="results"
           aria-label={props.label}
-          aria-rowcount={rows.length}
+          aria-rowcount={itemRows}
           aria-colcount={cols}
           aria-multiselectable="true"
           aria-description="Space previews, X selects, Enter opens."
@@ -401,7 +418,8 @@ export function ResultsGrid(props: ResultsGridProps) {
               <div
                 key={`r${vi.index}`}
                 role="row"
-                aria-rowindex={vi.index + 1}
+                aria-rowindex={rowNumbers[vi.index]}
+                aria-label={`Row ${rowNumbers[vi.index]} of ${itemRows}`}
                 className={view === 'grid' ? s.row : s.listRow}
                 style={{ transform: `translateY(${vi.start}px)`, blockSize: view === 'grid' ? geo.cardH : vi.size }}
               >
@@ -411,7 +429,7 @@ export function ResultsGrid(props: ResultsGridProps) {
           })}
         </div>
       </div>
-      {view === 'grid' && <MatchRail scroller={scrollerRef} scores={results.map((r) => r.score)} total={total} split={split} gridId="results" />}
+      {view === 'grid' && <MatchRail scroller={scrollerRef} values={railValues(results)} total={total} split={split} gridId="results" />}
       <Popover
         triggerRef={menuAnchor as React.RefObject<HTMLElement>}
         isOpen={Boolean(menu && menuResult)}
@@ -511,7 +529,7 @@ function ListItem({ r, index, focused, selected, rights, view, onFocusIndex, onA
         <span className={s.cellText}>{desc}</span>
         <span className={`${s.cellText} ${s.wideOnly}`} style={{ color: 'var(--fg-2)' }}>{r.filename}</span>
         <span className={`${s.cellText} ${s.wideOnly}`} style={{ color: 'var(--fg-2)' }}>{humanise(r.edit_type)}</span>
-        <span className={`${s.cellMono} ${s.wideOnly}`}>{fpsLabel(r.fps)}</span>
+        <span className={`${s.cellMono} ${s.wideOnly}`} title={fpsTitle(r.fps)}>{fpsLabel(r.fps)}</span>
         <span className={`${s.cellMono} ${s.wideOnly}`}>{r.resolution?.replace('x', '×')}</span>
         <span>
           <RightsBadge state={rights} reasons={r.rights?.reasons} />

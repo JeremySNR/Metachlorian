@@ -4,7 +4,10 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Bot, Cloud, Copy, HardDrive, KeyRound, Plus, Trash2 } from 'lucide-react'
 import type { AdminSettings, ModelEndpoint, Scope } from '../../api/types'
 import { api, ApiError } from '../../api/client'
-import { useAdminSettings, useAudit, useHealth, useMe, useTokens, useUsers } from '../../api/queries'
+import { checkEndpointLocality, useAdminSettings, useAudit, useEndpointLocality, useHealth, useMe, useTokens, useUsers } from '../../api/queries'
+import { useDebounced } from '../../hooks/useDebounced'
+import { useDocumentTitle } from '../../hooks/useDocumentTitle'
+import { endpointHost, localityBadge, needsEgressConfirm, type Locality } from '../../lib/egress'
 import { Button } from '../../components/Button'
 import { Dialog } from '../../components/Dialog'
 import { EmptyState, StatusText } from '../../components/EmptyState'
@@ -14,7 +17,7 @@ import { toast } from '../../components/Toast'
 import { bridge, can, desktopInfo, type DesktopInfo } from '../../lib/bridge'
 import { formatDateTime, formatNumber, formatRelative, humanise } from '../../lib/format'
 import { usePrefs, type Density, type MotionPref, type Theme } from '../../lib/store'
-import { SHORTCUTS } from '../shell/ShortcutsDialog'
+import { Keys, SHORTCUTS } from '../shell/ShortcutsDialog'
 import l from '../library/Library.module.css'
 import s from './Settings.module.css'
 
@@ -38,7 +41,8 @@ export function SettingsPage() {
   const isAdmin = me.data?.scopes.includes('admin')
   const desktop = Boolean(bridge()?.desktop)
   const visible = SECTIONS.filter((x) => (!x.desktop || desktop) && (!x.admin || isAdmin !== false))
-  const current = visible.find((x) => x.id === section) ?? visible[0]
+  const current = visible.find((x) => x.id === section)
+  useDocumentTitle(current?.label ?? 'Not found', 'Settings')
   return (
     <div className={s.page}>
       <nav className={s.nav} aria-label="Settings sections">
@@ -51,17 +55,22 @@ export function SettingsPage() {
       </nav>
       <main id="main" className={s.main}>
         <div className={s.inner}>
-          <h1>{current.label}</h1>
-          {current.id === 'appearance' && <Appearance />}
-          {current.id === 'playback' && <Playback />}
-          {current.id === 'keyboard' && <Keyboard />}
-          {current.id === 'connection' && <Connection />}
-          {current.id === 'users' && <Users />}
-          {current.id === 'tokens' && <Tokens />}
-          {current.id === 'adapters' && <Adapters />}
-          {current.id === 'audit' && <Audit />}
-          {current.id === 'storage' && <Storage />}
-          {current.id === 'about' && <About />}
+          <h1>{current ? current.label : 'Not found'}</h1>
+          {!current && (
+            <EmptyState inline title="There's no settings section here">
+              {isAdmin === false && SECTIONS.some((x) => x.id === section) ? 'Only admins can see this section.' : 'Pick a section from the list.'}
+            </EmptyState>
+          )}
+          {!current ? null : current.id === 'appearance' && <Appearance />}
+          {current?.id === 'playback' && <Playback />}
+          {current?.id === 'keyboard' && <Keyboard />}
+          {current?.id === 'connection' && <Connection />}
+          {current?.id === 'users' && <Users />}
+          {current?.id === 'tokens' && <Tokens />}
+          {current?.id === 'adapters' && <Adapters />}
+          {current?.id === 'audit' && <Audit />}
+          {current?.id === 'storage' && <Storage />}
+          {current?.id === 'about' && <About />}
         </div>
       </main>
     </div>
@@ -134,7 +143,7 @@ function Keyboard() {
             <tbody>
               {sec.rows.map(([keys, desc]) => (
                 <tr key={desc}>
-                  <td style={{ inlineSize: 220 }}>{keys.map((k) => <kbd key={k} style={{ marginInlineEnd: 4 }}>{k}</kbd>)}</td>
+                  <td style={{ inlineSize: 220 }}><Keys combos={keys} /></td>
                   <td>{desc}</td>
                 </tr>
               ))}
@@ -373,19 +382,11 @@ function Tokens() {
   )
 }
 
-function host(url: string) {
-  try {
-    return new URL(url).host
-  } catch {
-    return url
-  }
-}
-
 function Adapters() {
   const settings = useAdminSettings()
   const health = useHealth()
   const qc = useQueryClient()
-  const [confirm, setConfirm] = useState<null | (() => Promise<void>)>(null)
+  const [confirm, setConfirm] = useState<null | { host: string; sends: string; go: () => Promise<void> }>(null)
   if (settings.isError) return <AdminOnly error={settings.error} />
   const d = settings.data
   if (!d) return <div aria-busy="true" />
@@ -399,6 +400,20 @@ function Adapters() {
       toast({ title: "Couldn't save", description: e instanceof ApiError ? e.detail : String(e), tone: 'error' })
     }
   }
+  // The core classifies the host; anything it does not call local needs the §3.20 confirmation first.
+  const saveAdapter = async (key: 'vlm' | 'llm', ep: ModelEndpoint, sends: string) => {
+    const go = () => save({ [key]: ep } as Partial<AdminSettings['settings']>)
+    let loc: Locality | null = null
+    if (ep.base_url.trim()) {
+      try {
+        loc = await checkEndpointLocality(ep.base_url)
+      } catch {
+        loc = null
+      }
+    }
+    if (needsEgressConfirm(ep.base_url, loc)) setConfirm({ host: endpointHost(ep.base_url), sends, go })
+    else await go()
+  }
   const remote = d.egress.content_leaves_machine
   return (
     <section className={s.group}>
@@ -408,18 +423,25 @@ function Adapters() {
       {!health.data?.vlm && (
         <p className={s.muted}>No vision language model is configured, so Metachlorian uses its CPU tier: local SigLIP labels, motion, audio, speech and on-screen text. Descriptions are assembled from those signals. Add an OpenAI-compatible endpoint below for richer captions.</p>
       )}
-      <AdapterForm title="Vision language model (captions)" ep={d.settings.vlm} allowRemote={d.settings.allow_remote} sends="Frames (sampled keyframes) and analyser text, during analysis of every new file" onSave={(ep) => {
-        const go = () => save({ vlm: ep } as Partial<AdminSettings['settings']>)
-        if (!ep.local && ep.base_url) setConfirm(() => go)
-        else go()
-      }} />
-      <AdapterForm title="Language model (summaries and query help)" ep={d.settings.llm} allowRemote={d.settings.allow_remote} sends="Analyser text and search queries" onSave={(ep) => {
-        const go = () => save({ llm: ep } as Partial<AdminSettings['settings']>)
-        if (!ep.local && ep.base_url) setConfirm(() => go)
-        else go()
-      }} />
-      <Row label="Allow hosted adapters" hint="Off: endpoints not marked local are refused.">
-        <Switch isSelected={d.settings.allow_remote} onChange={(v) => (v ? setConfirm(() => () => save({ allow_remote: true })) : save({ allow_remote: false }))}>
+      <AdapterForm
+        title="Vision language model (captions)"
+        ep={d.settings.vlm}
+        allowRemote={d.settings.allow_remote}
+        sends="Frames (sampled keyframes) and analyser text, during analysis of every new file"
+        onSave={(ep) => saveAdapter('vlm', ep, 'Frames from your footage')}
+      />
+      <AdapterForm
+        title="Language model (summaries and query help)"
+        ep={d.settings.llm}
+        allowRemote={d.settings.allow_remote}
+        sends="Analyser text and search queries"
+        onSave={(ep) => saveAdapter('llm', ep, 'Analyser text and your search queries')}
+      />
+      <Row label="Allow hosted adapters" hint="Off: endpoints the core doesn't classify as local are refused.">
+        <Switch
+          isSelected={d.settings.allow_remote}
+          onChange={(v) => (v ? setConfirm({ host: 'hosted endpoints', sends: 'Frames and text', go: () => save({ allow_remote: true }) }) : save({ allow_remote: false }))}
+        >
           {d.settings.allow_remote ? 'Allowed' : 'Refused'}
         </Switch>
       </Row>
@@ -452,30 +474,50 @@ function Adapters() {
         title="Content will leave this machine"
         size="s"
         role="alertdialog"
-        footer={<><Button variant="secondary" autoFocus onPress={() => setConfirm(null)}>Cancel</Button><Button variant="dangerFilled" onPress={async () => { await confirm?.(); setConfirm(null) }}>Turn on and send frames</Button></>}
+        footer={<><Button variant="secondary" autoFocus onPress={() => setConfirm(null)}>Cancel</Button><Button variant="dangerFilled" onPress={async () => { await confirm?.go(); setConfirm(null) }}>Turn on and send</Button></>}
       >
-        <strong>Frames from your footage will be sent to {host(d.settings.vlm.base_url || d.settings.llm.base_url) || 'the hosted endpoint'}.</strong> This happens during analysis of every new file. Footage files themselves are not uploaded.
+        <p data-testid="egress-confirm">
+          <strong>{confirm?.sends} will be sent to {confirm?.host}.</strong> This happens during analysis of every new file. Footage files themselves are not uploaded.
+        </p>
       </Dialog>
     </section>
   )
 }
 
 function AdapterForm({ title, ep, allowRemote, sends, onSave }: { title: string; ep: ModelEndpoint; allowRemote: boolean; sends: string; onSave: (ep: ModelEndpoint) => void }) {
-  const [draft, setDraft] = useState(ep)
+  // "Runs on this machine or our own network" is a declaration only; it starts off for a new endpoint
+  // and never makes a public host local. The badge shows the core's classification of the host.
+  const [draft, setDraft] = useState<ModelEndpoint>(() => ({ ...ep, local: ep.base_url ? ep.local : false }))
+  const url = useDebounced(draft.base_url, 400)
+  const loc = useEndpointLocality(url)
+  const badge = localityBadge({ baseUrl: draft.base_url, locality: url === draft.base_url ? loc.data : null, error: loc.isError, allowRemote })
   const enabled = Boolean(draft.base_url && draft.model)
-  const leaves = enabled && !draft.local
+  const leaves = badge.tone === 'caution'
   return (
     <div className={s.adapter}>
       <div className={s.adapterHead}>
         <h3>{title}</h3>
-        {!enabled ? <StatusText tone="neutral">Not configured</StatusText> : leaves ? <StatusText tone="caution" icon={Cloud} filled>{allowRemote ? 'Leaves this machine' : 'Hosted, refused'}</StatusText> : <StatusText tone="neutral" icon={HardDrive}>Local</StatusText>}
+        <span data-testid="locality-badge" data-state={badge.state} aria-live="polite">
+          {badge.state === 'unset' ? (
+            <StatusText tone="neutral">Not configured</StatusText>
+          ) : leaves ? (
+            <StatusText tone="caution" icon={Cloud} filled>{badge.label}</StatusText>
+          ) : (
+            <StatusText tone="neutral" icon={badge.state === 'local' ? HardDrive : undefined}>{badge.label}</StatusText>
+          )}
+        </span>
       </div>
-      {leaves && <p className={s.muted} style={{ fontSize: 'var(--text-sm)' }}>Sends: {sends}. To: {host(draft.base_url)}.</p>}
+      {badge.detail && <p className={s.muted} style={{ fontSize: 'var(--text-sm)' }}>{badge.detail}{leaves && enabled ? ` Sends: ${sends}.` : ''}</p>}
       <div className={s.form}>
         <TextField label="Endpoint (OpenAI-compatible)" value={draft.base_url} onChange={(v) => setDraft({ ...draft, base_url: v })} placeholder="http://127.0.0.1:8080/v1" mono className={s.formWide} />
         <TextField label="Model" value={draft.model} onChange={(v) => setDraft({ ...draft, model: v })} mono />
         <TextField label="API key environment variable" value={draft.api_key_env} onChange={(v) => setDraft({ ...draft, api_key_env: v })} mono placeholder="OPENAI_API_KEY" />
-        <Switch isSelected={draft.local} onChange={(v) => setDraft({ ...draft, local: v })} className={s.formWide}>Runs on this machine or our own network</Switch>
+        <Switch isSelected={draft.local} onChange={(v) => setDraft({ ...draft, local: v })} className={s.formWide}>
+          Runs on this machine or our own network
+        </Switch>
+        <p className={`${s.muted} ${s.formWide}`} style={{ fontSize: 'var(--text-xs)' }}>
+          Metachlorian decides locality from the address itself; this switch can't make a public host count as local.
+        </p>
       </div>
       <div><Button variant="secondary" onPress={() => onSave(draft)}>Save</Button></div>
     </div>
