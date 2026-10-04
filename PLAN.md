@@ -22,15 +22,18 @@ spec; see [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md) Q1.
 - Core (`core/metachlorian`, Python 3.10+): `metachlorian serve` runs the API, MCP server, web app and analysis workers.
 - Web app (`app/`) and desktop shell (`desktop/`): built, typechecked, linted, unit-tested, journeys captured in `review/m4`.
 - Cutawan: imports Metachlorian packages and uses it as a B-roll source (branch in the Cutawan repo).
+- Added at the owner's request: hosted model providers (OpenAI key, OpenRouter, ChatGPT via Codex CLI) behind explicit
+  consent, and local face identity (name, merge, search and forget people), both with UI, API, MCP and tests.
 - Evaluation: every number is in [eval/README.md](eval/README.md); search ranking was revised after blind pooled judgments.
 
 ## Next
 
 1. Binary (b1) in-RAM vector codes with int8 rescoring, so 10 M shots fit a 16 GB machine (ADR 002 gate).
 2. A multilingual sentence embedder for meaning-level speech search (OPEN_QUESTIONS Q10).
-3. GPU-tier evaluation of VLM captions and shot size (the weakest CPU-tier signal).
-4. Publish the SigLIP ONNX release asset (Q4) and sign installers (Q3).
-5. Re-run the visual review on real hardware with 10,000+ results (grid scroll and preview latency).
+3. Verify the hosted providers against live accounts (not reachable from the build environment) and tune default models.
+4. GPU-tier evaluation of VLM captions and shot size (the weakest CPU-tier signal).
+5. Publish the SigLIP ONNX release asset (Q4) and sign installers (Q3).
+6. Re-run the visual review on real hardware with 10,000+ results (grid scroll and preview latency).
 
 ## Known risks
 
