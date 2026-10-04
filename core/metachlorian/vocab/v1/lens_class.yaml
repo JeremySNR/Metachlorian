@@ -1,0 +1,70 @@
+vocabulary: lens_class
+version: 1.0.0
+description: >
+  Perspective class of the lens as it appears in the image. This is
+  full-frame-equivalent focal length when lens metadata exists, and otherwise
+  inferred from perspective compression and distortion. It is extra to the
+  core spec. Matching an existing look ("compressed telephoto street shots")
+  is a common editor request, and lens choice is one of the four MovieLabs
+  Creative Vocabulary v1 categories.
+multi: false
+ordered: true            # rank 1 = widest
+applies_to: [shot]
+extensible: false
+terms:
+  - id: fisheye
+    label: Fisheye
+    rank: 1
+    definition: Extreme wide angle with strong barrel distortion and curved straight lines.
+    synonyms: [fish-eye, fish eye, gopro look, action cam distortion, circular fisheye]
+    broader: null
+    mappings: {movielabs: "Fisheye", iptc: null}
+  - id: ultra_wide
+    label: Ultra-wide
+    rank: 2
+    definition: Equivalent focal length below about 20 mm, with exaggerated depth and stretched edges.
+    synonyms: [ultra wide, ultrawide, super wide, 14mm, 16mm, 18mm, very wide lens]
+    broader: null
+    mappings: {movielabs: "Ultra Wide", iptc: null}
+  - id: wide_angle
+    label: Wide-angle
+    rank: 3
+    definition: Equivalent focal length of about 20 to 35 mm.
+    synonyms: [wide angle, wide lens, 24mm, 28mm, 35mm]
+    broader: null
+    mappings: {movielabs: "Wide Angle", iptc: null}
+  - id: normal
+    label: Normal
+    rank: 4
+    definition: Equivalent focal length of about 35 to 70 mm, with perspective close to human vision.
+    synonyms: [standard lens, normal lens, 50mm, natural perspective]
+    broader: null
+    mappings: {movielabs: "Normal", iptc: null}
+  - id: telephoto
+    label: Telephoto
+    rank: 5
+    definition: Equivalent focal length of about 70 to 300 mm, with compressed depth and isolated subjects.
+    synonyms: [tele, long lens, zoom lens look, 85mm, 135mm, 200mm, compressed, compression]
+    broader: null
+    mappings: {movielabs: "Telephoto", iptc: null}
+  - id: super_telephoto
+    label: Super-telephoto
+    rank: 6
+    definition: Equivalent focal length above about 300 mm, with extreme compression, typical of wildlife and sport.
+    synonyms: [super tele, 400mm, 600mm, extreme telephoto, long glass]
+    broader: telephoto
+    mappings: {movielabs: null, iptc: null}
+  - id: macro
+    label: Macro
+    rank: 4
+    definition: Close-focusing lens at or near 1:1 magnification, showing tiny details.
+    synonyms: [macro lens, close focus, probe lens, laowa probe, extreme detail]
+    broader: null
+    mappings: {movielabs: "Macro", iptc: null}
+  - id: anamorphic
+    label: Anamorphic
+    rank: 4
+    definition: Anamorphic optics, with oval bokeh, horizontal flares and a wide aspect after desqueeze.
+    synonyms: [anamorphic lens, scope, cinemascope, oval bokeh, blue streak flare]
+    broader: null
+    mappings: {movielabs: "Anamorphic", iptc: null}

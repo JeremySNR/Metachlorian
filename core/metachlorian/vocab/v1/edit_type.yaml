@@ -1,0 +1,98 @@
+vocabulary: edit_type
+version: 1.0.0
+description: >
+  The stage of an asset in the editorial lifecycle. This is set per asset (a
+  file) and inherited by its shots. It tells search whether a hit is raw
+  material (any part reusable) or part of someone else's edit (graphics,
+  music and others' rights may be baked in). Where the material came from
+  (own production, stock, AI-generated) is recorded separately in
+  source_type.
+multi: false
+ordered: true            # rank follows the lifecycle; useful for "prefer raw"
+applies_to: [asset]
+extensible: true
+terms:
+  - id: raw
+    label: Raw / rushes
+    rank: 1
+    definition: Camera originals or unedited recordings.
+    synonyms: [rushes, dailies, camera original, ocf, original camera files, footage, raw footage, unedited, source footage, iso recording]
+    broader: null
+    mappings: {movielabs: null, iptc: null, getty: "Raw"}
+  - id: selects
+    label: Selects
+    rank: 2
+    definition: Chosen portions of raw footage, either pulled into a bin or subclipped. Still unordered and unpolished.
+    synonyms: [select, pulls, pulled selects, circled takes, subclips, best takes, keepers]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: stringout
+    label: Stringout
+    rank: 2
+    definition: Selects laid end to end on a timeline without editorial shaping.
+    synonyms: [string-out, string out, selects reel, selects sequence, radio cut]
+    broader: selects
+    mappings: {movielabs: null, iptc: null}
+  - id: assembly
+    label: Assembly
+    rank: 3
+    definition: The first full ordering of material to the script or structure, usually long and loose.
+    synonyms: [assembly cut, assemble edit, first assembly, editor's assembly]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: rough_cut
+    label: Rough cut
+    rank: 4
+    definition: A shaped edit with structure in place but timing, graphics and audio unfinished.
+    synonyms: [rough, rc, first cut, offline, offline edit, draft edit, v1 edit]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: fine_cut
+    label: Fine cut
+    rank: 5
+    definition: Timing refined and approved in principle, awaiting lock.
+    synonyms: [fine, tight cut, near-final, near final, fc]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: locked_cut
+    label: Picture lock
+    rank: 6
+    definition: The edit is frozen for finishing (grade, mix, graphics) and further picture changes are not expected.
+    synonyms: [picture lock, locked, lock, online edit, conform]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: finished
+    label: Finished / master
+    rank: 7
+    definition: The final graded and mixed deliverable, as published or broadcast.
+    synonyms: [final, final master, deliverable, published, as broadcast, tx master, mastered, completed]
+    broader: null
+    mappings: {movielabs: null, iptc: null, getty: "Produced"}
+  - id: textless
+    label: Textless / clean master
+    rank: 7
+    definition: A finished master without burned-in text, graphics or subtitles. High reuse value.
+    synonyms: [clean, clean feed, clean version, textless master, no graphics, no supers, generic version]
+    broader: finished
+    mappings: {movielabs: null, iptc: null}
+  - id: cutdown
+    label: Cutdown / version
+    rank: 7
+    definition: A shorter or reformatted derivative of a finished piece, such as a 30s from a 60s, a vertical social version or a teaser.
+    synonyms: [cut-down, cut down, cutdowns, versioning, version, social cut, 15s, 30s, 6s, bumper]
+    broader: finished
+    mappings: {movielabs: null, iptc: null}
+  - id: promo
+    label: Promo / trailer
+    rank: 7
+    definition: A finished promotional piece for other content, such as a trailer, teaser or sizzle reel.
+    synonyms: [trailer, teaser, sizzle, sizzle reel, promo spot, preview]
+    broader: finished
+    mappings: {movielabs: null, iptc: null}
+  - id: programme_recording
+    label: Programme recording
+    rank: 7
+    definition: A recording of a live or vision-mixed output, such as a PGM feed, livestream VOD or webinar recording.
+    synonyms: [pgm, program feed, programme feed, live recording, stream recording, livestream, livestream vod, webinar recording, as-live]
+    broader: null
+    mappings: {movielabs: null, iptc: null}

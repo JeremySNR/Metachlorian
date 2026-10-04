@@ -1,0 +1,49 @@
+vocabulary: colour_grade
+version: 1.0.0
+description: >
+  Colour state of the picture. This is extra to the core spec. It tells an
+  editor whether a shot needs a LUT or grade before it matches finished
+  material (log vs display-referred), and distinguishes monochrome and
+  stylised looks. Store the camera log/gamut metadata (e.g. S-Log3/S-Gamut3.Cine)
+  separately as technical fields.
+multi: false
+ordered: false
+applies_to: [shot, asset]
+extensible: true
+terms:
+  - id: log
+    label: Log / flat
+    definition: A scene-referred log or flat profile with low contrast and saturation. Needs a transform before display.
+    synonyms: [log footage, flat, flat profile, slog, s-log, s-log3, c-log, v-log, log-c, logc, n-log, f-log, raw (log), ungraded log]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: hdr
+    label: HDR
+    definition: High-dynamic-range display-referred video, such as PQ/HLG with Rec.2020 primaries.
+    synonyms: [hdr10, hdr10+, dolby vision, hlg, pq, rec2020, rec.2020]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: display_ungraded
+    label: Display-ready, ungraded
+    definition: A standard Rec.709/sRGB camera profile (or log with only a technical LUT) with no creative grade.
+    synonyms: [rec709, rec.709, standard profile, straight out of camera, sooc, technical lut only, normalised]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: graded
+    label: Graded
+    definition: A creative colour grade has been applied.
+    synonyms: [colour graded, color graded, graded footage, finished colour, look applied]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: stylised
+    label: Stylised
+    definition: Strong deliberate look, such as teal-and-orange, bleach bypass, cross-processed, heavy film emulation or vintage.
+    synonyms: [stylized, teal and orange, bleach bypass, film look, vintage look, retro grade, faded, cross processed]
+    broader: graded
+    mappings: {movielabs: null, iptc: null}
+  - id: monochrome
+    label: Black and white
+    definition: Monochrome or desaturated to grayscale.
+    synonyms: [black and white, b&w, bw, monochrome, greyscale, grayscale]
+    broader: null
+    mappings: {movielabs: null, iptc: null}

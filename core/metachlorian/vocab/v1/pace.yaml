@@ -1,0 +1,49 @@
+vocabulary: pace
+version: 1.0.0
+description: >
+  Perceived tempo. For a single shot this is visual tempo, from the amount and
+  speed of motion inside the frame (subject plus camera). For a segment of an
+  edit it is cutting tempo, from average shot length (ASL). The thresholds are
+  starting defaults to calibrate on the eval set. The raw measures (mean
+  motion magnitude, ASL in seconds) are stored next to the term so queries can
+  use numbers.
+multi: false
+ordered: true            # rank 1 = slowest
+applies_to: [shot, segment, asset]
+extensible: false
+terms:
+  - id: still
+    label: Still
+    rank: 1
+    definition: Almost no motion in the frame and a locked camera, like a living photograph. For edits, ASL above 12 s or a single long take.
+    synonyms: [motionless, static scene, very slow, long take, oner, cinemagraph]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: slow
+    label: Slow
+    rank: 2
+    definition: Gentle, unhurried motion. For edits, ASL of 6 to 12 s.
+    synonyms: [leisurely, gentle, unhurried, languid, lingering, slow-paced, slow paced]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: moderate
+    label: Moderate
+    rank: 3
+    definition: Everyday motion and conversational rhythm. For edits, ASL of 3 to 6 s.
+    synonyms: [medium pace, steady, even, normal pace, mid-tempo, midtempo]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: fast
+    label: Fast
+    rank: 4
+    definition: Brisk, energetic motion or quick camera work. For edits, ASL of 1.5 to 3 s.
+    synonyms: [quick, brisk, fast-paced, fast paced, energetic pace, punchy, snappy, upbeat pace]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: frenetic
+    label: Frenetic
+    rank: 5
+    definition: Very rapid, chaotic motion or cutting. For edits, ASL below 1.5 s.
+    synonyms: [frantic, hectic, hyper, rapid-fire, rapid fire, very fast, breakneck, strobe cutting, flash cuts]
+    broader: null
+    mappings: {movielabs: null, iptc: null}

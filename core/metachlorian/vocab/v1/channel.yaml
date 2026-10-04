@@ -1,0 +1,133 @@
+vocabulary: channel
+version: 1.0.0
+description: >
+  Where a piece of media will appear. Rights grants list permitted and
+  prohibited channels, and check_rights takes the intended channels. Paid and
+  organic social are separate because stock and talent agreements often
+  price or restrict them differently. A grant on a broader term covers its
+  narrower terms unless a narrower term is prohibited explicitly.
+multi: true
+ordered: false
+applies_to: [rights_grant, rights_request, package_target]
+extensible: true
+terms:
+  - id: social
+    label: Social media
+    definition: Any social or short-video platform, such as Instagram, TikTok, YouTube, LinkedIn, X, Facebook or Snapchat.
+    synonyms: [social media, socials, social platforms]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: organic_social
+    label: Organic social
+    definition: Unpaid posts on the organisation's own social accounts.
+    synonyms: [organic, organic posts, owned social, unpaid social, brand channel, reels, shorts, stories]
+    broader: social
+    mappings: {movielabs: null, iptc: null}
+  - id: paid_social
+    label: Paid social
+    definition: Paid, boosted or targeted social placements, such as ads, boosted posts and Spark Ads.
+    synonyms: [social ads, boosted posts, boosted, sponsored posts, meta ads, tiktok ads, spark ads, dark posts]
+    broader: social
+    mappings: {movielabs: null, iptc: null}
+  - id: creator_partnership
+    label: Creator / partner channels
+    definition: Distribution through third-party creators', influencers' or partners' accounts, including whitelisting.
+    synonyms: [influencer, influencers, creator, whitelisting, partner posts, collab posts, affiliate]
+    broader: social
+    mappings: {movielabs: null, iptc: null}
+  - id: web
+    label: Web (owned)
+    definition: Websites, landing pages, blogs and help centres the organisation owns.
+    synonyms: [website, site, landing page, blog, microsite, online, help centre, intranet (public)]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: online_advertising
+    label: Online advertising
+    definition: Paid video or display ads outside social platforms, such as pre-roll, programmatic, search video and in-app ads.
+    synonyms: [pre-roll, preroll, programmatic, display ads, banner ads, youtube ads, video ads, in-app ads, digital advertising]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: email
+    label: Email / CRM
+    definition: Email campaigns, newsletters and CRM messaging.
+    synonyms: [newsletter, edm, crm, email campaign, mailshot]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: broadcast
+    label: Broadcast TV
+    definition: Linear television over terrestrial, cable or satellite.
+    synonyms: [tv, television, linear, linear tv, terrestrial, cable, satellite, on air, broadcast television]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: streaming
+    label: Streaming / CTV
+    definition: Video-on-demand and connected-TV services, such as SVOD, AVOD, FAST channels and broadcaster players.
+    synonyms: [ctv, ott, vod, svod, avod, fast channels, connected tv, streaming platform, catch-up, bvod]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: cinema
+    label: Cinema
+    definition: Theatrical exhibition, including cinema advertising.
+    synonyms: [theatrical, movie theatre, movie theater, cinema ad, big screen]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: ooh
+    label: Out of home (OOH)
+    definition: Public signage and screens, such as billboards, transit and street furniture.
+    synonyms: [out of home, out-of-home, billboard, billboards, outdoor advertising, transit ads, poster sites]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: dooh
+    label: Digital out of home (DOOH)
+    definition: Digital screens in public places, such as digital billboards, station screens and mall screens.
+    synonyms: [digital out of home, digital billboard, digital signage, screens, place-based media]
+    broader: ooh
+    mappings: {movielabs: null, iptc: null}
+  - id: retail_in_store
+    label: In-store / point of sale
+    definition: Screens and displays inside retail locations.
+    synonyms: [point of sale, pos, in-store, in store, retail screens, shop window]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: live_event
+    label: Live events
+    definition: Screens at live events, such as conferences, trade shows, concerts, sports and keynotes.
+    synonyms: [event, events, conference, trade show, exhibition, keynote, stage screens, led wall, activation]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: presentation
+    label: Presentations / pitches
+    definition: Private showings to defined audiences, such as sales decks, client pitches and investor presentations.
+    synonyms: [pitch, pitch deck, sales deck, client presentation, deck, private screening, investor presentation]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: internal
+    label: Internal channels
+    definition: Channels visible only inside the organisation, such as intranet, internal video platforms, all-hands meetings and LMS.
+    synonyms: [intranet, internal, internal comms, all hands, town hall, lms, learning platform, slack, teams]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: press
+    label: Press / PR distribution
+    definition: Distribution to journalists and media outlets, such as press kits, B-roll packages and newsroom uploads.
+    synonyms: [press kit, media kit, epk, newsroom, pr, press release, b-roll package, vnr]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: in_product
+    label: In-product / app
+    definition: Inside a software product, app, game, kiosk or device UI.
+    synonyms: [in-app, in app, app, product ui, onboarding video, kiosk, embedded product]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: print
+    label: Print (frame grabs)
+    definition: Still frames from the video used in print, such as brochures, magazines, posters and packaging.
+    synonyms: [frame grab, frame grabs, brochure, magazine, poster, flyer, printed]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: audio_only
+    label: Audio-only
+    definition: The soundtrack is used without the picture, as in radio, podcasts and audio ads.
+    synonyms: [radio, podcast, audio ad, audio, streaming audio]
+    broader: null
+    mappings: {movielabs: null, iptc: null}

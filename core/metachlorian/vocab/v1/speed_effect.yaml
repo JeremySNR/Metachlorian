@@ -1,0 +1,72 @@
+vocabulary: speed_effect
+version: 1.0.0
+description: >
+  How on-screen time relates to real time. This comes from capture metadata
+  (capture fps vs playback fps, e.g. 120p conformed to 25p = 0.21x) when
+  present, and otherwise from motion analysis. Several terms can apply, e.g.
+  reverse + slow_motion.
+multi: true
+ordered: false
+applies_to: [shot, segment]
+extensible: true
+terms:
+  - id: real_time
+    label: Real time
+    definition: Plays at the speed it was recorded (0.9x to 1.1x).
+    synonyms: [realtime, normal speed, 1x, native speed, true speed]
+    broader: null
+    mappings: {movielabs: null, iptc: null, artgrid: "Realtime"}
+  - id: slow_motion
+    label: Slow motion
+    definition: Plays slower than real time (below 0.9x), usually because it was shot at a high frame rate.
+    synonyms: [slow mo, slo-mo, slomo, slow-motion, overcranked, high frame rate, hfr, 50p conformed, 60p conformed, slowed down]
+    broader: null
+    mappings: {movielabs: null, iptc: null, artgrid: "Slow"}
+  - id: super_slow_motion
+    label: Super slow motion
+    definition: Plays at or below 0.25x real time, for example 120 fps or faster conformed to 24/25/30.
+    synonyms: [super slo-mo, super slowmo, ultra slow motion, high speed, phantom, 120fps, 240fps, 1000fps]
+    broader: slow_motion
+    mappings: {movielabs: null, iptc: null, artgrid: "Super Slow"}
+  - id: fast_motion
+    label: Fast motion
+    definition: Plays faster than real time (1.1x to about 10x) through undercranking or a speed change in the edit.
+    synonyms: [sped up, speed up, fast forward, undercranked, accelerated, fast-motion]
+    broader: null
+    mappings: {movielabs: null, iptc: null, artgrid: "Fast"}
+  - id: time_lapse
+    label: Time-lapse
+    definition: Frames are captured at intervals, compressing minutes or hours into seconds (roughly 10x and above).
+    synonyms: [timelapse, time lapse, lapse, interval shooting, intervalometer]
+    broader: fast_motion
+    mappings: {movielabs: null, iptc: null, artgrid: null}
+  - id: hyperlapse
+    label: Hyperlapse
+    definition: A time-lapse in which the camera also moves through space over a large distance.
+    synonyms: [hyper-lapse, moving timelapse, motion timelapse, walklapse, drone lapse, dronelapse]
+    broader: time_lapse
+    mappings: {movielabs: null, iptc: null, artgrid: null}
+  - id: speed_ramp
+    label: Speed ramp
+    definition: The playback speed changes within the shot, e.g. real time ramping into slow motion.
+    synonyms: [ramp, ramping, time remap, time remapping, variable speed, speed change]
+    broader: null
+    mappings: {movielabs: null, iptc: null, artgrid: null}
+  - id: reverse
+    label: Reverse
+    definition: Plays backwards.
+    synonyms: [reversed, rewind, backwards, played backwards]
+    broader: null
+    mappings: {movielabs: null, iptc: null, artgrid: null}
+  - id: freeze_frame
+    label: Freeze frame
+    definition: A single frame is held, which stops the action.
+    synonyms: [freeze, still frame, frame hold, hold frame, frozen]
+    broader: null
+    mappings: {movielabs: null, iptc: null, artgrid: null}
+  - id: stop_motion
+    label: Stop motion
+    definition: Animation built from individually photographed frames of physical objects.
+    synonyms: [stop-motion, stopmotion, claymation, pixilation]
+    broader: null
+    mappings: {movielabs: null, iptc: null, artgrid: null}

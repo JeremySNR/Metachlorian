@@ -1,0 +1,72 @@
+vocabulary: camera_angle
+version: 1.0.0
+description: >
+  The camera's viewpoint relative to the subject. This covers vertical angle
+  (eye level, high, low), roll (dutch) and point of view (POV, over the
+  shoulder). A shot can hold several, for example a low angle that is also
+  dutched.
+multi: true
+ordered: false
+applies_to: [shot, segment]
+extensible: true
+terms:
+  - id: eye_level
+    label: Eye level
+    definition: The camera is level with the subject's eyes and looks straight on. This is the neutral default.
+    synonyms: [eye-level, neutral angle, straight on, head on, level shot]
+    broader: null
+    mappings: {movielabs: "Eye Level", iptc: null, xmpdm: "Eye Level"}
+  - id: high_angle
+    label: High angle
+    definition: The camera is above the subject and looks down at it, which tends to make the subject look smaller or more vulnerable.
+    synonyms: [high-angle, looking down, downward angle, high shot]
+    broader: null
+    mappings: {movielabs: "High Angle", iptc: null, xmpdm: "High Angle"}
+  - id: birds_eye
+    label: Bird's-eye / overhead
+    definition: The camera looks straight down from directly above, as in top-down, plan-view and flat-lay shots.
+    synonyms: [birds eye, bird's eye view, overhead, overhead shot, top down, top-down, top shot, god's eye, plan view, flat lay, flatlay]
+    broader: high_angle
+    mappings: {movielabs: "Overhead", iptc: "scene:011200", xmpdm: ["Birds Eye Shot", "Overhead Shot"]}
+  - id: low_angle
+    label: Low angle
+    definition: The camera is below the subject and looks up at it, which tends to make the subject look dominant or imposing.
+    synonyms: [low-angle, looking up, upward angle, low shot, hero angle]
+    broader: null
+    mappings: {movielabs: "Low Angle", iptc: null, xmpdm: "Low Angle"}
+  - id: worms_eye
+    label: Worm's-eye
+    definition: An extreme low angle from ground level looking steeply upward.
+    synonyms: [worm's eye, worms eye view, ground level up, extreme low angle]
+    broader: low_angle
+    mappings: {movielabs: "Worm's Eye", iptc: null, xmpdm: null}
+  - id: ground_level
+    label: Ground level
+    definition: The lens is at or near the ground and looks roughly horizontally, as in a floor or tabletop-level shot.
+    synonyms: [floor level, low mode, ground shot, skid shot]
+    broader: null
+    mappings: {movielabs: null, iptc: null, xmpdm: null}
+  - id: dutch_angle
+    label: Dutch angle
+    definition: The camera is rolled so the horizon is tilted, giving a sense of unease or disorientation.
+    synonyms: [dutch, dutch tilt, canted, canted angle, oblique angle, tilted horizon, german angle]
+    broader: null
+    mappings: {movielabs: "Dutch Angle", iptc: null, xmpdm: "Dutch Angle"}
+  - id: pov
+    label: Point of view (POV)
+    definition: The shot represents what a character or the operator sees, as in first-person, body-cam and dashcam footage.
+    synonyms: [point of view, point-of-view, first person, first-person, subjective, subjective camera, body cam, helmet cam, dashcam, dash cam]
+    broader: null
+    mappings: {movielabs: "Point of View", iptc: null, xmpdm: "POV"}
+  - id: over_the_shoulder
+    label: Over the shoulder (OTS)
+    definition: Framed from behind one person's shoulder looking at another person or object.
+    synonyms: [ots, o/s, over-the-shoulder, over shoulder, dirty single]
+    broader: null
+    mappings: {movielabs: "Over the Shoulder", iptc: null, xmpdm: "Over the Shoulder"}
+  - id: aerial_view
+    label: Aerial view
+    definition: Seen from a substantial height, such as from a drone, aircraft or rooftop. The camera platform is recorded in camera_movement.
+    synonyms: [aerial, from above, from the air, drone view, high aerial, satellite view]
+    broader: high_angle
+    mappings: {movielabs: "Aerial", iptc: "scene:011200", xmpdm: null}

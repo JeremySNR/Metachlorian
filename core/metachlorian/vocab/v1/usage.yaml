@@ -1,0 +1,88 @@
+vocabulary: usage
+version: 1.0.0
+description: >
+  Purposes a licence or clearance permits, or that a request intends. This is
+  the purpose dimension of a rights grant, used in an asset's rights record
+  (permitted/prohibited lists) and as the purpose input to check_rights.
+  Channel (where it appears), territory (ISO 3166-1 alpha-2 / UN M49 region
+  codes) and time window are separate dimensions. A narrower term inherits
+  the decisions of its broader term unless it is listed explicitly. Mappings
+  point to ODRL purpose values and PLUS Data Mining (DMI) codes where they
+  correspond.
+multi: true
+ordered: false
+applies_to: [rights_grant, rights_request]
+extensible: true
+terms:
+  - id: commercial
+    label: Commercial
+    definition: Use that promotes or sells a product, service, brand or organisation.
+    synonyms: [commercial use, marketing use, brand use, promotional]
+    broader: null
+    mappings: {movielabs: null, iptc: null, odrl: "purpose=commercial"}
+  - id: advertising
+    label: Advertising
+    definition: Paid placement of promotional content in media the advertiser does not own.
+    synonyms: [ads, ad, advert, adverts, paid media, campaign, commercial spot, tvc]
+    broader: commercial
+    mappings: {movielabs: null, iptc: null}
+  - id: marketing
+    label: Marketing (owned/earned)
+    definition: Promotional content on channels the organisation owns or earns, such as brand social, website, email and PR.
+    synonyms: [owned media, earned media, brand content, branded content, content marketing, promo content]
+    broader: commercial
+    mappings: {movielabs: null, iptc: null}
+  - id: merchandise
+    label: Merchandise / product
+    definition: Incorporation into a product for sale, such as packaging, apps, games, templates or print-on-demand.
+    synonyms: [product use, packaging, resale, merch, in-product, templates, items for resale]
+    broader: commercial
+    mappings: {movielabs: null, iptc: null}
+  - id: editorial
+    label: Editorial
+    definition: Reporting, commentary or education about events or matters of public interest, not promoting anything.
+    synonyms: [editorial use, editorial only, journalistic, news use, non-promotional]
+    broader: null
+    mappings: {movielabs: null, iptc: null, getty: "editorial"}
+  - id: news
+    label: News / current affairs
+    definition: News reporting and current-affairs programming.
+    synonyms: [news, current affairs, journalism, bulletin, reportage]
+    broader: editorial
+    mappings: {movielabs: null, iptc: null}
+  - id: documentary
+    label: Documentary
+    definition: Factual long-form programming and non-fiction films.
+    synonyms: [doc, docs, factual, non-fiction, documentary film, docuseries]
+    broader: editorial
+    mappings: {movielabs: null, iptc: null}
+  - id: entertainment
+    label: Entertainment programming
+    definition: Non-promotional creative works for distribution, such as TV programmes, films, series and games.
+    synonyms: [programming, programme, program, feature film, series, show, film and tv, production use]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: internal
+    label: Internal
+    definition: Use only within the organisation, such as internal comms, training and archives, never shown publicly.
+    synonyms: [internal use, internal only, internal comms, employee comms, training, staff only, intranet use]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: educational
+    label: Educational (non-commercial)
+    definition: Teaching and learning materials offered without commercial gain.
+    synonyms: [education, teaching, classroom use, academic, e-learning (non-commercial)]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: ai_training
+    label: AI/ML training
+    definition: Use as training, fine-tuning or evaluation data for machine-learning models.
+    synonyms: [ml training, model training, data mining, tdm, text and data mining, dataset use]
+    broader: null
+    mappings: {movielabs: null, iptc: null, plus: {allowed: "DMI-ALLOWED", prohibited: "DMI-PROHIBITED-AIMLTRAINING"}}
+  - id: genai_training
+    label: Generative AI training
+    definition: Use as training data for generative models that produce media.
+    synonyms: [gen ai training, generative training, diffusion training, foundation model training]
+    broader: ai_training
+    mappings: {movielabs: null, iptc: null, plus: {prohibited: "DMI-PROHIBITED-GENAIMLTRAINING"}}

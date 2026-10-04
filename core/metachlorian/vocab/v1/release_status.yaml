@@ -1,0 +1,50 @@
+vocabulary: release_status
+version: 1.0.0
+description: >
+  Status of model (people) and property releases. The same vocabulary fills
+  two fields on an asset or shot, model_release and property_release, and
+  mirrors the PLUS/IPTC Model Release Status and Property Release Status
+  vocabularies (MR-*, PR-*). It adds "unknown" and "pending" because absence
+  of data must never be read as "none" or "not applicable". "unknown" is the
+  default, and check_rights treats it as blocking for commercial usage.
+multi: false
+ordered: false
+applies_to: [asset, shot]
+extensible: false
+terms:
+  - id: unknown
+    label: Unknown / not assessed
+    definition: No one has recorded the release status yet. This is the default.
+    synonyms: [unassessed, not checked, tbc, to be confirmed, unverified]
+    broader: null
+    mappings: {movielabs: null, iptc: null, plus_model: null, plus_property: null}
+  - id: not_applicable
+    label: Not applicable
+    definition: Nothing needs a release. There are no recognisable people (model) or no protected property (property) in the shot.
+    synonyms: [n/a, na, no people, no recognisable people, no property, release not required]
+    broader: null
+    mappings: {movielabs: null, iptc: null, plus_model: "MR-NAP", plus_property: "PR-NAP"}
+  - id: none
+    label: None
+    definition: Recognisable people or property appear and there is no release for them.
+    synonyms: [no release, unreleased, not released, without release]
+    broader: null
+    mappings: {movielabs: null, iptc: null, plus_model: "MR-NON", plus_property: "PR-NON"}
+  - id: pending
+    label: Pending
+    definition: Releases have been requested or are being collected but have not been received and verified.
+    synonyms: [requested, awaiting release, in progress, outstanding]
+    broader: null
+    mappings: {movielabs: null, iptc: null, plus_model: null, plus_property: null}
+  - id: limited
+    label: Limited / incomplete
+    definition: Releases exist for some people or property, or carry usage limits. See the rights record for the limits.
+    synonyms: [partial, partial release, incomplete, restricted release, limited release, some released]
+    broader: null
+    mappings: {movielabs: null, iptc: null, plus_model: "MR-LMR", plus_property: "PR-LPR"}
+  - id: unlimited
+    label: Unlimited
+    definition: Releases cover every person or every item of property shown, with no usage limits.
+    synonyms: [full release, fully released, released, all released, model released, property released]
+    broader: null
+    mappings: {movielabs: null, iptc: null, plus_model: "MR-UMR", plus_property: "PR-UPR"}

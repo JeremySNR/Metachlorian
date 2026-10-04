@@ -1,0 +1,32 @@
+vocabulary: depth_of_field
+version: 1.0.0
+description: >
+  How much of the scene, from near to far, is in acceptable focus. This is
+  extra to the core spec. It is a strong "cinematic look" cue and decides
+  whether a shot can carry text over a soft background.
+multi: false
+ordered: true
+applies_to: [shot]
+extensible: false
+terms:
+  - id: shallow
+    label: Shallow
+    rank: 1
+    definition: Only the subject plane is sharp and the background, foreground or both are strongly blurred.
+    synonyms: [shallow dof, shallow depth of field, bokeh, blurred background, background blur, creamy background, wide open, f1.4, f1.8]
+    broader: null
+    mappings: {movielabs: "Shallow Depth of Field", iptc: null}
+  - id: medium
+    label: Medium
+    rank: 2
+    definition: The subject and nearby planes are sharp and the distant background is somewhat soft.
+    synonyms: [moderate dof, medium depth of field, f4, f5.6]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: deep
+    label: Deep
+    rank: 3
+    definition: Foreground to background is sharp.
+    synonyms: [deep focus, deep dof, everything in focus, sharp throughout, f11, f16, hyperfocal]
+    broader: null
+    mappings: {movielabs: "Deep Focus", iptc: null}

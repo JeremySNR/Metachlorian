@@ -1,0 +1,61 @@
+vocabulary: shot_size
+version: 1.0.0
+description: >
+  How much of the main subject the frame contains, measured against a person
+  (or the dominant subject when no person is visible). One value per shot; a
+  shot whose framing changes (zoom, push-in) is tagged per segment or with the
+  framing it settles on.
+multi: false
+ordered: true          # rank 1 = tightest; supports "wider than", "tighter than"
+applies_to: [shot, segment]
+extensible: false      # admins may add synonyms, not new sizes
+terms:
+  - id: extreme_close_up
+    label: Extreme close-up (ECU)
+    rank: 1
+    definition: A small detail fills the frame, such as eyes, lips, a fingertip or a watch face.
+    synonyms: [ecu, xcu, ext cu, extreme closeup, extreme close up, big close-up, bcu, macro shot]
+    broader: null
+    mappings: {movielabs: "Extreme Close-Up", iptc: "scene:011800", xmpdm: "ECU"}
+  - id: close_up
+    label: Close-up (CU)
+    rank: 2
+    definition: A face from chin to forehead, or an object filling most of the frame.
+    synonyms: [cu, closeup, close up, tight shot, headshot, head shot, face shot]
+    broader: null
+    mappings: {movielabs: "Close-Up", iptc: ["scene:011800", "scene:010100"], xmpdm: "CU"}
+  - id: medium_close_up
+    label: Medium close-up (MCU)
+    rank: 3
+    definition: Head and shoulders, cut around the upper chest. The usual interview framing.
+    synonyms: [mcu, medium closeup, head and shoulders, chest shot, bust shot]
+    broader: null
+    mappings: {movielabs: "Medium Close-Up", iptc: null, xmpdm: "MCU"}
+  - id: medium_shot
+    label: Medium shot (MS)
+    rank: 4
+    definition: A person from the waist up, or a subject in some of its surroundings.
+    synonyms: [ms, mid shot, mid-shot, waist shot, half shot, half-length, medium]
+    broader: null
+    mappings: {movielabs: "Medium Shot", iptc: "scene:010200", xmpdm: "MS"}
+  - id: medium_long_shot
+    label: Medium long shot (MLS)
+    rank: 5
+    definition: A person from about the knees up. Also called medium wide, three-quarter, cowboy or American shot.
+    synonyms: [mls, mws, medium wide, medium wide shot, medium full shot, three-quarter shot, cowboy shot, american shot, knee shot]
+    broader: null
+    mappings: {movielabs: "Medium Wide Shot", iptc: null, xmpdm: "MWS"}
+  - id: long_shot
+    label: Long shot / wide shot (LS/WS)
+    rank: 6
+    definition: The whole person from head to toe with clear surroundings, or a scene seen as a whole.
+    synonyms: [ls, ws, wide, wide shot, full shot, fs, full-length, full body, long, establishing wide]
+    broader: null
+    mappings: {movielabs: "Wide Shot", iptc: "scene:010300", xmpdm: "WS"}
+  - id: extreme_wide_shot
+    label: Extreme wide shot (EWS)
+    rank: 7
+    definition: People are tiny or absent and the environment dominates, as in landscapes, skylines and vistas.
+    synonyms: [ews, els, xws, extreme long shot, extreme wide, very wide shot, vws, vista, panorama, panoramic]
+    broader: null
+    mappings: {movielabs: "Extreme Wide Shot", iptc: "scene:011100", xmpdm: "EWS"}

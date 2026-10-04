@@ -1,0 +1,193 @@
+vocabulary: camera_movement
+version: 1.0.0
+description: >
+  How the camera, lens or focus moves during the shot, plus the support that
+  shapes the motion (handheld, gimbal, drone). Direction-specific terms
+  (pan_left, push_in, ...) are narrower than their parent; when one is
+  assigned the parent is implied for search. A shot can hold several terms,
+  e.g. gimbal + tracking + push_in.
+multi: true
+ordered: false
+applies_to: [shot, segment]
+extensible: true
+terms:
+  - id: static
+    label: Static / locked-off
+    definition: The camera does not move. It is on a tripod or otherwise fixed, and framing stays constant.
+    synonyms: [locked off, locked-off, lock-off, tripod, sticks, fixed, still camera, stationary, no camera movement]
+    broader: null
+    mappings: {movielabs: "Static", iptc: null, xmpdm: null}
+  - id: pan
+    label: Pan
+    definition: The camera rotates horizontally on a fixed axis, left or right.
+    synonyms: [panning, pans, panned, pan shot, horizontal pan]
+    broader: null
+    mappings: {movielabs: "Pan", iptc: null, xmpdm: null}
+  - id: pan_left
+    label: Pan left
+    definition: A pan that moves the view to the left.
+    synonyms: [pans left, panning left]
+    broader: pan
+    mappings: {movielabs: null, iptc: null, xmpdm: "Pan Left"}
+  - id: pan_right
+    label: Pan right
+    definition: A pan that moves the view to the right.
+    synonyms: [pans right, panning right]
+    broader: pan
+    mappings: {movielabs: null, iptc: null, xmpdm: "Pan Right"}
+  - id: whip_pan
+    label: Whip pan
+    definition: A pan so fast the image smears into motion blur. It is often used as a transition.
+    synonyms: [swish pan, flash pan, whip, swish, zip pan]
+    broader: pan
+    mappings: {movielabs: "Whip Pan", iptc: null, xmpdm: null}
+  - id: tilt
+    label: Tilt
+    definition: The camera rotates vertically on a fixed axis, up or down.
+    synonyms: [tilting, tilts, tilted, tilt shot]
+    broader: null
+    mappings: {movielabs: "Tilt", iptc: null, xmpdm: null}
+  - id: tilt_up
+    label: Tilt up
+    definition: A tilt that moves the view upward, often used to reveal height.
+    synonyms: [tilts up, tilting up]
+    broader: tilt
+    mappings: {movielabs: null, iptc: null, xmpdm: "Tilt Up"}
+  - id: tilt_down
+    label: Tilt down
+    definition: A tilt that moves the view downward.
+    synonyms: [tilts down, tilting down]
+    broader: tilt
+    mappings: {movielabs: null, iptc: null, xmpdm: "Tilt Down"}
+  - id: dolly
+    label: Dolly
+    definition: The whole camera travels toward or away from the subject along the lens axis.
+    synonyms: [dolly shot, dollying, track in/out, tracking in, tracking out]
+    broader: null
+    mappings: {movielabs: "Dolly", iptc: null, xmpdm: null}
+  - id: push_in
+    label: Push-in
+    definition: The camera physically moves toward the subject, increasing intensity or focus. This is not a zoom.
+    synonyms: [push in, dolly in, move in, creep in, slow push, track in]
+    broader: dolly
+    mappings: {movielabs: "Push In", iptc: null, xmpdm: "Dolly In"}
+  - id: pull_out
+    label: Pull-out
+    definition: The camera physically moves away from the subject, revealing context.
+    synonyms: [pull out, pull back, pullback, dolly out, move out, track out]
+    broader: dolly
+    mappings: {movielabs: "Pull Out", iptc: null, xmpdm: "Dolly Out"}
+  - id: truck
+    label: Truck
+    definition: The whole camera travels sideways, parallel to the subject.
+    synonyms: [trucking, crab, crabbing, lateral move, lateral tracking, slider shot, side track]
+    broader: null
+    mappings: {movielabs: "Truck", iptc: null, xmpdm: null}
+  - id: truck_left
+    label: Truck left
+    definition: A truck that moves the camera to the left.
+    synonyms: [crab left, slide left]
+    broader: truck
+    mappings: {movielabs: null, iptc: null, xmpdm: "Truck Left"}
+  - id: truck_right
+    label: Truck right
+    definition: A truck that moves the camera to the right.
+    synonyms: [crab right, slide right]
+    broader: truck
+    mappings: {movielabs: null, iptc: null, xmpdm: "Truck Right"}
+  - id: tracking
+    label: Tracking / follow
+    definition: The camera travels with a moving subject, keeping it in frame from behind, in front or alongside.
+    synonyms: [tracking shot, follow, follow shot, following, leading shot, travelling shot, traveling shot, walk and talk]
+    broader: null
+    mappings: {movielabs: "Tracking", iptc: null, xmpdm: "Tracking"}
+  - id: pedestal
+    label: Pedestal
+    definition: The whole camera rises or lowers vertically without tilting.
+    synonyms: [ped, ped up, ped down, pedestal up, pedestal down, elevate]
+    broader: null
+    mappings: {movielabs: "Pedestal", iptc: null, xmpdm: ["Pedestal Up", "Pedestal Down"]}
+  - id: crane
+    label: Crane / jib
+    definition: The camera moves through large vertical or sweeping arcs on a crane, jib or boom arm, often for reveals.
+    synonyms: [jib, jib shot, crane shot, boom, boom up, boom down, crane up, crane down, technocrane]
+    broader: null
+    mappings: {movielabs: "Crane", iptc: null, xmpdm: ["Crane Up", "Crane Down", "Boom Up", "Boom Down"]}
+  - id: arc
+    label: Arc / orbit
+    definition: The camera circles around the subject while keeping it framed.
+    synonyms: [arc shot, orbit, orbiting, circling, 360 shot, around the subject]
+    broader: null
+    mappings: {movielabs: "Arc", iptc: null, xmpdm: null}
+  - id: roll
+    label: Roll
+    definition: The camera rotates around the lens axis during the shot, as in a barrel roll.
+    synonyms: [barrel roll, camera roll, rotating, spin]
+    broader: null
+    mappings: {movielabs: "Roll", iptc: null, xmpdm: null}
+  - id: zoom
+    label: Zoom
+    definition: The focal length changes during the shot, magnifying or widening the image without moving the camera.
+    synonyms: [zooming, zoomed, zoom shot]
+    broader: null
+    mappings: {movielabs: "Zoom", iptc: null, xmpdm: null}
+  - id: zoom_in
+    label: Zoom in
+    definition: A zoom toward a longer focal length that magnifies the subject.
+    synonyms: [zooms in, zooming in, zoom-in]
+    broader: zoom
+    mappings: {movielabs: null, iptc: null, xmpdm: "Zoom In"}
+  - id: zoom_out
+    label: Zoom out
+    definition: A zoom toward a wider focal length that widens the view.
+    synonyms: [zooms out, zooming out, zoom-out]
+    broader: zoom
+    mappings: {movielabs: null, iptc: null, xmpdm: "Zoom Out"}
+  - id: crash_zoom
+    label: Crash zoom
+    definition: A very fast zoom in or out, used for emphasis or comedy.
+    synonyms: [snap zoom, whip zoom, smash zoom]
+    broader: zoom
+    mappings: {movielabs: "Crash Zoom", iptc: null, xmpdm: null}
+  - id: dolly_zoom
+    label: Dolly zoom
+    definition: The camera dollies one way while zooming the other, so the subject keeps its size and the background stretches or compresses.
+    synonyms: [vertigo effect, vertigo shot, contra-zoom, zolly, trombone shot]
+    broader: null
+    mappings: {movielabs: "Dolly Zoom", iptc: null, xmpdm: null}
+  - id: rack_focus
+    label: Rack focus
+    definition: Focus shifts between subjects at different distances during the shot. This is an optical move, not a camera move.
+    synonyms: [focus pull, pull focus, focus shift, rack, follow focus change]
+    broader: null
+    mappings: {movielabs: "Rack Focus", iptc: null, xmpdm: null}
+  - id: handheld
+    label: Handheld
+    definition: The camera is held without stabilisation, so organic shake and drift are visible.
+    synonyms: [hand-held, hand held, shoulder mount, shoulder-mounted, run and gun, shaky cam, documentary style]
+    broader: null
+    mappings: {movielabs: "Handheld", iptc: null, xmpdm: null}
+  - id: gimbal
+    label: Gimbal / Steadicam
+    definition: The camera moves through space on a stabiliser such as a gimbal or Steadicam, giving smooth, floating motion.
+    synonyms: [steadicam, stabilised, stabilized, smooth movement, floating camera, glide, ronin, stabilizer]
+    broader: null
+    mappings: {movielabs: "Steadicam", iptc: null, xmpdm: null}
+  - id: aerial
+    label: Aerial
+    definition: The camera moves through the air on a drone, helicopter, aircraft or cable cam.
+    synonyms: [drone, drone shot, uav, helicopter shot, heli shot, flyover, fly-over, aerial shot, cable cam]
+    broader: null
+    mappings: {movielabs: "Aerial", iptc: "scene:011200", xmpdm: "Aerial"}
+  - id: fpv
+    label: FPV drone
+    definition: Fast, agile first-person-view drone flight, often close to obstacles and through gaps.
+    synonyms: [fpv drone, first person drone, cinewhoop, freestyle drone]
+    broader: aerial
+    mappings: {movielabs: null, iptc: null, xmpdm: null}
+  - id: vehicle_mount
+    label: Vehicle mount
+    definition: The camera is rigged to a moving car, bike, boat or train, as in car-mount, process-trailer and on-board shots.
+    synonyms: [car mount, car rig, on-board, onboard, process trailer, russian arm, hood mount, bike mount]
+    broader: null
+    mappings: {movielabs: null, iptc: null, xmpdm: null}

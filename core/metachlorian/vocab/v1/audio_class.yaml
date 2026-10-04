@@ -1,0 +1,105 @@
+vocabulary: audio_class
+version: 1.0.0
+description: >
+  What the soundtrack of a shot contains, at the level an editor cares about
+  (usable dialogue? music bed? natural sound? silence?). It is assigned per
+  shot with a confidence and an approximate coverage fraction. Fine-grained
+  sound events (dog bark, siren) come from an AudioSet-style classifier and
+  are stored as free event tags, not as vocabulary terms. Mappings give
+  AudioSet ontology IDs only. The ontology is CC BY-SA 4.0, so definitions are
+  not copied from it.
+multi: true
+ordered: false
+applies_to: [shot, segment, asset]
+extensible: true
+terms:
+  - id: speech
+    label: Speech
+    definition: Intelligible human speech of any kind.
+    synonyms: [talking, spoken word, voice, voices, dialogue, dialog, words]
+    broader: null
+    mappings: {movielabs: null, iptc: null, audioset: "/m/09x0r"}
+  - id: sync_dialogue
+    label: Sync dialogue
+    definition: Speech recorded together with the picture, with the speaker visible or in the scene.
+    synonyms: [sync, sync sound, on-camera speech, lip sync, live dialogue, conversation]
+    broader: speech
+    mappings: {movielabs: null, iptc: null, audioset: "/m/01h8n0"}
+  - id: voice_over
+    label: Voice-over / narration
+    definition: Speech recorded separately from the picture and laid over it, such as narration or a commentary track.
+    synonyms: [voiceover, vo, v/o, narration, narrator, commentary, off-screen voice]
+    broader: speech
+    mappings: {movielabs: null, iptc: null, audioset: "/m/02qldy"}
+  - id: crowd_speech
+    label: Crowd speech / walla
+    definition: Many overlapping voices with no intelligible single speaker.
+    synonyms: [walla, babble, chatter, crowd chatter, hubbub, murmur, background voices, crowd noise]
+    broader: null
+    mappings: {movielabs: null, iptc: null, audioset: "/m/03qtwd"}
+  - id: music
+    label: Music
+    definition: Music of any kind, whether source music in the scene or a score or bed added in post.
+    synonyms: [song, soundtrack, score, track, tune, musical, background music, bgm, music bed]
+    broader: null
+    mappings: {movielabs: null, iptc: null, audioset: "/m/04rlf"}
+  - id: singing
+    label: Singing
+    definition: Vocal music, sung or rapped.
+    synonyms: [vocals, singer, choir, chant, rap, rapping, sung]
+    broader: music
+    mappings: {movielabs: null, iptc: null, audioset: "/m/015lz1"}
+  - id: ambience
+    label: Ambience / natural sound
+    definition: The environment's own background sound, such as room tone, street or nature. Usable as wild track or atmos.
+    synonyms: [ambient, ambient sound, atmos, atmosphere, nat sound, natural sound, wild track, wildtrack, room tone, background noise, presence]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: nature_sound
+    label: Nature sound
+    definition: Natural ambience such as birdsong, wind, water or rain.
+    synonyms: [birdsong, birds, waves, ocean sound, water sound, rain sound, forest sounds, wildlife sound]
+    broader: ambience
+    mappings: {movielabs: null, iptc: null, audioset: ["/m/015p6", "/m/0838f", "/m/06mb1"]}
+  - id: traffic_urban
+    label: Traffic / urban
+    definition: Urban ambience dominated by vehicles, sirens and city hum.
+    synonyms: [traffic, traffic noise, city noise, street noise, cars passing, horns, sirens, urban hum]
+    broader: ambience
+    mappings: {movielabs: null, iptc: null, audioset: "/m/0btp2"}
+  - id: machinery
+    label: Machinery / engines
+    definition: Mechanical sound from engines, tools, factory machines, aircraft or vehicles at close range.
+    synonyms: [engine, engines, motor, machine, machines, tools, power tools, drilling, aircraft noise, mechanical]
+    broader: null
+    mappings: {movielabs: null, iptc: null, audioset: ["/m/02mk9", "/m/07yv9"]}
+  - id: animal_sound
+    label: Animal sound
+    definition: Vocalisations or noise from animals, domestic or wild.
+    synonyms: [animals, barking, dog barking, meowing, birdcall, roar, mooing, neighing]
+    broader: null
+    mappings: {movielabs: null, iptc: null, audioset: "/m/0jbk"}
+  - id: applause
+    label: Applause / cheering
+    definition: Clapping, cheering or a crowd reacting.
+    synonyms: [clapping, cheers, cheering, ovation, crowd reaction, crowd cheering]
+    broader: null
+    mappings: {movielabs: null, iptc: null, audioset: "/m/028ght"}
+  - id: laughter
+    label: Laughter
+    definition: One or more people laughing.
+    synonyms: [laugh, laughing, giggle, giggling, chuckle]
+    broader: null
+    mappings: {movielabs: null, iptc: null, audioset: "/m/01j3sz"}
+  - id: sound_effect
+    label: Sound effect
+    definition: Designed or added effects such as whooshes, hits and risers, typical of finished edits.
+    synonyms: [sfx, fx, whoosh, swoosh, riser, hit, impact, foley, stinger sound]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: silence
+    label: Silence
+    definition: No meaningful sound, either digital silence or near-silent room tone below about -60 dBFS.
+    synonyms: [silent, no sound, quiet, mute, muted, no audio]
+    broader: null
+    mappings: {movielabs: null, iptc: null, audioset: "/m/028v0c"}

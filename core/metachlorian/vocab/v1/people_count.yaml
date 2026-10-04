@@ -1,0 +1,48 @@
+vocabulary: people_count
+version: 1.0.0
+description: >
+  Number of people visible as subjects. This is extra to the core spec. The
+  bins follow Getty's number_of_people filter (none/one/two/group) with
+  "crowd" added. The exact detected count is stored as an integer next to the
+  term. Agents use it constantly ("a single person working at a laptop",
+  "empty office").
+multi: false
+ordered: true
+applies_to: [shot, segment]
+extensible: false
+terms:
+  - id: none
+    label: No people
+    rank: 0
+    definition: No people visible, or only unidentifiable traces such as hands at the frame edge or distant specks.
+    synonyms: [nobody, no one, empty, unpopulated, deserted, no people, without people]
+    broader: null
+    mappings: {movielabs: null, iptc: null, getty: "none"}
+  - id: one
+    label: One person
+    rank: 1
+    definition: A single person is the subject.
+    synonyms: [single, solo, alone, one person, individual, single person, lone]
+    broader: null
+    mappings: {movielabs: null, iptc: "scene:010600", getty: "one"}
+  - id: two
+    label: Two people
+    rank: 2
+    definition: Two people are the subject, as in a two-shot.
+    synonyms: [two-shot, two shot, couple, pair, duo, two people]
+    broader: null
+    mappings: {movielabs: null, iptc: "scene:010800", getty: "two"}
+  - id: small_group
+    label: Small group (3-9)
+    rank: 3
+    definition: Three to nine people as the subject.
+    synonyms: [group, small group, team, family, friends, three people, few people]
+    broader: null
+    mappings: {movielabs: null, iptc: "scene:010900", getty: "group"}
+  - id: crowd
+    label: Crowd (10+)
+    rank: 4
+    definition: Ten or more people, typically a crowd or audience.
+    synonyms: [crowd, crowded, many people, audience, busy, packed, masses]
+    broader: null
+    mappings: {movielabs: null, iptc: null, getty: "group"}

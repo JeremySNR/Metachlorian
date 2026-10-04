@@ -1,0 +1,223 @@
+vocabulary: setting
+version: 1.0.0
+description: >
+  Where the shot takes place, as a shallow hierarchy. The top level is
+  interior, exterior or synthetic; below that are environment types. This
+  vocabulary is deliberately generic. Named places (cities, landmarks, venues)
+  go in the free-text location and geo fields, not here. Several can apply,
+  e.g. exterior + urban + street. Assigning a narrower term implies its
+  broader terms for search.
+multi: true
+ordered: false
+applies_to: [shot, segment]
+extensible: true          # admins add org-specific settings (e.g. "factory_floor_line_3")
+terms:
+  # ---- top level -------------------------------------------------------
+  - id: interior
+    label: Interior
+    definition: Inside a building, vehicle or other enclosed space.
+    synonyms: [indoor, indoors, inside, int, int.]
+    broader: null
+    mappings: {movielabs: null, iptc: "scene:011700", places365: "indoor (macro class)"}
+  - id: exterior
+    label: Exterior
+    definition: Outdoors.
+    synonyms: [outdoor, outdoors, outside, ext, ext., open air, al fresco]
+    broader: null
+    mappings: {movielabs: null, iptc: "scene:011600"}
+  - id: synthetic
+    label: Synthetic / no physical location
+    definition: The frame shows no real-world location, as in graphics, animation, screen recordings or keyed backgrounds.
+    synonyms: [virtual, cg, cgi, computer generated, abstract]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  # ---- interiors -------------------------------------------------------
+  - id: home
+    label: Home
+    definition: A private dwelling, such as a living room, kitchen, bedroom or bathroom.
+    synonyms: [house, apartment, living room, lounge, kitchen, bedroom, bathroom, domestic, residential interior]
+    broader: interior
+    mappings: {movielabs: null, iptc: null}
+  - id: office
+    label: Office / workplace
+    definition: An office, meeting room, co-working space or reception area.
+    synonyms: [workplace, meeting room, boardroom, conference room, open plan office, coworking, co-working, desk, cubicle]
+    broader: interior
+    mappings: {movielabs: null, iptc: null}
+  - id: studio
+    label: Studio
+    definition: A purpose-built filming or photography space with controlled lighting or a plain backdrop.
+    synonyms: [film studio, tv studio, photo studio, sound stage, soundstage, cyc, infinity cove, seamless backdrop, set]
+    broader: interior
+    mappings: {movielabs: null, iptc: null}
+  - id: retail
+    label: Retail
+    definition: A shop, supermarket, mall or showroom.
+    synonyms: [shop, store, supermarket, grocery, mall, shopping centre, shopping center, showroom, boutique, checkout]
+    broader: interior
+    mappings: {movielabs: null, iptc: null}
+  - id: hospitality
+    label: Hospitality
+    definition: A restaurant, café, bar, pub, hotel or lobby.
+    synonyms: [restaurant, cafe, café, coffee shop, bar, pub, hotel, hotel room, lobby, canteen, diner]
+    broader: interior
+    mappings: {movielabs: null, iptc: null}
+  - id: industrial
+    label: Industrial
+    definition: A factory, warehouse, workshop, plant or laboratory floor.
+    synonyms: [factory, warehouse, workshop, plant, manufacturing, production line, assembly line, depot, lab, laboratory]
+    broader: interior
+    mappings: {movielabs: null, iptc: null}
+  - id: healthcare
+    label: Healthcare
+    definition: A hospital, clinic, surgery, ward or care home.
+    synonyms: [hospital, clinic, surgery, ward, operating theatre, doctor's office, care home, pharmacy, medical]
+    broader: interior
+    mappings: {movielabs: null, iptc: null}
+  - id: education
+    label: Education
+    definition: A classroom, lecture hall, library or school corridor.
+    synonyms: [classroom, school, lecture hall, lecture theatre, university, campus interior, library, nursery]
+    broader: interior
+    mappings: {movielabs: null, iptc: null}
+  - id: venue
+    label: Event venue
+    definition: A stadium, arena, theatre, concert hall, conference hall, exhibition or church interior.
+    synonyms: [stadium, arena, theatre, theater, concert hall, auditorium, conference, expo, exhibition hall, gym, sports hall, church, place of worship]
+    broader: interior
+    mappings: {movielabs: null, iptc: null}
+  - id: transport_hub
+    label: Transport hub
+    definition: An airport, railway or bus station, metro platform or ferry terminal.
+    synonyms: [airport, terminal, train station, railway station, bus station, metro, subway, underground, platform, departure lounge]
+    broader: interior
+    mappings: {movielabs: null, iptc: null}
+  - id: vehicle_interior
+    label: Vehicle interior
+    definition: Inside a car, bus, train, aircraft, ship or other vehicle.
+    synonyms: [in car, car interior, inside car, cabin, cockpit, aircraft cabin, plane interior, train carriage, bus interior]
+    broader: interior
+    mappings: {movielabs: null, iptc: null}
+  # ---- built exteriors -------------------------------------------------
+  - id: urban
+    label: Urban
+    definition: City or town centre, with dense buildings, streets and skyline.
+    synonyms: [city, cityscape, town, downtown, city centre, city center, metropolitan, skyline, built-up]
+    broader: exterior
+    mappings: {movielabs: null, iptc: null, places365: "outdoor man-made (macro class)"}
+  - id: street
+    label: Street
+    definition: Street level, as in pavements, crossings, shopfronts and traffic.
+    synonyms: [streets, sidewalk, pavement, crosswalk, crossing, high street, alley, alleyway, road (urban)]
+    broader: urban
+    mappings: {movielabs: null, iptc: null}
+  - id: suburban
+    label: Suburban
+    definition: Residential neighbourhoods with houses, gardens and driveways.
+    synonyms: [suburbs, suburbia, neighbourhood, neighborhood, residential street, housing estate, cul-de-sac]
+    broader: exterior
+    mappings: {movielabs: null, iptc: null}
+  - id: park_garden
+    label: Park / garden
+    definition: Managed green space such as a city park, garden or playground.
+    synonyms: [park, garden, gardens, backyard, playground, lawn, botanical garden]
+    broader: exterior
+    mappings: {movielabs: null, iptc: null}
+  - id: road
+    label: Road / highway
+    definition: Roads outside dense urban areas, such as highways, motorways, country roads and bridges.
+    synonyms: [highway, motorway, freeway, country road, road trip, bridge, junction, interchange]
+    broader: exterior
+    mappings: {movielabs: null, iptc: null}
+  - id: industrial_exterior
+    label: Industrial exterior
+    definition: Industrial and infrastructure sites outdoors, such as construction sites, ports, power stations and quarries.
+    synonyms: [construction site, building site, port, harbour, harbor, docks, shipyard, power station, refinery, quarry, mine, wind farm, solar farm]
+    broader: exterior
+    mappings: {movielabs: null, iptc: null}
+  - id: sports_ground
+    label: Sports ground
+    definition: Outdoor sports facilities, such as pitches, courts, tracks and courses.
+    synonyms: [football pitch, sports pitch, field, sports field, court, tennis court, running track, golf course, stadium exterior, skate park]
+    broader: exterior
+    mappings: {movielabs: null, iptc: null}
+  # ---- natural exteriors -----------------------------------------------
+  - id: rural
+    label: Rural / countryside
+    definition: Farmland, villages and open countryside.
+    synonyms: [countryside, country, farm, farmland, fields, village, pasture, agricultural, ranch, vineyard]
+    broader: exterior
+    mappings: {movielabs: null, iptc: null}
+  - id: nature
+    label: Nature / wilderness
+    definition: Largely natural landscape with little human structure.
+    synonyms: [natural, wilderness, wild, outdoors nature, landscape, scenery, national park]
+    broader: exterior
+    mappings: {movielabs: null, iptc: null, places365: "outdoor natural (macro class)"}
+  - id: forest
+    label: Forest / woodland
+    definition: Dense trees, as in forests, woods, jungle and rainforest.
+    synonyms: [woods, woodland, trees, jungle, rainforest, pine forest, grove]
+    broader: nature
+    mappings: {movielabs: null, iptc: null}
+  - id: mountain
+    label: Mountain
+    definition: Mountains, hills, cliffs, valleys and alpine terrain.
+    synonyms: [mountains, hills, hillside, alpine, peak, summit, valley, canyon, cliff, highlands]
+    broader: nature
+    mappings: {movielabs: null, iptc: null}
+  - id: desert
+    label: Desert
+    definition: Arid land, such as sand dunes, rocky desert and scrub.
+    synonyms: [dunes, sand dunes, arid, badlands, outback, savanna, savannah]
+    broader: nature
+    mappings: {movielabs: null, iptc: null}
+  - id: coast
+    label: Coast / beach
+    definition: The edge of land and sea, such as beaches, cliffs and shoreline.
+    synonyms: [beach, seaside, shore, shoreline, coastline, seashore, sand, waves breaking, bay]
+    broader: nature
+    mappings: {movielabs: null, iptc: null}
+  - id: open_water
+    label: Open water
+    definition: The sea or ocean surface away from the shore.
+    synonyms: [sea, ocean, open sea, offshore, at sea, waves, seascape]
+    broader: nature
+    mappings: {movielabs: null, iptc: null}
+  - id: freshwater
+    label: River / lake
+    definition: Rivers, lakes, waterfalls, streams and wetlands.
+    synonyms: [river, lake, waterfall, stream, creek, pond, wetland, marsh, canal, riverbank, lakeside]
+    broader: nature
+    mappings: {movielabs: null, iptc: null}
+  - id: underwater
+    label: Underwater
+    definition: The camera is below the water surface.
+    synonyms: [under water, under-water, subsea, submarine, diving, scuba, reef, coral reef]
+    broader: nature
+    mappings: {movielabs: null, iptc: "scene:011300"}
+  - id: sky
+    label: Sky
+    definition: The sky dominates the frame, as in clouds, sunsets, stars, aurora or an aircraft in flight.
+    synonyms: [skies, clouds, cloudscape, starry sky, night sky, stars, aurora, northern lights, milky way]
+    broader: exterior
+    mappings: {movielabs: null, iptc: null}
+  # ---- synthetic -------------------------------------------------------
+  - id: green_screen
+    label: Green / blue screen
+    definition: The subject is in front of an unkeyed chroma key backdrop.
+    synonyms: [greenscreen, green-screen, bluescreen, blue screen, chroma key, chromakey, keyable]
+    broader: synthetic
+    mappings: {movielabs: null, iptc: null}
+  - id: screen_capture
+    label: Screen capture
+    definition: A recording of a computer or phone screen, such as a software demo, game capture or slides.
+    synonyms: [screen recording, screencast, screen record, desktop capture, slides, slide deck, gameplay, game capture, app demo, ui demo]
+    broader: synthetic
+    mappings: {movielabs: null, iptc: "digitalsourcetype:screenCapture"}
+  - id: animation_graphics
+    label: Animation / graphics
+    definition: Fully designed 2D/3D animation or motion graphics with no camera footage.
+    synonyms: [animation, animated, motion graphics, 3d render, cg render, cartoon, explainer animation]
+    broader: synthetic
+    mappings: {movielabs: null, iptc: null}

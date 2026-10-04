@@ -1,0 +1,48 @@
+vocabulary: season
+version: 1.0.0
+description: >
+  The apparent season from vegetation, weather, clothing and light. This is
+  what it looks like, not the capture date, and hemisphere is irrelevant. Tag
+  only when the cues are clear. The tropical wet and dry seasons are included
+  for collections outside temperate zones.
+multi: false
+ordered: false
+applies_to: [shot, segment]
+extensible: false
+terms:
+  - id: spring
+    label: Spring
+    definition: Blossom, fresh green growth, new leaves and mild conditions.
+    synonyms: [springtime, spring time, blossom, blooming, cherry blossom]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: summer
+    label: Summer
+    definition: Full foliage, strong sun and summer clothing or activities.
+    synonyms: [summertime, summer time, summery, heatwave, beach season]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: autumn
+    label: Autumn
+    definition: Turning or falling leaves, harvest and low warm light.
+    synonyms: [fall, autumnal, fall foliage, autumn leaves, harvest time]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: winter
+    label: Winter
+    definition: Bare trees, snow or frost, and winter clothing.
+    synonyms: [wintertime, winter time, wintry, wintery, cold season]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: wet_season
+    label: Wet season
+    definition: Tropical or monsoon rainy season, with lush vegetation and heavy rain.
+    synonyms: [rainy season, monsoon, monsoon season, green season]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: dry_season
+    label: Dry season
+    definition: Tropical dry season, with parched vegetation and dust.
+    synonyms: [drought, arid season, harmattan]
+    broader: null
+    mappings: {movielabs: null, iptc: null}

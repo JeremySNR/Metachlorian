@@ -1,0 +1,184 @@
+vocabulary: quality_flag
+version: 1.0.0
+description: >
+  Technical problems that make a shot, or part of it, less usable. Flags are
+  negative signals. Search demotes flagged shots by default and agents can
+  exclude them with a filter. Each flag stores a severity (minor, major,
+  unusable), a confidence, and optionally the time range it covers inside the
+  shot. Intentional style (handheld shake, flare, grain) is flagged only when
+  it exceeds the style's normal range.
+multi: true
+ordered: false
+applies_to: [shot, segment, asset]
+extensible: true
+terms:
+  # ---- picture -----------------------------------------------------------
+  - id: out_of_focus
+    label: Out of focus
+    definition: The intended subject is soft or blurred because focus missed.
+    synonyms: [soft focus, blurry, blurred, missed focus, ofc, not sharp, focus buzz]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: motion_blur
+    label: Excessive motion blur
+    definition: Smearing from a slow shutter or fast motion that hides detail.
+    synonyms: [smeared, smearing, shutter blur, streaking]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: camera_shake
+    label: Unintended shake
+    definition: Jitter or bumps beyond the normal range of the support style.
+    synonyms: [shaky, shake, unstable, jittery, bumpy, wobbly]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: rolling_shutter
+    label: Rolling shutter artefacts
+    definition: Skew, wobble ("jello") or partial-exposure banding from a rolling-shutter sensor.
+    synonyms: [jello, jelly, skew, wobble, partial exposure]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: underexposed
+    label: Underexposed
+    definition: The image is too dark and shadows are crushed in a way the grade cannot recover.
+    synonyms: [too dark, crushed blacks, under exposed, low light noise]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: overexposed
+    label: Overexposed
+    definition: Highlights are clipped or blown out on the subject or a large area.
+    synonyms: [blown out, blown highlights, clipped highlights, too bright, over exposed, burnt out]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: colour_cast
+    label: Colour cast
+    definition: Wrong white balance or a mixed-light colour cast in an ungraded shot.
+    synonyms: [color cast, white balance, wrong white balance, wb off, green cast, magenta cast, blue cast, orange cast]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: noise
+    label: Noise / grain
+    definition: Visible sensor noise or grain beyond the intended look.
+    synonyms: [noisy, grainy, grain, digital noise, high iso noise]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: compression_artefacts
+    label: Compression artefacts
+    definition: Blocking, banding, mosquito noise or smearing from heavy compression or re-encoding.
+    synonyms: [compression artifacts, macroblocking, blocky, pixelated, banding, posterization, posterisation, low bitrate]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: low_resolution
+    label: Low resolution
+    definition: The effective resolution is below the delivery target (under 720p, or upscaled from SD).
+    synonyms: [low res, low-res, sd, standard definition, upscaled, upscale, 480p, 360p]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: interlaced
+    label: Interlacing
+    definition: Visible combing from interlaced capture or a bad deinterlace.
+    synonyms: [interlace, combing, field order, interlace artifacts]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: dropped_frames
+    label: Dropped / duplicated frames
+    definition: Stutter from dropped, repeated or frame-rate-converted frames.
+    synonyms: [stutter, stuttering, dropped frame, frame drop, duplicate frames, judder, choppy, frame rate conversion]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: flicker
+    label: Flicker
+    definition: Brightness pulsing from mains-frequency lighting, screens or exposure stepping.
+    synonyms: [flickering, light flicker, strobing lights, banding flicker, pwm flicker]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: lens_obstruction
+    label: Lens obstruction / dirt
+    definition: Dirt, water drops, fingers, a lens hood or vignetting intrude on the frame.
+    synonyms: [dirty lens, smudge, water drop, raindrop on lens, lens dirt, vignette, vignetting, finger in shot]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: blocked_view
+    label: Blocked view
+    definition: A person or object passes in front of or blocks the subject for a significant part of the shot.
+    synonyms: [obstructed, obstruction, walk-through, walked in front, foreground blocking, photobomb]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: crew_in_shot
+    label: Crew / gear in shot
+    definition: Crew, boom mic, light stand, reflection of the camera or other production gear is visible.
+    synonyms: [boom in shot, mic in shot, crew visible, camera reflection, light stand visible, gear visible]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: burned_in
+    label: Burned-in overlay
+    definition: Text or graphics are baked into the picture, limiting reuse.
+    synonyms: [burnt in, burned in, baked in, hardcoded, overlay, onscreen text]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: burned_in_timecode
+    label: Burned-in timecode
+    definition: A timecode or metadata window is burned into the picture.
+    synonyms: [bitc, burnt-in timecode, tc burn, window dub, timecode window]
+    broader: burned_in
+    mappings: {movielabs: null, iptc: null}
+  - id: burned_in_captions
+    label: Burned-in captions
+    definition: Subtitles or captions are burned into the picture.
+    synonyms: [open captions, hardsubs, hard subs, burnt-in subtitles, burned subtitles]
+    broader: burned_in
+    mappings: {movielabs: null, iptc: null}
+  - id: watermark
+    label: Watermark / logo bug
+    definition: A visible watermark, preview stamp or channel logo.
+    synonyms: [watermarked, comp watermark, preview watermark, dog, bug, channel logo, station logo]
+    broader: burned_in
+    mappings: {movielabs: null, iptc: null}
+  - id: letterbox_pillarbox
+    label: Letterbox / pillarbox bars
+    definition: Black bars are baked into the image, as from aspect conversion or a phone recording embedded in a 16:9 frame.
+    synonyms: [letterbox, letterboxed, pillarbox, pillarboxed, black bars, windowbox]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  # ---- sound -------------------------------------------------------------
+  - id: audio_clipping
+    label: Audio clipping / distortion
+    definition: Peaks hit 0 dBFS or the audio is otherwise distorted.
+    synonyms: [clipped audio, distorted audio, distortion, overmodulated, peaking, crackle]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: audio_wind_noise
+    label: Wind noise
+    definition: Wind buffeting on the microphone obscures the audio.
+    synonyms: [wind noise, mic wind, buffeting, wind rumble]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: audio_hum
+    label: Hum / buzz
+    definition: Mains hum, ground-loop buzz or electrical interference.
+    synonyms: [hum, buzz, ground loop, mains hum, 50hz hum, 60hz hum, interference, rf noise]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: audio_low_level
+    label: Low audio level
+    definition: Dialogue is too quiet or far off-mic to be usable without heavy processing.
+    synonyms: [quiet audio, low level, off mic, off-mic, too quiet, distant mic]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: audio_background_noise
+    label: Intrusive background noise
+    definition: Background sound such as traffic, HVAC or a crowd competes with the intended dialogue.
+    synonyms: [noisy audio, background noise, hvac, air con noise, competing noise]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: audio_missing
+    label: Audio missing
+    definition: There is no audio track, or the track is silent where sync sound is expected.
+    synonyms: [no audio, missing audio, silent track, dead track]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: audio_out_of_sync
+    label: Audio out of sync
+    definition: Sound and picture are offset, with lip sync off by more than about 2 frames.
+    synonyms: [out of sync, lip sync drift, sync drift, av offset, sync issue]
+    broader: null
+    mappings: {movielabs: null, iptc: null}

@@ -1,0 +1,132 @@
+vocabulary: shot_role
+version: 1.0.0
+description: >
+  The editorial job a shot does, or could do, in a cut. On raw footage this is
+  the role the shot is suited to (inferred). On segments of finished edits it
+  is the role the segment plays (observed). A shot can hold several roles,
+  e.g. general_view + establishing.
+multi: true
+ordered: false
+applies_to: [shot, segment]
+extensible: true
+terms:
+  - id: a_roll
+    label: A-roll
+    definition: The primary sync-sound footage that carries the story, usually someone speaking.
+    synonyms: [a roll, a-roll, aroll, main footage, primary footage, sync, sync sound, sot, sound on tape, talking head]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: interview
+    label: Interview
+    definition: A subject answers questions, usually seated, framed off-axis and looking at an off-camera interviewer.
+    synonyms: [sit-down, sit down interview, talking head interview, q&a, testimonial, soundbite, sound bite, grab]
+    broader: a_roll
+    mappings: {movielabs: null, iptc: "genre:Interview"}
+  - id: vox_pop
+    label: Vox pop
+    definition: Short street interviews with members of the public, usually several people answering one question.
+    synonyms: [vox pops, voxpop, vox populi, man on the street, mos, streeter, street interview]
+    broader: interview
+    mappings: {movielabs: null, iptc: null}
+  - id: piece_to_camera
+    label: Piece to camera (PTC)
+    definition: A presenter or reporter speaks directly into the lens.
+    synonyms: [ptc, stand-up, standup, stand-upper, presenter to camera, direct address, to camera, vlog]
+    broader: a_roll
+    mappings: {movielabs: null, iptc: null}
+  - id: b_roll
+    label: B-roll
+    definition: Supplementary footage laid over or between A-roll to illustrate, cover edits or add context.
+    synonyms: [b roll, b-roll, broll, cover, cover footage, cover shots, overlay footage, illustrative footage, supporting footage]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: general_view
+    label: General view (GV)
+    definition: A neutral shot of a place, activity or object that sets context, a staple of news and documentary B-roll.
+    synonyms: [gv, gvs, general views, wallpaper, scene setter, scenics, atmos shot]
+    broader: b_roll
+    mappings: {movielabs: null, iptc: "scene:011000"}
+  - id: cutaway
+    label: Cutaway
+    definition: A shot of something other than the main action, cut to briefly before returning. It often hides an edit.
+    synonyms: [cut-away, cutaways, cut away, cover shot]
+    broader: b_roll
+    mappings: {movielabs: null, iptc: null}
+  - id: reaction
+    label: Reaction
+    definition: A listener or audience responds to the main action, e.g. a nod, a laugh or applause.
+    synonyms: [reaction shot, noddy, noddies, listening shot, reverse reaction, audience reaction]
+    broader: cutaway
+    mappings: {movielabs: null, iptc: null, xmpdm: "Reaction Shot"}
+  - id: insert
+    label: Insert
+    definition: A close detail of something within the main scene, such as hands typing, a screen, a document or a product.
+    synonyms: [insert shot, cut-in, cutin, detail, detail shot, close detail, product shot, hands shot]
+    broader: b_roll
+    mappings: {movielabs: null, iptc: null}
+  - id: establishing
+    label: Establishing
+    definition: A shot that tells the viewer where and sometimes when the following scene happens, usually wide and often exterior.
+    synonyms: [establishing shot, establisher, est, est shot, location shot, opener, exterior establishing]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: master
+    label: Master
+    definition: A continuous take covering a whole scene or exchange, usually wide, from which the coverage is cut.
+    synonyms: [master shot, wide master, cover master, scene master, two-shot master]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: coverage
+    label: Coverage
+    definition: Additional angles of a scene already covered by a master, such as singles, overs and reverses.
+    synonyms: [coverage shot, singles, reverse angle, alternate angle, alt angle, b-cam, b cam, second angle, iso]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: actuality
+    label: Actuality
+    definition: Unstaged action recorded with its natural sound, as distinct from interviews or presenter pieces.
+    synonyms: [natsot, nat sot, nat sound, natural sound, fly on the wall, observational, obs doc, verite]
+    broader: null
+    mappings: {movielabs: null, iptc: "genre:Actuality"}
+  - id: montage
+    label: Montage
+    definition: A segment of several short shots cut together, usually to music, that compresses time or builds a theme.
+    synonyms: [montage sequence, sizzle, sizzle reel, highlight reel, mashup, quick cuts]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: transition
+    label: Transition
+    definition: A segment that mainly links two others, such as a wipe, flash, whip, light leak or graphic stinger.
+    synonyms: [stinger, sting, wipe, bumper, flash frame, light leak, swish transition]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: graphic
+    label: Graphic
+    definition: A segment that is mainly designed graphics or animation rather than camera footage.
+    synonyms: [graphics, gfx, motion graphics, animation, explainer graphic, infographic]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: title_card
+    label: Title / title card
+    definition: Full-frame or prominent on-screen text naming the programme, chapter or topic.
+    synonyms: [title, titles, title sequence, opening titles, chapter card, intertitle, slate title]
+    broader: graphic
+    mappings: {movielabs: null, iptc: null}
+  - id: lower_third
+    label: Lower third
+    definition: An on-screen caption in the lower part of the frame that identifies a speaker, place or fact.
+    synonyms: [lower-third, l3, super, astons, aston, name strap, namestrap, chyron, caption strap]
+    broader: graphic
+    mappings: {movielabs: null, iptc: null}
+  - id: end_card
+    label: End card
+    definition: A closing frame with a call to action, logo, credits or end slate.
+    synonyms: [end slate, endslate, end screen, outro, cta card, logo sting, end board, packshot]
+    broader: graphic
+    mappings: {movielabs: null, iptc: null}
+  - id: slate
+    label: Slate / leader
+    definition: Non-programme material such as a clapperboard, countdown leader, bars and tone, or an ident slate. It is usually excluded from search.
+    synonyms: [clapperboard, clapper, countdown, leader, bars and tone, colour bars, ident, clock]
+    broader: null
+    mappings: {movielabs: null, iptc: null}

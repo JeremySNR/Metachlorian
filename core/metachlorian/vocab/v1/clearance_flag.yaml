@@ -1,0 +1,80 @@
+vocabulary: clearance_flag
+version: 1.0.0
+description: >
+  Content in a shot that may need clearance before reuse. Automated detectors
+  (faces, logos, text/OCR, music ID, screens) raise these flags and humans
+  confirm or dismiss them. check_rights combines them with release_status and
+  usage/channel grants. A flag is a prompt to check, not a legal judgement.
+  Each stores confidence, time range and an optional bounding box, so
+  exporters can choose blur, crop or exclusion.
+multi: true
+ordered: false
+applies_to: [shot, segment]
+extensible: true
+terms:
+  - id: recognisable_person
+    label: Recognisable person
+    definition: A person whose face or other features make them identifiable.
+    synonyms: [identifiable person, face visible, recognizable person, talent, people]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: public_figure
+    label: Public figure
+    definition: A recognisable celebrity, politician, athlete or other public figure. Commercial use usually needs specific clearance.
+    synonyms: [celebrity, celeb, politician, famous person, athlete, public personality]
+    broader: recognisable_person
+    mappings: {movielabs: null, iptc: null}
+  - id: minor
+    label: Minor
+    definition: A recognisable person who appears to be under 18.
+    synonyms: [child, children, kid, kids, teenager, under 18, baby, infant]
+    broader: recognisable_person
+    mappings: {movielabs: null, iptc: null}
+  - id: crowd
+    label: Crowd
+    definition: A crowd in which some individuals may be identifiable.
+    synonyms: [crowds, public, passers-by, bystanders, audience, spectators]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: third_party_brand
+    label: Third-party brand
+    definition: Visible logos, trademarks, distinctive products or packaging belonging to others.
+    synonyms: [logo, logos, trademark, brand visible, product placement, branded product, signage]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: artwork
+    label: Artwork / design
+    definition: Copyright works shown prominently, such as paintings, murals, sculpture, posters, book covers, tattoos or distinctive design.
+    synonyms: [art, painting, mural, graffiti, sculpture, poster, book cover, tattoo, design work]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: private_property
+    label: Private property / restricted location
+    definition: An identifiable private building, interior or location whose owner may require a property release or permit, including landmarks with image restrictions.
+    synonyms: [private property, private building, restricted location, landmark restrictions, location release, property]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: third_party_screen
+    label: Third-party screen content
+    definition: A TV, monitor or phone showing someone else's content or UI.
+    synonyms: [screen content, tv in shot, monitor content, phone screen, ui visible, broadcast in shot]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: third_party_music
+    label: Third-party music
+    definition: Recognisable or commercially released music in the soundtrack, whether source music or added.
+    synonyms: [copyright music, commercial music, song in background, radio in background, licensed track]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: personal_data
+    label: Personal data visible
+    definition: Readable personal information, such as licence plates, addresses, documents, badges or screens with personal data.
+    synonyms: [pii, license plate, licence plate, number plate, name badge, id card, document, address visible, email visible]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: sensitive_content
+    label: Sensitive content
+    definition: Nudity, violence, injury, medical procedures, weapons, alcohol, tobacco, drugs or other content restricted by platform or advertising policy.
+    synonyms: [nsfw, nudity, violence, gore, blood, weapons, alcohol, smoking, drugs, medical procedure, graphic content]
+    broader: null
+    mappings: {movielabs: null, iptc: null}

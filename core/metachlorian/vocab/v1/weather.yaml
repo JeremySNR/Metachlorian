@@ -1,0 +1,88 @@
+vocabulary: weather
+version: 1.0.0
+description: >
+  Visible weather and atmospheric conditions in exterior shots, or seen
+  through windows. Several can apply, e.g. overcast + rain + windy.
+multi: true
+ordered: false
+applies_to: [shot, segment]
+extensible: true
+terms:
+  - id: clear
+    label: Clear / sunny
+    definition: Little or no cloud, with direct sunlight or a clear night sky.
+    synonyms: [sunny, sunshine, blue sky, cloudless, fair, bright day, clear sky]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: partly_cloudy
+    label: Partly cloudy
+    definition: Broken cloud with intermittent sun.
+    synonyms: [partly sunny, scattered clouds, fluffy clouds, cumulus, some clouds]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: overcast
+    label: Overcast
+    definition: Full cloud cover with soft, shadowless light.
+    synonyms: [cloudy, grey sky, gray sky, dull, flat light, gloomy sky]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: rain
+    label: Rain
+    definition: Visible rainfall, wet surfaces with fresh drops, or umbrellas in use.
+    synonyms: [rainy, raining, rainfall, drizzle, shower, showers, downpour, wet weather, puddles]
+    broader: null
+    mappings: {movielabs: null, iptc: null, audioset: "/m/06mb1"}
+  - id: storm
+    label: Storm
+    definition: Severe weather, such as thunderstorms, lightning, gales or tropical storms.
+    synonyms: [stormy, thunderstorm, thunder, lightning, gale, hurricane, typhoon, cyclone, tempest]
+    broader: null
+    mappings: {movielabs: null, iptc: null, audioset: "/m/0ngt1"}
+  - id: snowfall
+    label: Snowfall
+    definition: Snow is falling.
+    synonyms: [snowing, snow falling, blizzard, flurries, sleet]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: snow_covered
+    label: Snow-covered
+    definition: Lying snow covers the ground or landscape, whether or not snow is falling.
+    synonyms: [snowy, snow, snowscape, winter landscape, snow covered, snowbound]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: frost_ice
+    label: Frost / ice
+    definition: Visible frost, ice or freezing conditions.
+    synonyms: [frost, frosty, icy, ice, frozen, hoarfrost, icicles]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: fog
+    label: Fog / mist
+    definition: Water droplets in the air reduce visibility, as in fog, mist or low cloud.
+    synonyms: [foggy, mist, misty, low cloud, murky]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: haze
+    label: Haze / smog
+    definition: Dry particulates reduce clarity, as in heat haze, smog, smoke or wildfire haze.
+    synonyms: [hazy, smog, smoggy, smoke, smoky, pollution, heat haze]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: windy
+    label: Windy
+    definition: Strong wind is visible, e.g. trees bending, flags whipping or blowing hair.
+    synonyms: [wind, breezy, blustery, gusty, windswept]
+    broader: null
+    mappings: {movielabs: null, iptc: null, audioset: "/m/03m9d0z"}
+  - id: dust_storm
+    label: Dust / sandstorm
+    definition: Airborne dust or sand obscures the scene.
+    synonyms: [sandstorm, dust storm, haboob, dusty wind]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: rainbow
+    label: Rainbow
+    definition: A rainbow is visible.
+    synonyms: [rainbows, double rainbow]
+    broader: null
+    mappings: {movielabs: null, iptc: null}

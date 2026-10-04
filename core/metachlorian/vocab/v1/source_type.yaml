@@ -1,0 +1,79 @@
+vocabulary: source_type
+version: 1.0.0
+description: >
+  Where an asset came from and how it was made. This is provenance, which is
+  separate from editorial stage (edit_type). It drives default rights
+  assumptions (own production vs stock vs archive) and AI transparency
+  labelling. Mappings use IPTC Digital Source Type QCodes
+  (digitalsourcetype:*), which C2PA manifests also use.
+multi: false
+ordered: false
+applies_to: [asset]
+extensible: true
+terms:
+  - id: own_production
+    label: Own production
+    definition: Shot by the organisation's own staff or crew.
+    synonyms: [in-house, in house, our footage, original, self-shot, staff shot]
+    broader: null
+    mappings: {movielabs: null, iptc: "digitalsourcetype:digitalCapture"}
+  - id: commissioned
+    label: Commissioned
+    definition: Shot by an agency, production company or freelancer under contract. Rights depend on the contract.
+    synonyms: [production company, freelance, freelancer, work for hire, supplier footage, commissioned work]
+    broader: null
+    mappings: {movielabs: null, iptc: "digitalsourcetype:digitalCapture"}
+  - id: stock
+    label: Stock
+    definition: Licensed from a stock library under that library's licence terms.
+    synonyms: [stock footage, licensed footage, library footage, royalty free, rf, rights managed, rm]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: archive
+    label: Archive (third-party)
+    definition: Historic or archive footage licensed from an archive, broadcaster or estate.
+    synonyms: [archival, archive footage, historic footage, newsreel, heritage]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: agency_feed
+    label: News agency / pool feed
+    definition: News-agency, pool or wire video supplied under a subscription.
+    synonyms: [wire, wire video, agency, pool, pool feed, feed, syndicated]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: user_generated
+    label: User-generated
+    definition: Contributed by members of the public, customers or employees outside a production, such as social submissions and phone footage.
+    synonyms: [ugc, user generated, customer video, fan footage, submitted, citizen footage, phone footage]
+    broader: null
+    mappings: {movielabs: null, iptc: "digitalsourcetype:digitalCapture"}
+  - id: off_air_capture
+    label: Off-air / stream capture
+    definition: Recorded from someone else's broadcast or stream.
+    synonyms: [off air, off-air, recording of broadcast, ripped, captured stream]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: screen_recording
+    label: Screen recording
+    definition: A capture of a computer or mobile screen.
+    synonyms: [screencast, screen capture, screen record, desktop recording]
+    broader: null
+    mappings: {movielabs: null, iptc: "digitalsourcetype:screenCapture"}
+  - id: digital_creation
+    label: Digital creation
+    definition: Made with software by humans, without generative AI, such as animation and motion graphics.
+    synonyms: [animation, cgi, motion graphics, rendered, 3d]
+    broader: null
+    mappings: {movielabs: null, iptc: "digitalsourcetype:digitalCreation"}
+  - id: ai_generated
+    label: AI-generated
+    definition: Created by a generative AI model.
+    synonyms: [generative ai, gen ai, ai video, synthetic, text-to-video, generated]
+    broader: null
+    mappings: {movielabs: null, iptc: "digitalsourcetype:trainedAlgorithmicMedia"}
+  - id: ai_edited
+    label: AI-edited composite
+    definition: Captured footage materially altered with generative AI, such as inpainting, outpainting or replaced elements.
+    synonyms: [ai edited, ai enhanced, inpainted, outpainted, ai composite, generative fill]
+    broader: null
+    mappings: {movielabs: null, iptc: "digitalsourcetype:compositeWithTrainedAlgorithmicMedia"}

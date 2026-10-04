@@ -1,0 +1,331 @@
+/*
+ * Metachlorian design tokens: "Edge Code" (ADR 014, docs/design/system.md)
+ * ---------------------------------------------------------------------------
+ * The ONLY file allowed to contain raw colour, size and timing values.
+ * Components consume these through var(--token) in CSS Modules.
+ *
+ * Fonts (bundled locally, never from a CDN). Install:
+ *   npm i @fontsource-variable/instrument-sans @fontsource-variable/jetbrains-mono
+ * Import once in the app entry (e.g. app/src/main.tsx), BEFORE this file:
+ *   import '@fontsource-variable/instrument-sans/wdth.css'; // wght 400–700, wdth 75–100%
+ *   import '@fontsource-variable/jetbrains-mono';           // wght 100–800
+ *   import './styles/tokens.css';
+ * Those packages declare @font-face for 'Instrument Sans Variable' and
+ * 'JetBrains Mono Variable' (OFL-1.1, font-display: swap, latin + latin-ext subsets).
+ *
+ * Theming
+ *   - Colours use light-dark(<light>, <dark>), resolved by `color-scheme`.
+ *   - Default: dark. With no [data-theme], the OS preference wins (prefers-color-scheme).
+ *   - <html data-theme="light"> or <html data-theme="dark"> forces a theme.
+ *   - A subtree can set `color-scheme: dark` (e.g. player chrome) to resolve dark tokens locally.
+ *   - <html data-density="compact|comfortable">, data-motion="reduced|full",
+ *     data-contrast="more" adjust the non-colour tokens below.
+ * light-dark() requires Chromium 123+ / Firefox 120+ / Safari 17.5+ (Electron 44 qualifies).
+ *
+ * Contrast: every text token passes ≥ 4.5:1 on every surface token in both themes;
+ * control borders and focus rings pass ≥ 3:1. Verified table: docs/design/system.md §1.1.
+ */
+
+:root {
+  color-scheme: dark;
+
+  /* ---------------------------------------------------------------- Colour */
+  /*                         light-dark(LIGHT,   DARK) */
+
+  /* Surfaces: strictly neutral (R = G = B). Never tint, never put --key behind footage. */
+  --bg-canvas:             light-dark(#e8e8e8, #141414); /* app background, results well */
+  --bg-panel:              light-dark(#f4f4f4, #1a1a1a); /* top bar, rails, inspector, selection bar */
+  --bg-raised:             light-dark(#ffffff, #212121); /* inputs, secondary buttons, table header */
+  --bg-overlay:            light-dark(#ffffff, #242424); /* menus, popovers, dialogs, toasts */
+  --bg-hover:              light-dark(#e0e0e0, #2a2a2a);
+  --bg-pressed:            light-dark(#d6d6d6, #333333); /* pressed, current row, selected segment */
+  --bg-selected:           light-dark(#f7dcef, #3a1a30); /* selected rows (Key tint) */
+  --bg-well:               light-dark(#1a1a1a, #000000); /* video player well */
+  --bg-letterbox:          light-dark(#cfcfcf, #0d0d0d); /* thumbnail bars and placeholders */
+  --bg-inverse:            light-dark(#141414, #ececec); /* human-correction chip, tooltip */
+  --backdrop:              light-dark(rgb(0 0 0 / 0.32), rgb(0 0 0 / 0.5)); /* modal backdrop */
+
+  /* Text and icons */
+  --fg-1:                  light-dark(#141414, #ececec);
+  --fg-2:                  light-dark(#434343, #b4b4b4);
+  --fg-3:                  light-dark(#545454, #a0a0a0); /* lowest readable tier */
+  --fg-disabled:           light-dark(#a3a3a3, #5e5e5e); /* disabled controls only */
+  --fg-inverse:            light-dark(#f4f4f4, #141414);
+  --fg-on-key:             light-dark(#ffffff, #1a0012);
+  --fg-on-danger:          light-dark(#ffffff, #1a0000);
+  --fg-on-scrim:           #ffffff;
+
+  /* Borders */
+  --border-subtle:         light-dark(#e3e3e3, #262626); /* decorative row/section hairlines */
+  --border-default:        light-dark(#d4d4d4, #333333); /* panel edges, popover outline */
+  --border-control:        light-dark(#6e6e6e, #828282); /* ≥ 3:1: inputs, chips, checkboxes */
+  --border-strong:         light-dark(#545454, #a0a0a0); /* control hover */
+
+  /* Accent "Key" (chroma-key magenta). Selection, single primary action, playhead,
+     active-filter count, current step. Nothing else. */
+  --key:                   light-dark(#a3127a, #ff5cc8);
+  --key-hover:             light-dark(#8a0c66, #ff85d6);
+  --key-pressed:           light-dark(#730955, #e84fb5);
+
+  /* Status: always paired with an icon and a word */
+  --status-cleared:        light-dark(#11663e, #4cc38a);
+  --status-cleared-bg:     light-dark(#dcf1e5, #14271d);
+  --status-caution:        light-dark(#754c00, #f0b429);
+  --status-caution-bg:     light-dark(#f8ebcf, #2b2210);
+  --status-blocked:        light-dark(#ad1f28, #ff6b6b);
+  --status-blocked-bg:     light-dark(#f9dfe0, #2e1616);
+  --status-info:           light-dark(#1a52a6, #6cb6ff);
+  --status-info-bg:        light-dark(#dde8f8, #142233);
+
+  /* Footage overlays: theme-independent */
+  --scrim:                 rgb(0 0 0 / 0.72); /* white text on it ≥ 9.29:1 over any footage */
+
+  /* Focus */
+  --focus-ring:            light-dark(#141414, #f5f5f5);
+
+  /* Data-viz: neutral sequential ramp (coverage). 0 = gap (also hatched). */
+  --viz-0:                 light-dark(#e0e0e0, #262626);
+  --viz-1:                 light-dark(#c4c4c4, #3d3d3d);
+  --viz-2:                 light-dark(#9e9e9e, #5c5c5c);
+  --viz-3:                 light-dark(#737373, #858585);
+  --viz-4:                 light-dark(#4a4a4a, #b4b4b4);
+  --viz-5:                 light-dark(#1f1f1f, #ececec);
+
+  /* ------------------------------------------------------------ Typography */
+  --font-sans: 'Instrument Sans Variable', ui-sans-serif, system-ui, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --font-mono-features: 'calt' 0; /* no ligatures in timecode/data */
+
+  --text-2xs: 0.6875rem;  --leading-2xs: 1rem;      /* 11/16: mono slate labels only */
+  --text-xs:  0.75rem;    --leading-xs:  1rem;      /* 12/16 */
+  --text-sm:  0.8125rem;  --leading-sm:  1.125rem;  /* 13/18: default UI */
+  --text-md:  0.875rem;   --leading-md:  1.375rem;  /* 14/22: prose */
+  --text-lg:  1rem;       --leading-lg:  1.5rem;    /* 16/24: search input, panel titles */
+  --text-xl:  1.25rem;    --leading-xl:  1.625rem;  /* 20/26: page titles, player TC */
+  --text-2xl: 1.625rem;   --leading-2xl: 2rem;      /* 26/32 */
+  --text-3xl: 2.25rem;    --leading-3xl: 2.625rem;  /* 36/42: first-run prompt only */
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  --stretch-normal: 100%;
+  --stretch-dense: 87.5%;     /* card titles */
+  --stretch-condensed: 80%;   /* very tight labels */
+
+  --tracking-label: 0.06em;   /* mono uppercase slate labels */
+  --tracking-tight: -0.01em;  /* titles ≥ 20px */
+  --tracking-normal: 0;
+
+  --measure-prose: 64ch;
+
+  /* --------------------------------------------------------------- Spacing */
+  --space-0: 0;
+  --space-0_5: 2px;
+  --space-1: 4px;
+  --space-1_5: 6px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* ----------------------------------------------------------------- Sizes */
+  --control-sm: 24px;
+  --control-md: 32px;
+  --control-lg: 40px;
+  --row-height: 28px;
+  --table-row-height: 36px;
+  --target-min: 24px;          /* WCAG 2.5.8 */
+  --target-coarse: 44px;       /* pointer: coarse */
+  --icon-sm: 14px;
+  --icon-md: 16px;
+  --icon-lg: 20px;
+  --icon-stroke: 1.75;
+
+  --topbar-height: 52px;
+  --topbar-inset-macos: 84px;  /* traffic lights under hiddenInset (as Cutawan) */
+  --selectionbar-height: 48px;
+  --results-header-height: 40px;
+  --rail-width: 264px;
+  --rail-width-min: 220px;
+  --rail-width-max: 360px;
+  --rail-width-collapsed: 48px;
+  --inspector-width: 384px;
+  --inspector-width-min: 320px;
+  --inspector-width-max: 560px;
+  --dialog-s: 400px;
+  --dialog-m: 560px;
+  --dialog-l: 800px;
+  --page-max: 1200px;
+
+  --thumb-s: 168px;
+  --thumb-m: 232px;
+  --thumb-l: 320px;
+  --thumb-gap: 12px;
+  --thumb-strip-height: 44px;  /* edge strip under every frame */
+  --filmstrip-height: 96px;
+  --match-rail-width: 12px;
+
+  /* ----------------------------------------------------------------- Radii */
+  --radius-none: 0;
+  --radius-xs: 2px;
+  --radius-sm: 4px;            /* default: controls, chips, frames */
+  --radius-md: 6px;            /* menus, popovers, toasts */
+  --radius-lg: 8px;            /* dialogs */
+  --radius-full: 9999px;       /* switch track, avatar only */
+
+  /* --------------------------------------------------------------- Borders */
+  --border-width: 1px;
+
+  /* ------------------------------------------------------------- Elevation */
+  --shadow-popover:
+    0 0 0 1px var(--border-default),
+    0 8px 24px light-dark(rgb(0 0 0 / 0.12), rgb(0 0 0 / 0.5));
+  --shadow-dialog:
+    0 0 0 1px var(--border-default),
+    0 24px 64px light-dark(rgb(0 0 0 / 0.18), rgb(0 0 0 / 0.6));
+  --shadow-drag:
+    0 0 0 1px var(--key),
+    0 12px 32px light-dark(rgb(0 0 0 / 0.16), rgb(0 0 0 / 0.5));
+
+  /* --------------------------------------------------------------- Z-index */
+  --z-base: 0;
+  --z-raised: 1;
+  --z-sticky: 10;
+  --z-panel: 20;
+  --z-topbar: 30;
+  --z-preview: 40;
+  --z-popover: 50;
+  --z-dialog: 60;
+  --z-toast: 70;
+  --z-tooltip: 80;
+  --z-drag: 90;
+
+  /* ---------------------------------------------------------------- Motion */
+  --dur-0: 0ms;
+  --dur-1: 80ms;               /* hover colour, focus ring */
+  --dur-2: 120ms;              /* press, chips, selection, exits */
+  --dur-3: 180ms;              /* popovers, panels, card → inspector flight */
+  --dur-4: 240ms;              /* dialogs, sheets */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-enter: cubic-bezier(0, 0, 0, 1);
+  --ease-exit: cubic-bezier(0.3, 0, 1, 1);
+  --ease-linear: linear;
+
+  /* Behavioural timings (read by JS via getComputedStyle) */
+  --delay-hover-intent: 150ms; /* warm preview video */
+  --delay-preview-dwell: 400ms;/* play preview under a resting pointer */
+  --delay-focus-rest: 250ms;   /* prefetch proxy for focused shot */
+  --delay-tooltip: 500ms;
+  --delay-progress: 400ms;     /* show progress only after this */
+  --toast-duration: 6000ms;
+  --preview-autoplay: 1;       /* 0 under reduced motion: dwell never plays */
+  --scrub-threshold: 4px;      /* pointer travel before scrubbing starts */
+
+  /* ---------------------------------------------------------- Focus/select */
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+  --select-ring-width: 2px;
+  --select-ring-gap: 2px;
+}
+
+/* -------------------------------------------------------------- Theme switch */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    color-scheme: light;
+  }
+}
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+/* ------------------------------------------------------------------ Density */
+:root[data-density='compact'] {
+  --control-md: 28px;
+  --row-height: 24px;
+  --table-row-height: 32px;
+  --thumb-gap: 8px;
+}
+:root[data-density='comfortable'] {
+  --control-md: 36px;
+  --row-height: 36px;
+  --table-row-height: 44px;
+  --thumb-gap: 16px;
+}
+
+/* Coarse pointers (tablet, touch): every target ≥ 44px */
+@media (pointer: coarse) {
+  :root {
+    --control-sm: 44px;
+    --control-md: 44px;
+    --control-lg: 48px;
+    --row-height: 44px;
+    --table-row-height: 48px;
+    --target-min: 44px;
+  }
+}
+
+/* ------------------------------------------------------------ Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion='full']) {
+    --dur-1: 0ms;
+    --dur-2: 0ms;
+    --dur-3: 0ms;
+    --dur-4: 0ms;
+    --preview-autoplay: 0;
+  }
+}
+:root[data-motion='reduced'] {
+  --dur-1: 0ms;
+  --dur-2: 0ms;
+  --dur-3: 0ms;
+  --dur-4: 0ms;
+  --preview-autoplay: 0;
+}
+
+/* ------------------------------------------------------------ Higher contrast */
+@media (prefers-contrast: more) {
+  :root:not([data-contrast]) {
+    --fg-2: var(--fg-1);
+    --fg-3: light-dark(#333333, #cccccc);
+    --border-subtle: var(--border-default);
+    --border-control: var(--border-strong);
+    --focus-ring-width: 3px;
+  }
+}
+:root[data-contrast='more'] {
+  --fg-2: var(--fg-1);
+  --fg-3: light-dark(#333333, #cccccc);
+  --border-subtle: var(--border-default);
+  --border-control: var(--border-strong);
+  --focus-ring-width: 3px;
+}
+
+/* ------------------------------------------------------------- Forced colours */
+@media (forced-colors: active) {
+  :root {
+    --focus-ring: Highlight;
+    --key: Highlight;
+    --key-hover: Highlight;
+    --key-pressed: Highlight;
+    --fg-on-key: HighlightText;
+    --border-control: ButtonText;
+    --border-default: CanvasText;
+    --border-subtle: GrayText;
+    --status-cleared: CanvasText;
+    --status-caution: CanvasText;
+    --status-blocked: CanvasText;
+    --status-info: CanvasText;
+    --scrim: Canvas;
+    --fg-on-scrim: CanvasText;
+  }
+}

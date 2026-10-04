@@ -1,0 +1,78 @@
+vocabulary: time_of_day
+version: 1.0.0
+description: >
+  The apparent time of day from the light in the shot. This is what it looks
+  like, not the capture timestamp, because day-for-night and graded footage
+  differ. Exteriors and windowed interiors only. Leave it unset when there are
+  no cues, as in a windowless studio.
+multi: false
+ordered: false
+applies_to: [shot, segment]
+extensible: false
+terms:
+  - id: day
+    label: Day
+    definition: Full daylight, with the sun well above the horizon or an overcast daytime sky.
+    synonyms: [daytime, daylight, during the day, broad daylight]
+    broader: null
+    mappings: {movielabs: null, iptc: null, artgrid: "Day"}
+  - id: morning
+    label: Morning
+    definition: Daylight with a low-to-mid sun and morning activity cues.
+    synonyms: [am, early morning, breakfast time, morning light]
+    broader: day
+    mappings: {movielabs: null, iptc: null}
+  - id: midday
+    label: Midday
+    definition: High sun with short, hard shadows.
+    synonyms: [noon, high noon, lunchtime, midday sun, harsh sun]
+    broader: day
+    mappings: {movielabs: null, iptc: null}
+  - id: afternoon
+    label: Afternoon
+    definition: Daylight with a descending sun and lengthening shadows, before golden hour.
+    synonyms: [pm, late afternoon, afternoon light]
+    broader: day
+    mappings: {movielabs: null, iptc: null}
+  - id: golden_hour
+    label: Golden hour
+    definition: Low, warm, directional sunlight with long shadows, shortly after sunrise or before sunset.
+    synonyms: [magic hour, golden light, warm low sun, backlit sun]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: sunrise
+    label: Sunrise
+    definition: The sun is at or just above the horizon in the morning.
+    synonyms: [sun rise, sunup, daybreak]
+    broader: golden_hour
+    mappings: {movielabs: null, iptc: null, artgrid: "Sunrise"}
+  - id: sunset
+    label: Sunset
+    definition: The sun is at or just above the horizon in the evening.
+    synonyms: [sun set, sundown, setting sun, evening sun]
+    broader: golden_hour
+    mappings: {movielabs: null, iptc: null, artgrid: "Sunset"}
+  - id: blue_hour
+    label: Blue hour / twilight
+    definition: The sun is just below the horizon. The sky is deep blue and artificial lights are visible.
+    synonyms: [twilight, civil twilight, blue hour, gloaming]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: dawn
+    label: Dawn
+    definition: Morning twilight before sunrise.
+    synonyms: [first light, pre-dawn, predawn, crack of dawn]
+    broader: blue_hour
+    mappings: {movielabs: null, iptc: null}
+  - id: dusk
+    label: Dusk
+    definition: Evening twilight after sunset.
+    synonyms: [evening, nightfall, early evening]
+    broader: blue_hour
+    mappings: {movielabs: null, iptc: null}
+  - id: night
+    label: Night
+    definition: Dark sky, with the scene lit by artificial light, moonlight or stars.
+    synonyms: [nighttime, night time, after dark, at night, midnight, night scene, nightlife]
+    broader: null
+    mappings: {movielabs: null, iptc: "scene:011400", artgrid: "Night"}

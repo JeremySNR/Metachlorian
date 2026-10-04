@@ -1,0 +1,78 @@
+vocabulary: lighting
+version: 1.0.0
+description: >
+  Lighting character and style. This is extra to the core spec. It strongly
+  predicts whether two shots will cut together and is often requested
+  ("moody low-key interview"). Several can apply, e.g. low_key + hard_light +
+  practical_lights.
+multi: true
+ordered: false
+applies_to: [shot]
+extensible: true
+terms:
+  - id: natural_light
+    label: Natural / available light
+    definition: The scene is lit by daylight or existing light without visible added lighting.
+    synonyms: [available light, ambient light, daylight, window light, natural lighting]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: high_key
+    label: High key
+    definition: Bright, low-contrast lighting with few shadows.
+    synonyms: [high-key, bright and airy, light and airy, clean white, low contrast lighting]
+    broader: null
+    mappings: {movielabs: "High Key", iptc: null}
+  - id: low_key
+    label: Low key
+    definition: Dark, high-contrast lighting with deep shadows.
+    synonyms: [low-key, moody, chiaroscuro, dark lighting, noir, contrasty]
+    broader: null
+    mappings: {movielabs: "Low Key", iptc: null}
+  - id: hard_light
+    label: Hard light
+    definition: A small or direct source producing crisp, defined shadows.
+    synonyms: [hard, harsh light, direct sun, crisp shadows, specular]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: soft_light
+    label: Soft light
+    definition: A large or diffused source producing gradual, gentle shadows.
+    synonyms: [soft, diffused, diffuse light, overcast light, softbox, flattering light]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: backlit
+    label: Backlit / rim light
+    definition: The main light comes from behind the subject, rimming or haloing it.
+    synonyms: [backlight, back lit, rim light, rim lit, hair light, contre-jour, halo]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: silhouette
+    label: Silhouette
+    definition: The subject is a dark shape against a bright background.
+    synonyms: [silhouetted, silhouettes, shadow figure]
+    broader: backlit
+    mappings: {movielabs: null, iptc: null}
+  - id: practical_lights
+    label: Practical lights
+    definition: Visible in-frame light sources such as lamps, neon, screens or candles contribute to the look.
+    synonyms: [practicals, practical, lamps, candlelight, fairy lights, string lights]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: neon_coloured
+    label: Coloured / neon
+    definition: Saturated coloured light such as neon, RGB LEDs or club lighting dominates.
+    synonyms: [neon, neon lights, rgb lighting, coloured light, colored light, gel, gelled, cyberpunk, club lighting]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: mixed_light
+    label: Mixed colour temperature
+    definition: Visibly different colour temperatures in one frame, e.g. tungsten interior with a daylight window.
+    synonyms: [mixed lighting, mixed temperature, tungsten and daylight]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: interview_lit
+    label: Three-point / interview lighting
+    definition: Classic key, fill and back-light setup typical of interviews and corporate pieces.
+    synonyms: [three point lighting, 3 point lighting, key and fill, interview lighting, studio lit]
+    broader: null
+    mappings: {movielabs: null, iptc: null}

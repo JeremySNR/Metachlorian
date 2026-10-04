@@ -1,0 +1,191 @@
+vocabulary: mood
+version: 1.0.0
+description: >
+  The emotional tone a shot or segment conveys to a typical viewer, combining
+  picture and sound. Each term has a nominal position on Russell's
+  valence/arousal circumplex (valence -1..1 = unpleasant..pleasant, arousal
+  -1..1 = calm..excited). The indexer also stores continuous valence and
+  arousal scores, so "something upbeat but not frantic" can be answered
+  numerically and the labels stay a coarse layer. Mood is subjective. Store
+  confidence and allow up to three terms per shot.
+multi: true
+ordered: false
+applies_to: [shot, segment, asset]
+extensible: true
+terms:
+  - id: joyful
+    label: Joyful
+    valence: 0.9
+    arousal: 0.5
+    definition: Happy, cheerful and light-hearted.
+    synonyms: [happy, cheerful, upbeat, fun, celebratory, festive, delighted, bright]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: playful
+    label: Playful
+    valence: 0.7
+    arousal: 0.4
+    definition: Whimsical, quirky or mischievous.
+    synonyms: [whimsical, quirky, silly, cheeky, mischievous, lighthearted, light-hearted]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: humorous
+    label: Humorous
+    valence: 0.7
+    arousal: 0.3
+    definition: Intended to amuse, as in comic situations and visual gags.
+    synonyms: [funny, comedic, comic, amusing, hilarious, witty]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: energetic
+    label: Energetic
+    valence: 0.5
+    arousal: 0.9
+    definition: High energy, dynamic and exciting.
+    synonyms: [dynamic, exciting, high energy, high-energy, lively, vibrant, adrenaline, action-packed, hype]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: inspirational
+    label: Inspirational
+    valence: 0.8
+    arousal: 0.5
+    definition: Uplifting and aspirational. Conveys hope, achievement or possibility.
+    synonyms: [inspiring, uplifting, hopeful, aspirational, motivational, optimistic, empowering]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: triumphant
+    label: Triumphant
+    valence: 0.8
+    arousal: 0.8
+    definition: Victory, success or a peak moment.
+    synonyms: [victorious, winning, success, achievement, celebration of success, glorious]
+    broader: inspirational
+    mappings: {movielabs: null, iptc: null}
+  - id: epic
+    label: Epic
+    valence: 0.4
+    arousal: 0.7
+    definition: Grand in scale. Awe-inspiring and majestic.
+    synonyms: [grand, majestic, awe, awe-inspiring, sweeping, monumental, cinematic, breathtaking]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: romantic
+    label: Romantic
+    valence: 0.7
+    arousal: 0.0
+    definition: Love, intimacy or affection.
+    synonyms: [love, loving, intimate, tender, affectionate, passionate]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: warm
+    label: Warm
+    valence: 0.7
+    arousal: -0.3
+    definition: Comforting and friendly. Conveys belonging or human connection.
+    synonyms: [cosy, cozy, heartwarming, heart-warming, friendly, homely, wholesome, welcoming]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: calm
+    label: Calm
+    valence: 0.5
+    arousal: -0.8
+    definition: Peaceful, relaxed and tranquil.
+    synonyms: [peaceful, relaxed, relaxing, tranquil, serene, soothing, zen, chill, meditative, gentle]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: contemplative
+    label: Contemplative
+    valence: 0.0
+    arousal: -0.6
+    definition: Reflective and thoughtful. Invites the viewer to pause and think.
+    synonyms: [reflective, pensive, thoughtful, introspective, meditative mood, philosophical]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: nostalgic
+    label: Nostalgic
+    valence: 0.2
+    arousal: -0.4
+    definition: Evokes the past, memory or longing.
+    synonyms: [wistful, retro, vintage feel, sentimental, bittersweet, memories, throwback]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: melancholic
+    label: Melancholic
+    valence: -0.6
+    arousal: -0.5
+    definition: Sad, sombre or grieving.
+    synonyms: [sad, sombre, somber, gloomy, mournful, sorrowful, lonely, downbeat, melancholy, emotional]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: tense
+    label: Tense
+    valence: -0.5
+    arousal: 0.6
+    definition: Suspenseful or anxious. The viewer expects something to happen.
+    synonyms: [suspenseful, suspense, anxious, nervous, uneasy, edgy, nail-biting, thriller]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: dramatic
+    label: Dramatic
+    valence: -0.1
+    arousal: 0.7
+    definition: Intense and emotionally heightened, with high stakes.
+    synonyms: [intense, powerful, emotional intensity, gripping, striking, bold]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: ominous
+    label: Ominous
+    valence: -0.7
+    arousal: 0.4
+    definition: Threatening, dark or foreboding.
+    synonyms: [dark, menacing, sinister, foreboding, eerie, creepy, scary, spooky, horror, threatening]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: mysterious
+    label: Mysterious
+    valence: -0.1
+    arousal: 0.1
+    definition: Enigmatic and intriguing. Withholds information.
+    synonyms: [enigmatic, intriguing, mystery, secretive, curious, atmospheric]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: chaotic
+    label: Chaotic
+    valence: -0.4
+    arousal: 0.9
+    definition: Disordered, overwhelming and frantic.
+    synonyms: [frantic, hectic, messy, overwhelming, stressful, turbulent, mayhem]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: aggressive
+    label: Aggressive
+    valence: -0.7
+    arousal: 0.8
+    definition: Angry, hostile or violent in tone.
+    synonyms: [angry, hostile, violent, rage, confrontational, fierce]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: luxurious
+    label: Luxurious
+    valence: 0.6
+    arousal: -0.1
+    definition: Premium, elegant and sophisticated.
+    synonyms: [luxury, premium, elegant, sophisticated, high-end, glamorous, classy, opulent]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: professional
+    label: Professional
+    valence: 0.3
+    arousal: -0.2
+    definition: Clean and businesslike, as in corporate settings and polished, competent work.
+    synonyms: [corporate, business, businesslike, polished, trustworthy, confident]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
+  - id: neutral
+    label: Neutral
+    valence: 0.0
+    arousal: 0.0
+    definition: Matter-of-fact and documentary in tone, with no strong emotional colour.
+    synonyms: [matter-of-fact, factual, documentary tone, informational, plain, objective]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
