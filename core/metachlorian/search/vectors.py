@@ -1,7 +1,8 @@
 """In-memory ANN index over the ``vectors`` table (usearch HNSW, Apache-2.0).
 
 SQLite is the source of truth; this index is a cache that is synchronised by
-row id and can be rebuilt at any time. Filtered queries use exact scoring over
+row id (new rows) and by the ``vector_deletes`` log (removed rows), persisted
+to the index directory, and can be rebuilt at any time. Filtered queries use exact scoring over
 the candidate set when it is small, and oversampled HNSW + post-filter when it
 is large (usearch's Python API has no filter predicate).
 """
@@ -40,6 +41,8 @@ class VectorIndex:
         self.slot_of: dict[int, int] = {}
         self._loaded_once = False
         self._unsaved = 0
+        self.del_watermark = 0      # highest vector_deletes.id applied
+        self.garbage = 0            # int8 rows whose vector was removed
 
     def _new(self, dim: int):
         from usearch.index import Index
@@ -62,25 +65,43 @@ class VectorIndex:
         ip, mp, jp = paths
         try:
             meta = json.loads(jp.read_text())
-            rows = self.db.q("SELECT id, shot_id FROM vectors WHERE space=? AND id<=? ORDER BY id", (self.space, meta["watermark"]))
-            if len(rows) != meta["count"] or meta.get("dtype") != self.dtype:
+            if meta.get("dtype") != self.dtype or "del_watermark" not in meta:
                 return False
+            # Rows alive now among those the cache saw, in slot order. Slots of rows deleted since
+            # the save are skipped; their keys are removed below from the deletion log.
+            rows = self.db.q("SELECT id, shot_id FROM vectors WHERE space=? AND id<=? ORDER BY id", (self.space, meta["watermark"]))
             from usearch.index import Index
 
             self.index = Index.restore(str(ip), view=False)
             self.mat = np.load(mp, mmap_mode="r")
-            if self.index is None or len(self.mat) != len(rows):
+            if self.index is None:
+                return False
+            saved = np.load(str(jp.with_suffix("")) + ".ids.npy")  # vector id per int8 slot (-1 = garbage)
+            if len(saved) != len(self.mat):
                 self.index = None
                 return False
+            slot = {int(v): j for j, v in enumerate(saved.tolist()) if v >= 0}
             self._chunks = [self.mat]
             self.dim = meta["dim"]
             self.shot_of, self.vids_of, self.slot_of = {}, {}, {}
-            for j, r in enumerate(rows):
+            alive = set()
+            for r in rows:
+                j = slot.get(r["id"])
+                if j is None:
+                    # A row the cache never saw below its watermark cannot happen with monotonic ids.
+                    self.index = None
+                    return False
+                alive.add(r["id"])
                 self.shot_of[r["id"]] = r["shot_id"]
                 self.vids_of.setdefault(r["shot_id"], []).append(r["id"])
                 self.slot_of[r["id"]] = j
+            gone = [v for v in slot if v not in alive]
+            if gone:
+                self.index.remove(np.array(gone, dtype=np.uint64))
+            self.garbage = len(self.mat) - len(self.slot_of)
             self.watermark = meta["watermark"]
-            log.info("loaded %s vectors for %s from cache", len(rows), self.space)
+            self.del_watermark = self._max_delete()
+            log.info("loaded %s vectors for %s from cache", len(self.slot_of), self.space)
             return True
         except Exception:
             log.exception("vector cache unreadable; rebuilding")
@@ -94,13 +115,52 @@ class VectorIndex:
         if not paths or self.index is None or self.mat is None:
             return
         ip, mp, jp = paths
+        ids_path = str(jp.with_suffix("")) + ".ids.npy"
         ip.parent.mkdir(parents=True, exist_ok=True)
         with self.lock:
+            ids = np.full(len(self.mat), -1, dtype=np.int64)
+            for v, j in self.slot_of.items():
+                ids[j] = v
             self.index.save(str(ip) + ".tmp")
             np.save(str(mp) + ".tmp.npy", np.asarray(self.mat))
+            np.save(ids_path + ".tmp.npy", ids)
             os.replace(str(ip) + ".tmp", ip)
             os.replace(str(mp) + ".tmp.npy", mp)
-            jp.write_text(json.dumps({"watermark": self.watermark, "count": len(self.shot_of), "dim": self.dim, "dtype": self.dtype}))
+            os.replace(ids_path + ".tmp.npy", ids_path)
+            jp.write_text(json.dumps({"watermark": self.watermark, "del_watermark": self.del_watermark, "count": len(self.shot_of),
+                                      "dim": self.dim, "dtype": self.dtype}))
+            self._unsaved = 0
+
+    def _max_delete(self) -> int:
+        r = self.db.q1("SELECT MAX(id) m FROM vector_deletes")
+        return int(r["m"] or 0) if r else 0
+
+    def _reset(self) -> None:
+        self.index, self.shot_of, self.vids_of, self.watermark = None, {}, {}, 0
+        self._chunks, self.mat, self.slot_of, self.garbage = [], None, {}, 0
+
+    def _apply_deletes(self) -> int:
+        rows = self.db.q("SELECT id, vector_id FROM vector_deletes WHERE space=? AND id>? ORDER BY id", (self.space, self.del_watermark))
+        if not rows:
+            return 0
+        gone = []
+        for r in rows:
+            v = r["vector_id"]
+            sid = self.shot_of.pop(v, None)
+            if sid is None:
+                continue
+            gone.append(v)
+            self.slot_of.pop(v, None)
+            lst = self.vids_of.get(sid)
+            if lst:
+                lst.remove(v)
+                if not lst:
+                    del self.vids_of[sid]
+        self.del_watermark = rows[-1]["id"]
+        if gone and self.index is not None:
+            self.index.remove(np.array(gone, dtype=np.uint64))
+            self.garbage += len(gone)
+        return len(gone)
 
     def sync(self) -> int:
         """Pull new rows; rebuild when rows were deleted (re-analysis replaces them).
@@ -111,10 +171,15 @@ class VectorIndex:
             if self.index is None and not self._loaded_once:
                 self._loaded_once = True
                 self._try_load()
-            stat = self.db.q1("SELECT COUNT(*) n FROM vectors WHERE space=? AND id<=?", (self.space, self.watermark))
-            if self.index is not None and stat["n"] != len(self.shot_of):
-                self.index, self.shot_of, self.vids_of, self.watermark = None, {}, {}, 0
-                self._chunks, self.mat, self.slot_of = [], None, {}
+            removed = 0
+            if self.index is not None:
+                removed = self._apply_deletes()
+                # Compact when most of the store is tombstones (HNSW quality degrades too).
+                if self.garbage > 50_000 and self.garbage > len(self.slot_of):
+                    self._reset()
+            if self.index is None:
+                # Fresh build: deletions logged before now are already reflected in the rows we read.
+                self.del_watermark = self._max_delete()
             added = 0
             while True:
                 rows = self.db.q("SELECT id, shot_id, dim, vec FROM vectors WHERE space=? AND id>? ORDER BY id LIMIT 20000", (self.space, self.watermark))
@@ -140,13 +205,13 @@ class VectorIndex:
             if added:
                 self.mat = np.concatenate(self._chunks) if len(self._chunks) > 1 else self._chunks[0]
                 self._chunks = [self.mat]
-                self._unsaved += added
-                if self._unsaved >= 20_000:
-                    try:
-                        self.save()
-                        self._unsaved = 0
-                    except Exception:  # pragma: no cover
-                        log.exception("could not save the vector cache")
+            self._unsaved += added + removed
+            # Save after a large change, scaled to the library so big indexes are not rewritten constantly.
+            if self._unsaved and self._unsaved >= max(20_000, len(self.slot_of) // 20):
+                try:
+                    self.save()
+                except Exception:  # pragma: no cover
+                    log.exception("could not save the vector cache")
             return added
 
     def __len__(self) -> int:
@@ -231,3 +296,12 @@ class VectorStore:
             idx = self.spaces[space]
         idx.sync()
         return idx
+
+    def save_all(self) -> None:
+        """Persist every loaded space that has unsaved changes (called on shutdown)."""
+        for idx in list(self.spaces.values()):
+            if idx._unsaved:
+                try:
+                    idx.save()
+                except Exception:  # pragma: no cover
+                    log.exception("could not save the %s vector cache", idx.space)

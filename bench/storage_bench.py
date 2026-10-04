@@ -128,6 +128,7 @@ def run(out: Path, models: str, repeats: int = 3, dtype: str = "i8") -> dict:
     s = load_settings(out)
     db = Database(s.db_path)
     eng = SearchEngine(db, s)
+    cached = (s.index_dir / "visual.meta.json").exists()
     t0 = time.time()
     eng.vectors.dtype = dtype
     eng.vectors.get("visual")
@@ -138,18 +139,22 @@ def run(out: Path, models: str, repeats: int = 3, dtype: str = "i8") -> dict:
     eng.search(SearchRequest(q="warm up"))
     lat: list[float] = []
     per: dict[str, list[float]] = {}
+    stages: dict[str, list[float]] = {}
     for _ in range(repeats):
         for q, f in QUERIES:
             t = time.perf_counter()
             r = eng.search(SearchRequest(q=q, filters=f, limit=40))
             ms = (time.perf_counter() - t) * 1000
             lat.append(ms)
+            for k, v in r.get("timings_ms", {}).items():
+                stages.setdefault(k, []).append(v)
             per.setdefault(q or json.dumps(f), []).append(ms)
             assert r["results"] is not None
     lat.sort()
-    res = {"shots": n, "hours": round(hours), "index_build_s": round(build_s, 1), "max_rss_gb": round(rss, 2), "queries": len(lat),
+    res = {"shots": n, "hours": round(hours), "index_from_cache": cached, "index_ready_s": round(build_s, 1), "max_rss_gb": round(rss, 2), "queries": len(lat),
            "median_ms": round(statistics.median(lat), 1), "p95_ms": round(lat[int(0.95 * len(lat)) - 1], 1), "max_ms": round(lat[-1], 1),
            "per_query_median_ms": {k: round(statistics.median(v), 1) for k, v in per.items()},
+           "stage_median_ms": {k: round(statistics.median(v), 1) for k, v in stages.items()},
            "db_gb": round(os.path.getsize(s.db_path) / 1e9, 2), "cpu": os.cpu_count()}
     print(json.dumps(res, indent=1))
     return res

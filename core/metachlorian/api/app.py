@@ -72,6 +72,7 @@ def create_app(settings: Settings, db: Database | None = None, start_workers: bo
             yield
         if background.get("stop"):
             background["stop"]()
+        lib.engine.vectors.save_all()
 
     app = FastAPI(title="Metachlorian", version=__version__, lifespan=lifespan, docs_url="/api/docs", openapi_url="/api/openapi.json")
     app.state.lib = lib

@@ -134,3 +134,48 @@ def test_fusion_merge_counts_each_source_once():
     assert both["confidence"] > one["confidence"] and both["sources"] == ["visual_tags", "vlm"]
     # Low-confidence evidence is kept when the caller asks for it.
     assert merge_multi([([{"term": "office", "confidence": 0.3}], 0.55, "visual_tags")], keep=0.12)
+
+
+def test_vector_index_incremental_and_persistent(tmp_path):
+    """Deletes are applied incrementally (no rebuild), ids are never reused, and the index
+    reloads from disk including deletions made while it was not running."""
+    import time as _t
+
+    import numpy as np
+
+    from metachlorian.db import Database
+    from metachlorian.search.vectors import VectorIndex
+
+    db = Database(tmp_path / "v.sqlite")
+    db.migrate()
+    db.x("PRAGMA foreign_keys=OFF")  # vectors only; no shot rows needed for the index
+    rng = np.random.default_rng(0)
+
+    def add(n, shot):
+        with db.tx() as c:
+            c.executemany("INSERT INTO vectors(shot_id, asset_id, space, dim, vec, created_at) VALUES(?,?,?,?,?,?)",
+                          [(shot, 1, "t", 8, rng.standard_normal(8).astype(np.float16).tobytes(), _t.time()) for _ in range(n)])
+
+    add(30_000, 1)
+    add(10, 2)
+    idx = VectorIndex(db, "t", tmp_path / "idx")
+    idx.sync()
+    assert len(idx.shot_of) == 30_010 and (tmp_path / "idx" / "t.usearch").exists()
+    top = max(idx.shot_of)
+    db.x("DELETE FROM vectors WHERE shot_id=2")
+    add(5, 2)
+    index_obj = idx.index
+    idx.sync()
+    assert idx.index is index_obj, "deletes must not trigger a rebuild"
+    assert len(idx.vids_of[2]) == 5 and min(idx.vids_of[2]) > top, "vector ids must never be reused"
+    q = np.frombuffer(db.q1("SELECT vec FROM vectors WHERE shot_id=2 ORDER BY id LIMIT 1")["vec"], dtype=np.float16).astype(np.float32)
+    assert idx.search(q, 1, candidates={2})[0][0] == 2
+    idx.save()
+    # Deleted while no process held the index: the reload must drop them.
+    db.x("DELETE FROM vectors WHERE id IN (SELECT id FROM vectors WHERE shot_id=1 ORDER BY id LIMIT 100)")
+    again = VectorIndex(db, "t", tmp_path / "idx")
+    again.sync()
+    assert len(again.shot_of) == 30_010 - 10 + 5 - 100
+    assert again.garbage >= 100
+    hits = again.search(q, 5)
+    assert hits and all(s in (1, 2) for s, _ in hits)

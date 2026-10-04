@@ -363,8 +363,9 @@ class SearchEngine:
         page = pool[offset: offset + limit]
         results = [self._result(sid, info.get(sid), contrib.get(sid, {}), fused[sid], snippets.get(sid), verdicts.get(sid), prefer, filters, kw)
                    for sid in page]
-        facets = self._facets(pool if (lists and not (len(lists) == 1 and "quality" in lists)) else (list(candidates) if candidates is not None else None),
-                              where, args, base_from) if req.facets else {}
+        # Facets describe the ranked pool (at most 5,000 shots), never the whole library: aggregating
+        # terms over every match of a broad filter took minutes at 1.5M shots.
+        facets = self._facets(pool, where, args, base_from) if req.facets else {}
         timings["total"] = time.perf_counter() - t0
         return {
             "query": {"text": req.q, "parsed": parsed.as_dict(), "filters": {k: v for k, v in filters.items() if not k.startswith("_")},

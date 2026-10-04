@@ -302,6 +302,33 @@ MIGRATIONS: list[str] = [
     CREATE INDEX st_conf ON shot_terms(vocab, term, confidence DESC);
     CREATE VIRTUAL TABLE shot_fts_vocab USING fts5vocab(shot_fts, 'row');
     """,
+    # ---------------------------------------------------------------- v3: incremental vector index maintenance
+    # Monotonic vector ids (never reused) plus a deletion log, so the ANN cache removes exactly the
+    # deleted keys instead of rebuilding when an asset is re-analysed.
+    """
+    CREATE TABLE vectors_v3 (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        shot_id INTEGER NOT NULL REFERENCES shots(id) ON DELETE CASCADE,
+        asset_id INTEGER NOT NULL,
+        space TEXT NOT NULL,
+        dim INTEGER NOT NULL,
+        vec BLOB NOT NULL,
+        created_at REAL NOT NULL
+    );
+    INSERT INTO vectors_v3(id, shot_id, asset_id, space, dim, vec, created_at) SELECT id, shot_id, asset_id, space, dim, vec, created_at FROM vectors;
+    DROP TABLE vectors;
+    ALTER TABLE vectors_v3 RENAME TO vectors;
+    CREATE INDEX vectors_space ON vectors(space, id);
+    CREATE INDEX vectors_shot ON vectors(shot_id, space);
+    CREATE INDEX vectors_asset ON vectors(asset_id, space);
+    CREATE TABLE vector_deletes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        vector_id INTEGER NOT NULL,
+        space TEXT NOT NULL
+    );
+    CREATE INDEX vector_deletes_space ON vector_deletes(space, id);
+    CREATE TRIGGER vectors_deleted AFTER DELETE ON vectors BEGIN INSERT INTO vector_deletes(vector_id, space) VALUES(old.id, old.space); END;
+    """,
 ]
 
 

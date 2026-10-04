@@ -42,8 +42,7 @@ def run_variant(eng: E.SearchEngine, q: str, variant: str, k: int = 10) -> list[
     if variant == "hybrid":
         r = eng.search(E.SearchRequest(q=q, limit=k, facets=False))
     elif variant == "no_prefs":
-        r = eng.search(E.SearchRequest(q=q, limit=k, facets=False, strict=False))
-        # Drop the vocabulary preference list by re-running with parsing but no prefs.
+        # Hybrid with the vocabulary-term retriever switched off.
         saved = E.WEIGHTS["terms"]
         E.WEIGHTS["terms"] = 0.0
         try:
