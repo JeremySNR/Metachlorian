@@ -1,6 +1,6 @@
 # Roadmap: from a strong build to a product a team trusts
 
-Status: proposed, 2026-10-04. Companion to [PLAN.md](../PLAN.md) (what was built) and
+Status: proposed, 2026-10-04; item 1 delivered. Companion to [PLAN.md](../PLAN.md) (what was built) and
 [OPEN_QUESTIONS.md](../OPEN_QUESTIONS.md) (what needs a human).
 
 Eight pieces of work, chosen after reading the code, the evaluation and both review passes. Each section says what
@@ -86,6 +86,29 @@ almost no regression coverage. 5 (remote workers) sits after 3 because it reuses
 
 4–5 days. The rights-gate refactor touches the hottest path in `engine.py`; do it with the invariant tests already
 written against the current behaviour so the refactor is a pure move.
+
+### Delivered
+
+Status: **done**. `rights.gate` decides for every exit; `tests/test_rights_invariants.py` (173 cases) pins it, and a
+mutation check (disabling each rule in turn) makes at least one case fail every time. The invariant tests found holes
+that the "pure move" could not keep, so behaviour changed in these places:
+
+- **Packages with blocked footage are refused for everyone**, as clip exports already were. Before, a person could
+  package not-cleared or expired shots with media and thumbnails.
+- **Refusals happen before anything is rendered.** Before, an agent's refused package was rendered, then deleted, and
+  with `zip` its `.zip` stayed in the export folder, downloadable through `/api/exports/file`.
+- **`allow_restricted` never admits blocked items** (it admitted any verdict; it is not exposed over REST or MCP).
+- **`/media/` for agents**: refused for a file that holds any blocked shot (the decision this item asked for); people
+  with `library:read` still see everything, because reviewing footage is how its rights get fixed.
+- **Search results carry `rights.verdict: blocked`** with reasons when blocked footage is shown (`hide_blocked=false`).
+- **A restricted licence past its expiry is `expired`** (the badge said `restricted`, so it was not treated as blocked).
+- **MCP failures are tool errors** (`isError: true`, text `"<Type>: <message>"`), as ADR 011 specified, instead of an
+  `{"error": …}` result. This is also item 4's error-semantics step.
+- **Solo mode over `http://[::1]/`** (IPv6 loopback without a port) was refused because the Host header was mis-parsed.
+
+Also added: queue, planner, search-engine and auth unit tests; shared fixtures in `conftest.py` (`processed`,
+`rights_matrix`, `principals`, `mcp_client`); a coverage floor of 68 % (measured 69 %) in `core/pyproject.toml`; and
+`eval/ci_gates.py` in CI (see `eval/README.md`).
 
 ---
 
