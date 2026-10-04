@@ -1,0 +1,35 @@
+name: Release desktop
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Build web app
+        working-directory: app
+        run: npm ci && npm run build
+      - name: Build installer (unsigned until certificates are configured, see OPEN_QUESTIONS Q3)
+        working-directory: desktop
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Signing: set CSC_LINK / CSC_KEY_PASSWORD (Windows, macOS) and APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD /
+          # APPLE_TEAM_ID (notarisation) as repository secrets, then remove "identity": null from package.json.
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: npm ci && npx electron-builder --publish always
+  image:
+    runs-on: ubuntu-latest
+    permissions: { packages: write, contents: read }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with: { registry: ghcr.io, username: ${{ github.actor }}, password: ${{ secrets.GITHUB_TOKEN }} }
+      - uses: docker/build-push-action@v6
+        with: { push: true, tags: "ghcr.io/jeremysnr/metachlorian:latest,ghcr.io/jeremysnr/metachlorian:${{ github.ref_name }}" }

@@ -18,14 +18,52 @@
   "build": {
     "appId": "org.metachlorian.app",
     "productName": "Metachlorian",
-    "directories": { "output": "release" },
-    "files": ["src/**", "assets/**"],
-    "extraResources": [
-      { "from": "../core", "to": "core", "filter": ["metachlorian/**", "pyproject.toml", "README.md"] }
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "src/**",
+      "assets/**"
     ],
-    "mac": { "target": ["dmg", "zip"], "category": "public.app-category.video", "identity": null },
-    "win": { "target": "nsis" },
-    "linux": { "target": "AppImage", "category": "AudioVideo" },
-    "publish": { "provider": "github", "owner": "JeremySNR", "repo": "Metachlorian", "releaseType": "draft" }
-  }
+    "extraResources": [
+      {
+        "from": "../core",
+        "to": "core",
+        "filter": [
+          "metachlorian/**",
+          "pyproject.toml",
+          "README.md"
+        ]
+      }
+    ],
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.video",
+      "identity": null
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage",
+      "category": "AudioVideo",
+      "desktop": {
+        "entry": {
+          "StartupWMClass": "Metachlorian"
+        }
+      },
+      "executableName": "metachlorian-desktop"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "JeremySNR",
+      "repo": "Metachlorian",
+      "releaseType": "draft"
+    },
+    "icon": "assets/icon.png"
+  },
+  "desktopName": "metachlorian.desktop"
 }
