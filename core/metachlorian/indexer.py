@@ -99,6 +99,10 @@ def index_asset(db: Database, settings: Settings | None, asset_id: int) -> int:
             ocr = scalar(_f(d, "content.ocr_text")) or ""
             logos = scalar(_f(d, "content.logos_text")) or []
             fn = d["filename"].rsplit(".", 1)[0].replace("_", " ").replace("-", " ")
+            org = d.get("origin") or {}
+            if org:
+                # Imported from the web: its title, channel, site and tags are words people search for.
+                fn += " " + " ".join(str(x) for x in (org.get("title"), org.get("uploader"), org.get("site"), *(org.get("tags") or [])) if x)
             path_words = " ".join(p for p in d["path"].replace("\\", "/").split("/")[-4:-1])
             c.execute("INSERT INTO shot_fts(rowid, caption, transcript, ocr, tags, place, filename) VALUES(?,?,?,?,?,?,?)",
                       (d["id"], f"{caption} {summary}", transcript, f"{ocr} {' '.join(logos) if isinstance(logos, list) else logos}",

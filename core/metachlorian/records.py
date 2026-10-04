@@ -149,7 +149,14 @@ def build_asset_doc(db: Database, asset_id: int) -> dict[str, Any]:
     summary = loads(a["summary"], {}) or {}
     tech = loads(a["tech"], {}) or {}
     edit = fields.get("structure.edit_type", {}).get("value") or summary.get("edit_type")
+    from .ingest.importer import origin_for_asset
+
+    try:
+        origin = origin_for_asset(db, asset_id)
+    except Exception:  # library opened before the imports table existed
+        origin = None
     return {
+        "origin": origin,
         "uid": a["uid"], "id": a["id"], "filename": a["filename"], "path": a["path"], "status": a["status"],
         "size": a["size"], "duration": a["duration"], "width": a["width"], "height": a["height"], "fps": a["fps"],
         "created_at": a["created_at"], "updated_at": a["updated_at"], "technical": tech, "structure": summary,
@@ -218,6 +225,8 @@ def shot_doc(asset: dict[str, Any], s: dict[str, Any], fields: dict[str, dict[st
                                                "capture_date", "gps", "audio_channels")},
         "edit_type": asset.get("edit_type"),
         "location": asset.get("location"),
+        # Where an imported file came from (web link); the long description stays on the file record.
+        "origin": {k: v for k, v in asset["origin"].items() if k != "description"} if asset.get("origin") else None,
         "fields": fields,
         "moments": [{"kind": m["kind"], "start": m["start_s"], "end": m["end_s"], "text": m["text"], "confidence": m["confidence"],
                      "source": m["source"], "data": {k: v for k, v in (loads(m["data"], {}) or {}).items() if k != "words"}} for m in moments],

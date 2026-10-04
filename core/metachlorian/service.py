@@ -3,6 +3,7 @@ server offer, with permission checks and audit logging in one place, so
 agents are never second-class users and never get more than people do."""
 from __future__ import annotations
 
+import os
 import posixpath
 import shutil
 import threading
@@ -618,6 +619,96 @@ class Library:
             plan_asset(self.db, self.settings, aid)
         self._log(p, "upload", safe, {"outcome": outcome}, write=True)
         return {"outcome": outcome, "asset_uid": self.db.q1("SELECT uid FROM assets WHERE id=?", (aid,))["uid"] if aid else None}
+
+    # ------------------------------------------------------------------ imports from web links (yt-dlp)
+    def imports(self, p: Principal, status: str | None = None, limit: int = 200) -> dict[str, Any]:
+        require(p, "library:read")
+        from .ingest import importer
+
+        return importer.listing(self.db, status, max(1, min(1000, limit)))
+
+    def import_status(self, p: Principal, import_id: int) -> dict[str, Any]:
+        require(p, "library:read")
+        from .ingest import importer
+
+        r = importer.row(self.db, import_id)
+        if not r:
+            raise NotFound(f"no import {import_id}")
+        r["children"] = [importer._public(x) for x in self.db.q(
+            "SELECT i.*, a.uid asset_uid FROM imports i LEFT JOIN assets a ON a.id=i.asset_id WHERE i.parent_id=? ORDER BY i.id", (import_id,))]
+        return r
+
+    def import_urls(self, p: Principal, urls: list[str], folder: str = "", playlist: bool = False,
+                    max_height: int | None = None) -> dict[str, Any]:
+        require(p, "ingest:write")
+        from .ingest import importer
+
+        ids = importer.enqueue(self.db, self.settings, urls, folder, playlist, max_height, p.username)
+        self._log(p, "import_urls", f"{len(ids)} links", {"urls": urls[:20], "folder": folder, "playlist": playlist}, write=True)
+        return {"imports": [importer.row(self.db, i) for i in ids]}
+
+    def import_action(self, p: Principal, import_id: int, action: str) -> dict[str, Any]:
+        require(p, "ingest:write")
+        from .ingest import importer
+
+        fn = {"cancel": importer.cancel, "retry": importer.retry}.get(action)
+        try:
+            if fn:
+                fn(self.db, self.settings, import_id)
+            else:
+                importer.forget(self.db, import_id)
+        except KeyError as e:
+            raise NotFound(f"no import {import_id}") from e
+        self._log(p, f"import_{action}", str(import_id), write=True)
+        return importer.row(self.db, import_id) or {"id": import_id, "forgotten": True}
+
+    def import_tool(self, p: Principal) -> dict[str, Any]:
+        require(p, "library:read")
+        from .ingest import ytdlp
+
+        exe = ytdlp.find(self.settings)
+        return {"installed": bool(exe), "path": exe, "version": ytdlp.version(exe) if exe else None,
+                "managed": bool(exe) and exe == str(ytdlp.managed_path(self.settings)),
+                "cookies_browser": self.settings.import_cookies_browser or None,
+                "cookies_file": ytdlp.cookies_file(self.settings).exists(), "max_height": self.settings.import_max_height,
+                "browsers": sorted(ytdlp.BROWSERS)}
+
+    def install_import_tool(self, p: Principal, update: bool = False) -> dict[str, Any]:
+        require(p, "admin")
+        from .ingest import ytdlp
+
+        exe = ytdlp.ensure(self.settings)
+        if update:
+            try:
+                ytdlp.Runner(exe).run(["-U"], timeout=300)
+            except ytdlp.YtDlpError as e:
+                raise ValueError(f"yt-dlp could not update itself: {e} (if it was installed by a package manager, update it there)") from e
+        self._log(p, "install_import_tool", exe, {"update": update}, write=True)
+        return self.import_tool(p)
+
+    def set_import_cookies(self, p: Principal, data: bytes | None) -> dict[str, Any]:
+        """Store (or remove) a Netscape cookies.txt for imports that need a login. Never returned by the API."""
+        require(p, "admin")
+        from .ingest import ytdlp
+
+        path = ytdlp.cookies_file(self.settings)
+        if data is None:
+            path.unlink(missing_ok=True)
+        else:
+            if len(data) > 1_000_000:
+                raise ValueError("cookies file too large (1 MB at most)")
+            text = data.decode("utf-8", "replace")
+            lines = [x for x in text.splitlines() if x.strip() and not x.startswith("#")]
+            if not lines or not all(len(x.split("\t")) >= 7 for x in lines[:20]):
+                raise ValueError("that is not a cookies.txt file (Netscape format, tab-separated); export one with the "
+                                 "'Get cookies.txt LOCALLY' browser extension")
+            path.parent.mkdir(parents=True, exist_ok=True)
+            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "w") as f:
+                f.write(text)
+            os.chmod(path, 0o600)
+        self._log(p, "set_import_cookies", "", {"cleared": data is None}, write=True)
+        return self.import_tool(p)
 
     def reprocess(self, p: Principal, asset_uid: str, analysers: list[str] | None = None, priority: int | None = None) -> dict[str, Any]:
         require(p, "ingest:write")

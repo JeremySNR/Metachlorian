@@ -17,6 +17,7 @@ import ipaddress
 import logging
 import mimetypes
 import os
+import re
 import shutil
 import tempfile
 import threading
@@ -66,6 +67,11 @@ def create_app(settings: Settings, db: Database | None = None, start_workers: bo
             from ..runtime import start_background
 
             background.update(start_background(settings))
+            # Web imports left queued by a previous run carry on.
+            if db.q1("SELECT 1 FROM imports WHERE status IN ('queued','probing','downloading') LIMIT 1"):
+                from ..ingest.importer import runner
+
+                runner(settings).kick()
         # Warm the vector index and text encoder so the first search is fast.
         threading.Thread(target=_warm, args=(lib,), daemon=True).start()
         async with mcp.session_manager.run() if getattr(mcp, "_session_manager", None) is not None or hasattr(mcp, "session_manager") else contextlib.nullcontext():
@@ -419,6 +425,51 @@ def create_app(settings: Settings, db: Database | None = None, start_workers: bo
     @app.post("/api/upload")
     async def upload(file: UploadFile = File(...), p: Principal = Depends(principal)):
         return lib.upload(p, file.filename or "upload.mp4", file.file)
+
+    # ------------------------------------------------------------------ imports from web links
+    @app.get("/api/imports")
+    def imports_list(status: str | None = None, limit: int = 200, p: Principal = Depends(principal)):
+        return lib.imports(p, status, limit)
+
+    @app.post("/api/imports")
+    def imports_add(body: dict = Body(...), p: Principal = Depends(principal)):
+        """{"urls": [...] or "url": "...", "folder": "Disney 2026", "playlist": false, "max_height": 1080}"""
+        urls = body.get("urls") or ([body["url"]] if body.get("url") else [])
+        if isinstance(urls, str):
+            urls = [u for u in re.split(r"\s+", urls) if u]
+        return lib.import_urls(p, list(urls), body.get("folder") or "", bool(body.get("playlist")), body.get("max_height"))
+
+    @app.get("/api/imports/tool")
+    def imports_tool(p: Principal = Depends(principal)):
+        return lib.import_tool(p)
+
+    @app.post("/api/imports/tool")
+    def imports_tool_install(body: dict = Body(default={}), p: Principal = Depends(principal)):
+        return lib.install_import_tool(p, update=bool(body.get("update")))
+
+    @app.put("/api/imports/cookies")
+    async def imports_cookies(file: UploadFile = File(...), p: Principal = Depends(principal)):
+        return lib.set_import_cookies(p, await file.read(1_000_001))
+
+    @app.delete("/api/imports/cookies")
+    def imports_cookies_clear(p: Principal = Depends(principal)):
+        return lib.set_import_cookies(p, None)
+
+    @app.get("/api/imports/{import_id}")
+    def imports_get(import_id: int, p: Principal = Depends(principal)):
+        return lib.import_status(p, import_id)
+
+    @app.post("/api/imports/{import_id}/cancel")
+    def imports_cancel(import_id: int, p: Principal = Depends(principal)):
+        return lib.import_action(p, import_id, "cancel")
+
+    @app.post("/api/imports/{import_id}/retry")
+    def imports_retry(import_id: int, p: Principal = Depends(principal)):
+        return lib.import_action(p, import_id, "retry")
+
+    @app.delete("/api/imports/{import_id}")
+    def imports_forget(import_id: int, p: Principal = Depends(principal)):
+        return lib.import_action(p, import_id, "forget")
 
     @app.get("/api/processing")
     def processing(p: Principal = Depends(principal)):

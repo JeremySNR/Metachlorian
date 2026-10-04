@@ -159,6 +159,12 @@ class Settings:
     # Face identity (recognise and name people). On by default: embeddings stay in this library and are
     # never sent to any provider. Admins can switch it off and forget people individually.
     face_identity: bool = True
+    # Imports from web links (YouTube, Vimeo... via yt-dlp). Browser whose login yt-dlp may borrow for private
+    # videos (chrome, edge, firefox, brave, opera, vivaldi, safari; only on the machine running the server),
+    # the default quality cap, and an optional yt-dlp executable (else PATH, else downloaded on first use).
+    import_cookies_browser: str = ""
+    import_max_height: int = 1080
+    ytdlp_path: str = ""
     # Auth: when false (solo mode on loopback) requests from 127.0.0.1 act as
     # the local admin. Team mode must set this to true.
     require_auth: bool = False

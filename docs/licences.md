@@ -59,6 +59,7 @@ ISC 1, 0BSD 1, Unlicense 1. All OSI-approved or public-domain-equivalent; no cop
 | FFmpeg | LGPL-2.1+, or GPL when built with libx264 (we use libx264 for proxies) | Executed as a separate program; never linked | Server installs use the system FFmpeg. Desktop installers that bundle an FFmpeg binary must ship its licence and offer its source (as Cutawan already does with `ffmpeg-static`). See OPEN_QUESTIONS Q9 |
 | ExifTool (optional) | Artistic/GPL | Executed if present | None for us (not bundled) |
 | llama.cpp server / Ollama (optional) | MIT | Separate process, OpenAI-compatible API | None |
+| yt-dlp (imports from web links) | Unlicense (public domain) | The official standalone build is downloaded from GitHub on first use (or the one on PATH is used) and run as a separate program | None. Its cookie-unlock plugin comes from Cutawan (MIT, same author) |
 
 ## Evaluation footage
 

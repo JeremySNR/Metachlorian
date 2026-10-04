@@ -68,6 +68,28 @@ def cmd_add(args) -> None:
         print(json.dumps({"source": uri, **{k: v for k, v in res.as_dict().items() if k != "asset_ids"}}))
 
 
+def cmd_import(args) -> None:
+    """Download videos from web links into the library and wait for the downloads to finish."""
+    import time
+
+    from .ingest import importer
+
+    s, db = _lib(args)
+    ids = importer.enqueue(db, s, args.urls, args.folder or "", args.playlist, args.max_height, "cli")
+    seen: set[int] = set()
+    while True:
+        rows = db.q("SELECT id, url, status, title, error, path FROM imports WHERE id IN ({0}) OR parent_id IN ({0})".format(",".join("?" * len(ids))),
+                    (*ids, *ids))
+        for r in rows:
+            if r["status"] in ("done", "duplicate", "failed", "cancelled", "expanded") and r["id"] not in seen:
+                seen.add(r["id"])
+                print(json.dumps({k: r[k] for k in ("id", "status", "title", "path", "error") if r[k]}))
+        if rows and all(r["status"] in ("done", "duplicate", "failed", "cancelled", "expanded") for r in rows):
+            break
+        time.sleep(1)
+    print("Run `metachlorian serve` (or `process`) to analyse the new files.")
+
+
 def cmd_process(args) -> None:
     from .pipeline import Worker, plan_all
 
@@ -180,6 +202,12 @@ def main(argv: list[str] | None = None) -> None:
     sp.add_argument("--no-workers", action="store_true")
     sp.add_argument("--add", nargs="*", help="watch folders or s3:// sources to add")
     sp.set_defaults(fn=cmd_serve)
+    sp = sub.add_parser("import", help="download videos from web links (YouTube, Vimeo...) into the library")
+    sp.add_argument("urls", nargs="+")
+    sp.add_argument("--folder", help="subfolder of <library>/imports, e.g. 'Disney 2026' (default: the site's name)")
+    sp.add_argument("--playlist", action="store_true", help="import every video of a playlist or channel link")
+    sp.add_argument("--max-height", type=int, help="quality cap: 720, 1080 (default), 2160...")
+    sp.set_defaults(fn=cmd_import)
     sp = sub.add_parser("add", help="add a folder or s3:// bucket and scan it")
     sp.add_argument("paths", nargs="+")
     sp.add_argument("--no-watch", action="store_true")

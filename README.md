@@ -26,6 +26,9 @@ CMX 3600 EDL).
   with a shot, a still or a clip.
 - **Rights-aware.** Record source, licence, permitted uses, channels, territories, expiry and releases per file (overridable per
   shot). State an intended use and you only get shots cleared for it.
+- **Import from the web.** Paste YouTube, Vimeo or other video links (or a whole playlist) and they are downloaded into
+  a folder of your choice and analysed like everything else, remembering where they came from. Rights start as unknown
+  until someone checks them. Uses yt-dlp, the same importer as Cutawan.
 - **People you can name.** Faces are recognised across shots and files (locally; embeddings never leave the library).
   Name someone once and "Maria laughing in the kitchen" finds them. Merge, split or forget people at any time.
 - **Corrections stick.** Fix a tag and it is stored separately from machine output and wins over it, even after re-processing.

@@ -364,6 +364,31 @@ MIGRATIONS: list[str] = [
     CREATE INDEX faces_shot ON faces(shot_id);
     CREATE INDEX faces_identity ON faces(identity_id);
     """,
+    # ---------------------------------------------------------------- v6: imports from web links (yt-dlp)
+    """
+    CREATE TABLE imports (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        url TEXT NOT NULL,
+        parent_id INTEGER REFERENCES imports(id) ON DELETE CASCADE,   -- set for videos expanded from a playlist
+        status TEXT NOT NULL DEFAULT 'queued',  -- queued | probing | downloading | done | duplicate | failed | cancelled | expanded
+        progress REAL NOT NULL DEFAULT 0,
+        message TEXT NOT NULL DEFAULT '',
+        error TEXT,
+        folder TEXT NOT NULL DEFAULT '',        -- subfolder of <library>/imports
+        playlist INTEGER NOT NULL DEFAULT 0,
+        max_height INTEGER NOT NULL DEFAULT 1080,
+        origin_key TEXT,                        -- extractor:id, for duplicate detection
+        title TEXT, site TEXT, uploader TEXT, duration REAL,
+        info TEXT NOT NULL DEFAULT '{}',        -- selected yt-dlp metadata (json)
+        path TEXT,
+        asset_id INTEGER REFERENCES assets(id) ON DELETE SET NULL,
+        actor TEXT NOT NULL DEFAULT '',
+        created_at REAL NOT NULL, updated_at REAL NOT NULL
+    );
+    CREATE INDEX imports_status ON imports(status);
+    CREATE INDEX imports_origin ON imports(origin_key);
+    CREATE INDEX imports_asset ON imports(asset_id);
+    """,
 ]
 
 
