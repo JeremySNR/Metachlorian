@@ -608,6 +608,26 @@ def create_app(settings: Settings, db: Database | None = None, start_workers: bo
             raise HTTPException(502, f"could not load the OpenRouter catalogue: {e}") from e
         return {"models": [m for m in models_ if m["vision"] or not vision]}
 
+    @app.get("/api/formats")
+    def formats(p: Principal = Depends(principal)):
+        """What can be analysed: camera raw formats with their configured decoder and the files waiting for one."""
+        A.require(p, "library:read")
+        from ..analysers.technical import RAW_HELP
+        from ..ingest.scan import RAW_EXTS, VIDEO_EXTS
+
+        raw = []
+        for ext, name in RAW_EXTS.items():
+            rows = db.q("SELECT a.uid, a.filename, a.status, r.error FROM assets a LEFT JOIN analysis_runs r ON r.asset_id=a.id"
+                        " AND r.analyser='technical' WHERE a.deleted_at IS NULL AND lower(a.filename) LIKE ?", (f"%{ext}",))
+            raw.append({"extension": ext[1:], "name": name, "decoder_hint": RAW_HELP.get(name),
+                        "command": (settings.raw_decoders or {}).get(ext[1:]), "files": len(rows),
+                        "waiting": [{"uid": r["uid"], "filename": r["filename"], "error": r["error"]} for r in rows if r["status"] == "error"][:50]})
+        undecodable = [dict(r) for r in db.q(
+            "SELECT a.uid, a.filename, r.error FROM analysis_runs r JOIN assets a ON a.id=r.asset_id WHERE r.analyser='technical'"
+            " AND r.status='failed' AND a.deleted_at IS NULL ORDER BY a.filename LIMIT 200")]
+        return {"raw": raw, "extensions": sorted(e[1:] for e in VIDEO_EXTS), "undecodable": undecodable,
+                "placeholders": ["{input}", "{output}", "{output_stem}", "{output_dir}"]}
+
     @app.get("/api/admin/endpoint-locality")
     def endpoint_locality(url: str, p: Principal = Depends(principal)):
         A.require(p, "admin")
