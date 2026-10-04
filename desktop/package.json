@@ -1,0 +1,31 @@
+{
+  "name": "metachlorian-desktop",
+  "version": "0.1.0",
+  "description": "Metachlorian desktop app: the web UI in a native shell that runs or connects to a Metachlorian core.",
+  "main": "src/main.js",
+  "license": "Apache-2.0",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test src/*.test.js",
+    "package": "electron-builder",
+    "package:dir": "electron-builder --dir"
+  },
+  "devDependencies": {
+    "electron": "^39.0.0",
+    "electron-builder": "^26.0.0"
+  },
+  "build": {
+    "appId": "org.metachlorian.app",
+    "productName": "Metachlorian",
+    "directories": { "output": "release" },
+    "files": ["src/**", "assets/**"],
+    "extraResources": [
+      { "from": "../core", "to": "core", "filter": ["metachlorian/**", "pyproject.toml", "README.md"] }
+    ],
+    "mac": { "target": ["dmg", "zip"], "category": "public.app-category.video", "identity": null },
+    "win": { "target": "nsis" },
+    "linux": { "target": "AppImage", "category": "AudioVideo" },
+    "publish": { "provider": "github", "owner": "JeremySNR", "repo": "Metachlorian", "releaseType": "draft" }
+  }
+}

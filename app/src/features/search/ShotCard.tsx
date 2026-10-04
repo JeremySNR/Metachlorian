@@ -12,6 +12,7 @@ import { SCRUB_STEPS, scrubStep, scrubTime, spriteIndexAt, tileAspect, tileBackg
 import { prefersReducedMotion, usePrefs } from '../../lib/store'
 import { durationAriaLabel, formatDuration, formatTimecode, fpsLabel, splitLeadingZeros, timecodeAriaLabel } from '../../lib/timecode'
 import { can, bridge } from '../../lib/bridge'
+import { dragFiles, prepareDrag } from '../../lib/dragOut'
 import s from './ResultsGrid.module.css'
 
 export interface CardController {
@@ -214,6 +215,7 @@ export function ShotCard({ r, index, colIndex, focused, selected, rights, onFocu
       previewPool.warm(proxy, inS, outS)
       queryClient.prefetchQuery(shotQuery(r.uid))
       loadSprites()
+      prepareDrag(r.uid)
     }, HOVER_INTENT)
   }
 
@@ -276,7 +278,13 @@ export function ShotCard({ r, index, colIndex, focused, selected, rights, onFocu
         e.dataTransfer.setData(SHOT_MIME, JSON.stringify(uids))
         e.dataTransfer.setData('text/plain', `${r.filename} · ${formatTimecode(inS, r.fps)} → ${formatTimecode(outS, r.fps)}`)
         e.dataTransfer.effectAllowed = 'copy'
-        if (can('canDragOut')) bridge()?.startDrag?.([r.proxy])
+        if (can('canDragOut')) {
+          const files = dragFiles(uids)
+          if (files.length) {
+            e.preventDefault()
+            bridge()?.startDrag(files)
+          }
+        }
       }}
       onFocus={(e) => {
         if (e.target === e.currentTarget) onFocusIndex(index)

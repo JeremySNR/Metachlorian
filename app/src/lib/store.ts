@@ -7,7 +7,6 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { SearchResponse, SearchResult } from '../api/types'
 import type { TimecodeFormat } from './timecode'
-import { bridge } from './bridge'
 
 export type Theme = 'system' | 'light' | 'dark'
 export type Density = 'compact' | 'default' | 'comfortable'
@@ -69,7 +68,7 @@ export const usePrefs = create<Prefs>()(
   ),
 )
 
-/** Reflect display prefs on <html> (system.md §1.11) and keep Electron's nativeTheme in sync. */
+/** Reflect display prefs on <html> (system.md §1.11). */
 export function applyPrefsToDocument(p: Pick<Prefs, 'theme' | 'density' | 'motion' | 'contrast' | 'textSize' | 'scrub'>) {
   const h = document.documentElement
   const setAttr = (k: string, v: string | null) => (v ? h.setAttribute(k, v) : h.removeAttribute(k))
@@ -79,7 +78,6 @@ export function applyPrefsToDocument(p: Pick<Prefs, 'theme' | 'density' | 'motio
   setAttr('data-contrast', p.contrast === 'more' ? 'more' : null)
   setAttr('data-scrub', p.scrub ? 'on' : 'off')
   h.style.fontSize = p.textSize === 100 ? '' : `${p.textSize}%`
-  bridge()?.setNativeTheme?.(p.theme)
 }
 
 export function prefersReducedMotion(): boolean {

@@ -5,8 +5,6 @@
  * cookie and solo-mode sessions). Errors surface as ApiError with the core's
  * `detail` message, which is already written for people.
  */
-import { bridge } from '../lib/bridge'
-
 export class ApiError extends Error {
   status: number
   detail: string
@@ -19,9 +17,9 @@ export class ApiError extends Error {
   }
 }
 
-/** Base URL of the core: same origin in the browser; the shell may supply one. */
+/** Base URL of the core. The web app and the desktop shell both load the UI from the core, so it is same-origin. */
 export function coreBase(): string {
-  return bridge()?.coreUrl ?? ''
+  return ''
 }
 
 export function mediaUrl(path: string | null | undefined): string | undefined {

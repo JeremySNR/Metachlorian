@@ -22,11 +22,12 @@ def all_analysers() -> dict[str, Analyser]:
     from .segment import ShotAnalyser
     from .speech import SpeechAnalyser
     from .technical import TechnicalAnalyser
+    from .text_embed import TextEmbedAnalyser
     from .visual_tags import VisualTagAnalyser
 
     items = [TechnicalAnalyser(), ProxyAnalyser(), ShotAnalyser(), KeyframeAnalyser(), EmbedAnalyser(), VisualTagAnalyser(),
              MotionAnalyser(), QualityAnalyser(), AudioAnalyser(), SpeechAnalyser(), OcrAnalyser(), PeopleAnalyser(),
-             CaptionAnalyser(), FusionAnalyser(), RollupAnalyser()]
+             CaptionAnalyser(), FusionAnalyser(), RollupAnalyser(), TextEmbedAnalyser()]
     return {a.name: a for a in items}
 
 

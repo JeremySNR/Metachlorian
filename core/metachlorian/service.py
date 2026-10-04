@@ -155,9 +155,10 @@ class Library:
         return {"total": total, "assets": out}
 
     def find_similar(self, p: Principal, shot_uid: str | None = None, image: bytes | None = None, clip: Path | None = None,
-                     limit: int = 24, intended: dict[str, Any] | None = None, filters: dict[str, Any] | None = None) -> dict[str, Any]:
+                     limit: int = 24, intended: dict[str, Any] | None = None, filters: dict[str, Any] | None = None,
+                     modality: str = "visual") -> dict[str, Any]:
         require(p, "library:read")
-        req = SearchRequest(limit=limit, intended_use=intended, filters=filters or {})
+        req = SearchRequest(limit=limit, intended_use=intended, filters=filters or {}, similar_space=modality)
         if shot_uid:
             self._shot_id(shot_uid)
             req.similar_to = shot_uid

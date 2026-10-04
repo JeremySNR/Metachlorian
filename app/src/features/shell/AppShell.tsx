@@ -7,7 +7,7 @@ import { Ic } from '../../components/Icon'
 import { Toaster, toast } from '../../components/Toast'
 import { Tooltip } from '../../components/Tooltip'
 import { isTyping, isMod, useDocumentKeys } from '../../hooks/useHotkeys'
-import { MOD, bridge } from '../../lib/bridge'
+import { MOD, desktopInfo } from '../../lib/bridge'
 import { usePrefs, useUi } from '../../lib/store'
 import { useAddToCollection, useCollections, useCreateCollection } from '../../api/queries'
 import { SearchBar } from '../search/SearchBar'
@@ -48,11 +48,11 @@ export function AppShell() {
   const create = useCreateCollection()
 
   useEffect(() => {
-    const b = bridge()
-    if (b) {
+    desktopInfo().then((info) => {
+      if (!info) return
       document.documentElement.dataset.shell = ''
-      if (b.platform) document.documentElement.dataset.platform = b.platform
-    }
+      document.documentElement.dataset.platform = info.platform
+    })
   }, [])
 
   useDocumentKeys((e) => {

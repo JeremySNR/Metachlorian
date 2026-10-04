@@ -121,13 +121,15 @@ def build_server(lib: Library) -> MCPServer:
 
     @server.tool(annotations=RO)
     def find_similar(shot_id: str | None = None, image_base64: str | None = None, limit: int = 12,
+                     modality: Literal["visual", "audio", "text"] = "visual",
                      intended_use: dict[str, Any] | None = None, filters: dict[str, Any] | None = None,
                      ctx: Context | None = None) -> dict[str, Any]:
-        """Shots that look like a given shot (shot_id) or a still image (image_base64, JPEG or PNG).
+        """Shots similar to a given shot (shot_id) or a still image (image_base64, JPEG or PNG).
+        modality: visual (looks like), audio (sounds like) or text (what is said/described means the same).
         Same result shape as search_shots. Optional intended_use and filters as in search_shots."""
         try:
             img = base64.b64decode(image_base64) if image_base64 else None
-            return call(ctx, lib.find_similar, shot_id, img, None, max(1, min(100, limit)), intended_use, filters)
+            return call(ctx, lib.find_similar, shot_id, img, None, max(1, min(100, limit)), intended_use, filters, modality)
         except (Forbidden, NotFound, ValueError, KeyError) as e:
             return _err(e)
 

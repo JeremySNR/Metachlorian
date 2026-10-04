@@ -187,8 +187,8 @@ def create_app(settings: Settings, db: Database | None = None, start_workers: bo
         return lib.get_shot(p, uid, intended)
 
     @app.get("/api/shots/{uid}/similar")
-    def similar(uid: str, limit: int = 24, p: Principal = Depends(principal)):
-        return lib.find_similar(p, shot_uid=uid, limit=limit)
+    def similar(uid: str, limit: int = 24, modality: str = "visual", p: Principal = Depends(principal)):
+        return lib.find_similar(p, shot_uid=uid, limit=limit, modality=modality)
 
     @app.post("/api/similar")
     async def similar_upload(file: UploadFile = File(...), limit: int = 24, p: Principal = Depends(principal)):
@@ -468,20 +468,22 @@ def create_app(settings: Settings, db: Database | None = None, start_workers: bo
     app.mount("/mcp", mcp_app)
 
     # ------------------------------------------------------------------ web app
-    dist = next((d for d in APP_DIST_CANDIDATES if (d / "index.html").exists()), None)
-    if dist:
-        @app.get("/{full_path:path}")
-        def spa(full_path: str):
-            f = (dist / full_path).resolve()
-            if full_path and dist.resolve() in f.parents and f.is_file():
-                cache = "public, max-age=31536000, immutable" if "/assets/" in f.as_posix() else "no-cache"
-                return FileResponse(f, headers={"Cache-Control": cache})
-            return FileResponse(dist / "index.html", headers={"Cache-Control": "no-cache"})
-    else:
-        @app.get("/")
-        def root():
+    # Looked up per request, so a freshly built app/dist is served without a restart.
+    def _dist() -> Path | None:
+        return next((d for d in APP_DIST_CANDIDATES if (d / "index.html").exists()), None)
+
+    @app.get("/{full_path:path}")
+    def spa(full_path: str):
+        dist = _dist()
+        if dist is None:
             return Response("Metachlorian core is running. The web app is not built (run `npm run build` in app/). API docs: /api/docs",
                             media_type="text/plain")
+        f = (dist / full_path).resolve()
+        if full_path and dist.resolve() in f.parents and f.is_file():
+            cache = "public, max-age=31536000, immutable" if "/assets/" in f.as_posix() else "no-cache"
+            return FileResponse(f, headers={"Cache-Control": cache})
+        return FileResponse(dist / "index.html", headers={"Cache-Control": "no-cache"})
+
     _ = (Query, shutil)
     return app
 

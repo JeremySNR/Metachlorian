@@ -1,5 +1,98 @@
 # Metachlorian
 
-A self-hostable video library that understands every shot, so people and AI agents can find exactly the footage they need.
+**A self-hostable video library that understands every shot.** Point it at a folder or bucket of footage and it works out
+what every shot shows, how it was filmed, how it is paced, what role it plays, how usable it is and whether you can legally use
+it. Then people and AI agents can find exactly the footage they need in seconds.
 
-> Work in progress. See [PLAN.md](PLAN.md) for status and [docs/decisions](docs/decisions) for the decision records.
+> "Slow, wide drone shots of a coastline at golden hour, no people, at least 8 seconds, 4K."
+> "Which of these files are raw single takes and which are finished edits?"
+> "Three B-roll cutaways that would work under this interview line about family holidays."
+> "What do we have from Lisbon that we're actually cleared to use on paid social?"
+
+Metachlorian is the *knowing* half of a pair: [Cutawan](https://github.com/JeremySNR/cutawan) edits video. Metachlorian
+indexes, describes and retrieves it, then hands selected shots to Cutawan or any editing software (OpenTimelineIO, FCPXML,
+CMX 3600 EDL).
+
+## What it does
+
+- **Shot-level index.** Every file is split into shots (hard cuts, dissolves, fades) and long takes into segments.
+  Each shot gets a structured record, and every signal has a value, a source, a confidence and a model version.
+- **Measured, not guessed.** Shot boundaries, durations, cuts per minute, technical metadata, camera motion (optical flow),
+  loudness (EBU R128) and image quality are computed deterministically. Models are used for meaning: SigLIP embeddings and
+  zero-shot labels, speech with word timings (Parakeet), speaker turns, audio events, OCR, people and faces (counts only),
+  and optional captions from a local vision-language model.
+- **Hybrid search.** Natural language is parsed into filters and vocabulary preferences; results blend semantic similarity,
+  keywords in transcripts and on-screen text, and label matches, and every result says *why* it matched. Query by example
+  with a shot, a still or a clip.
+- **Rights-aware.** Record source, licence, permitted uses, channels, territories, expiry and releases per file (overridable per
+  shot). State an intended use and you only get shots cleared for it.
+- **Corrections stick.** Fix a tag and it is stored separately from machine output and wins over it, even after re-processing.
+- **Agents are first-class.** An MCP server and a REST API expose everything the app can do. Agents are read-only by default,
+  need explicit scopes to write or export, and every agent action is audited.
+- **Runs on your hardware.** Default models run locally on CPU; a consumer GPU makes it faster. Nothing leaves the machine
+  unless you enable a hosted model adapter, and the app shows it when you do.
+
+## Quick start
+
+**Server or NAS (Docker):**
+
+```bash
+git clone https://github.com/JeremySNR/Metachlorian && cd Metachlorian
+METACHLORIAN_ADMIN_PASSWORD='choose-a-long-password' FOOTAGE_DIR=/path/to/footage \
+  docker compose -f deploy/docker-compose.yml up -d
+# open http://<host>:8765 and sign in as admin
+```
+
+**One command (Linux/macOS, Docker or native):**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/JeremySNR/Metachlorian/main/scripts/install.sh | bash
+```
+
+**From source (solo mode on your machine):**
+
+```bash
+cd core && uv venv -p 3.11 && uv pip install -e ".[analysis]"
+.venv/bin/metachlorian models fetch            # local models, ~1.9 GB
+.venv/bin/metachlorian serve --add ~/Footage   # http://127.0.0.1:8765
+cd ../app && npm ci && npm run build           # the web app the core serves
+```
+
+**Desktop app:** `cd desktop && npm ci && npm start` runs the web app in Electron. In solo mode it starts a local core; in team
+mode it connects to a shared one. It adds native drag-out of real clip files and one-click hand-off to Cutawan. Installers are
+built with `npm run package` (unsigned until signing certificates are provided, see [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md)).
+
+**Agents (MCP):** create a token in Settings → Agents (or `metachlorian token my-agent`), then point your MCP client at
+`http://<host>:8765/mcp/` with `Authorization: Bearer <token>`, or run `metachlorian mcp` over stdio (read-only by default).
+See [docs/agents.md](docs/agents.md).
+
+## Hardware tiers
+
+| Tier | What runs | Speed (this build's reference box: 4 vCPU, no GPU) |
+|---|---|---|
+| CPU only | Everything except VLM captions: shots, motion, quality, audio, speech, OCR, people, embeddings, zero-shot labels, rules-based fusion | see [eval/README.md](eval/README.md) for measured hours of footage per hour |
+| Single consumer GPU (8–12 GB) | Adds a local VLM (Qwen3.5 4B/9B via llama.cpp or Ollama) for dense captions and LLM fusion; ONNX models use CUDA | GPU numbers to be measured by maintainers (no GPU in the build environment) |
+| Multi-GPU / server | Several workers (`workers = N`), a larger VLM, team mode with many users | scales with workers |
+
+## How it fits together
+
+```
+ folders / S3 ──▶ ingest (hash, dedupe, ffprobe) ──▶ job queue (SQLite, resumable, versioned analysers)
+                                                         │
+     technical → proxy → shots → keyframes → embed → zero-shot tags
+                                     ├─▶ motion, quality, people, OCR
+                                     └─▶ audio → speech ──▶ caption (VLM, optional) ──▶ fusion ──▶ rollup
+                                                         │
+                         SQLite (records, FTS5) + usearch HNSW (vectors) ──▶ hybrid search
+                                                         │
+                       REST API · MCP server · web app · Electron shell · Cutawan / OTIO / FCPXML / EDL
+```
+
+Read more: [architecture](docs/architecture.md) · [decision records](docs/decisions) · [design system](docs/design/system.md) ·
+[evaluation](eval/README.md) · [licences](docs/licences.md) · [Cutawan hand-off](docs/integration/cutawan-contract.md) ·
+[plan](PLAN.md) · [open questions](OPEN_QUESTIONS.md).
+
+## Licence
+
+Apache-2.0. Model weights have their own licences (all permit commercial use); see [docs/licences.md](docs/licences.md) and
+[NOTICE](NOTICE).

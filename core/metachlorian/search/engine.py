@@ -32,7 +32,7 @@ POOL_CAP = 4000
 COMMON_DF = 0.08  # keyword tokens in more than 8% of shots carry little signal and cost the most
 POOL = 600
 RRF_K = 60
-WEIGHTS = {"vector": 1.0, "keyword": 0.9, "terms": 1.1, "people": 0.5, "quality": 0.15, "example": 1.4}
+WEIGHTS = {"vector": 1.0, "text": 0.8, "keyword": 0.9, "terms": 1.1, "people": 0.5, "quality": 0.15, "example": 1.4}
 TERM_MIN_CONF = 0.3
 FACET_VOCABS = ("shot_size", "camera_movement", "shot_role", "setting", "time_of_day", "weather", "pace", "mood", "audio_class",
                 "edit_type", "resolution", "orientation", "look", "object", "concept", "quality_flag")
@@ -49,6 +49,7 @@ class SearchRequest:
     intended_use: dict[str, Any] | None = None   # {use, channel, territory, date, include: [...]}
     asset_uids: list[str] | None = None
     similar_to: str | None = None               # shot uid
+    similar_space: str = "visual"               # visual | audio | text
     vector: list[float] | None = None           # query-by-example embedding (image/clip)
     limit: int = 40
     cursor: str | None = None
@@ -213,15 +214,20 @@ class SearchEngine:
             lists["example"] = self.vectors.get("visual").search(qvec, POOL, candidates)
         elif req.similar_to:
             sid = self.db.q1("SELECT id FROM shots WHERE uid=?", (req.similar_to,))
+            space = req.similar_space if req.similar_space in ("visual", "audio", "text") else "visual"
             if sid:
-                v = self.vectors.get("visual").shot_vector(sid["id"])
+                v = self.vectors.get(space).shot_vector(sid["id"])
                 if v is not None:
-                    res = self.vectors.get("visual").search(v, POOL + 1, candidates)
+                    res = self.vectors.get(space).search(v, POOL + 1, candidates)
                     lists["example"] = [(s, sc) for s, sc in res if s != sid["id"]]
         if sem_text:
             qvec = self._text_vector(sem_text)
             if qvec is not None:
                 lists["vector"] = self.vectors.get("visual").search(qvec, POOL, candidates)
+                # The same multilingual text space also matches transcripts and captions semantically.
+                tl = self.vectors.get("text").search(qvec, POOL, candidates)
+                if tl:
+                    lists["text"] = [(s, sc) for s, sc in tl if sc >= 0.35]
         timings["vector"] = time.perf_counter() - t1
         t1 = time.perf_counter()
         kw = list(parsed.keywords) + [w for p in parsed.place for w in p.split()]
@@ -412,6 +418,9 @@ class SearchEngine:
         if "example" in contrib:
             why.append({"signal": "similar shot", "detail": f"visually similar to the example (similarity {contrib['example']['score']:.2f})",
                         "score": contrib["example"]["score"]})
+        if "text" in contrib:
+            why.append({"signal": "meaning of speech or description", "detail": f"what is said or described is close in meaning (similarity {contrib['text']['score']:.2f})",
+                        "score": contrib["text"]["score"]})
         if "keyword" in contrib:
             sn = snip or {}
             where_found = "transcript" if "tr" in sn else "caption" if "cap" in sn else "on-screen text" if "ocr" in sn else "tags or file name"
