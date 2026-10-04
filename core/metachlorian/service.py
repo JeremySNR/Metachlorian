@@ -86,7 +86,8 @@ class Library:
             raise NotFound(f"no asset {asset_uid}")  # never fall through to the file system (case-insensitive disks)
         still = Path(path).suffix.lower() in STILL_SUFFIXES
         # A page of thumbnails is many requests for one file: cache the decision until rights, shots or the day change.
-        fp = (tuple(self.db.q1("SELECT COUNT(*), MAX(updated_at) FROM rights WHERE asset_id=?", (a["id"],))),
+        # Every rights row in full, not a timestamp: a clock stepping back must not leave a stale "allow".
+        fp = (hash(tuple(tuple(r) for r in self.db.q("SELECT * FROM rights WHERE asset_id=? ORDER BY id", (a["id"],)))),
               tuple(self.db.q1("SELECT COUNT(*), MAX(id), SUM(start_s) FROM shots WHERE asset_id=? AND active=1", (a["id"],))),
               str(date.today()))
         key = (a["id"], still)

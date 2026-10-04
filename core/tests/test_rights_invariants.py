@@ -240,6 +240,11 @@ def test_package_handles_stop_at_a_blocked_neighbour(m, principals):
                                      target={"usage": ["marketing"], "channels": ["paid_social"], "territories": ["GB"]})
         dur = float(ffmpeg.technical_metadata(Path(res["path"], "media", "it_01.mp4"))["duration"])
         assert dur <= shot0["end_s"] - shot0["start_s"] + 0.1, (who, dur)  # no handle into the not-cleared shot
+    # An out point within the in/out tolerance is clamped to the shot, not one frame into the next.
+    res = m["lib"].build_package(principals["editor"], [{"shot_uid": m["by_state"]["cleared"][0], "out": shot0["end_s"] + 0.0009}],
+                                 name="tolerance")
+    dur = float(ffmpeg.technical_metadata(Path(res["path"], "media", "it_01.mp4"))["duration"])
+    assert dur <= shot0["end_s"] - shot0["start_s"] + 0.01, dur
     # A permitted neighbour still gives handles: the unknown file's first shot, for a person.
     u = db.q1("SELECT start_s, end_s FROM shots WHERE uid=?", (m["by_state"]["unknown"][0],))
     res = m["lib"].build_package(principals["editor"], [{"shot_uid": m["by_state"]["unknown"][0]}], name="handles ok")
@@ -458,5 +463,12 @@ def test_media_route_applies_file_rights_before_shots_exist(processed):
         R.set_rights(db, a["id"], {"status": "cleared", "model_release": "not_applicable"}, "x")
         assert c.get(f"/media/{a['uid']}/proxy.mp4", headers=H).status_code == 200
         R.set_rights(db, a["id"], {"status": "not_cleared"}, "x")
+        assert c.get(f"/media/{a['uid']}/poster.jpg", headers=H).status_code == 403
+        # A wall clock stepping back must not leave a stale "allow" cached.
+        R.set_rights(db, a["id"], {"status": "cleared"}, "x")
+        shot_id = db.q1("SELECT id FROM shots WHERE asset_id=? ORDER BY idx", (a["id"],))["id"]
+        R.set_rights(db, a["id"], {"status": "cleared"}, "x", shot_id)  # the newest row holds MAX(updated_at)
+        assert c.get(f"/media/{a['uid']}/poster.jpg", headers=H).status_code == 200
+        db.x("UPDATE rights SET status='not_cleared', updated_at=updated_at-5 WHERE asset_id=? AND shot_id IS NULL", (a["id"],))
         assert c.get(f"/media/{a['uid']}/poster.jpg", headers=H).status_code == 403
     s.require_auth = False

@@ -161,6 +161,7 @@ def _build_package(db, settings, items, name, brief, target, media_policy, mode,
         a_out = float(it.get("out") if it.get("out") is not None else doc["end"])
         if not (doc["start"] - 1e-3 <= a_in < a_out <= doc["end"] + 1e-3):
             raise ValueError(f"in/out for {it['shot_uid']} must lie inside the shot ({doc['start']}–{doc['end']} s)")
+        a_in, a_out = max(a_in, doc["start"]), min(a_out, doc["end"])  # the tolerance must not reach the next shot's first frame
         roles = [r["term"] for r in (doc["fields"].get("shot.role", {}).get("value") or []) if isinstance(r, dict)]
         role = it.get("role") or (roles[0] if roles else "b_roll")
         resolved.append({"item_id": f"it_{n:02d}", "doc": doc, "in": a_in, "out": a_out, "role": role, "note": it.get("note", "")})
