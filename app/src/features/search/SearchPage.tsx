@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearch as useRouteSearch } from '@tanstack/react-router'
 import { useQueries, useQuery } from '@tanstack/react-query'
-import { CircleAlert, FolderPlus, Info, LayoutGrid, ListVideo, PanelLeftOpen, PanelRightOpen, Rows3, SearchX, SlidersHorizontal, TriangleAlert } from 'lucide-react'
+import { CircleAlert, FolderPlus, FolderSearch, Info, LayoutGrid, ListVideo, PanelLeftOpen, PanelRightOpen, Rows3, SearchX, SlidersHorizontal, TriangleAlert } from 'lucide-react'
 import type { PersonRef, SearchRequest, SearchResponse, SearchResult, Strictness } from '../../api/types'
 import { api, ApiError } from '../../api/client'
 import {
@@ -24,12 +24,14 @@ import { isPersonNote, onlyNames, personLabel, personPhrases, PERSON_VOCAB } fro
 import { stateFromBadge, stateFromVerdict } from '../../lib/rights'
 import { usePrefs, useUi, type ResultsView, type ThumbSize } from '../../lib/store'
 import { Inspector } from '../shot/Inspector'
-import { ChipRow, type ExtraChip } from './ChipRow'
+import { ChipRow, type ExtraChip, type ScopeChipView } from './ChipRow'
 import { FilterRail } from './FilterRail'
 import { FilesView } from './FilesView'
 import { ResultsGrid } from './ResultsGrid'
 import { SelectionBar } from './SelectionBar'
-import { fromState, showsBlocked, similarRightsOf, strictnessOf, toRequest, toState, withBlocked, type SearchParams } from './searchParams'
+import { fromState, keepScope, showsBlocked, similarRightsOf, strictnessOf, toRequest, toState, withBlocked, withoutScope, withScopeFix, type SearchParams } from './searchParams'
+import { useScopeLabels } from './ScopePicker'
+import { chipsToScope, mergeScopes, parseScopeNote, scopeChips, scopeChipText, scopePhrase, scopeTokens, type ScopeNote } from '../../lib/scope'
 import s from './SearchPage.module.css'
 
 const STRICT_LABEL: Record<Strictness, string> = { loose: 'loose', balanced: 'balanced', strict: 'strict' }
@@ -178,7 +180,7 @@ export function SearchPage() {
   const similar = (uids: string[]) => {
     if (!uids.length) return
     useUi.getState().set({ example: null, selection: new Set() })
-    navigate({ search: { similar: uids[0] } })
+    navigate({ search: { similar: uids[0], ...keepScope(params) } })
   }
 
   const rights = (uids: string[]) => {
@@ -258,6 +260,48 @@ export function SearchPage() {
       onRemove: () => setParams({ ...params, similar: undefined }, false),
     })
 
+  // Scope chips: chosen in the scope control (URL) or written as folder:"…" (the core echoes them in query.filters).
+  const { folderName, collectionName } = useScopeLabels()
+  const scopeChipList = scopeChips({ folder: params.folder, collection: params.collection }, mergeScopes(scopeTokens(params.q), {
+    folder: first?.query?.filters?.folder ? ([] as string[]).concat(first.query.filters.folder) : [],
+    collection: first?.query?.filters?.collection ? ([] as string[]).concat(first.query.filters.collection) : [],
+  }))
+  const scope = chipsToScope(scopeChipList)
+  const inScope = scopePhrase(scope, folderName, collectionName)
+  const scopeViews: ScopeChipView[] = scopeChipList.map((c) => {
+    const name = c.kind === 'folder' ? folderName(c.value) : collectionName(c.value)
+    return {
+      key: c.key,
+      kind: c.kind,
+      lead: scopeChipText(c.kind, name).lead,
+      name,
+      value: c.value,
+      typed: c.typed,
+      onRemove: () => {
+        const next = withoutScope(params, c.kind, c.value)
+        if (next) setParams(next, false)
+        else toast({ title: `Couldn't find the words behind “${name}”.`, description: 'Edit the search text to change it.', tone: 'caution' })
+      },
+    }
+  })
+  const scopeNotes = (first?.notes ?? []).map(parseScopeNote).filter((n): n is ScopeNote => n !== null)
+  const fixScope = (n: ScopeNote, to: string | null) => {
+    useUi.getState().set({ example: null })
+    setParams(to ? withScopeFix(params, n.kind, n.missing, to) : (withoutScope(params, n.kind, n.missing) ?? params), false)
+  }
+  const scopeFixButtons = (n: ScopeNote, size: 'sm' | 'md' = 'md') => (
+    <>
+      {n.closest.map((c, i) => (
+        <Button key={c} variant={i === 0 ? 'secondary' : 'quiet'} size={size} icon={FolderSearch} onPress={() => fixScope(n, c)} data-testid="scope-fix">
+          {`Search in ${c}`}
+        </Button>
+      ))}
+      <Button variant="quiet" size={size} onPress={() => fixScope(n, null)}>
+        {n.kind === 'folder' ? 'Search every folder' : 'Search everything'}
+      </Button>
+    </>
+  )
+
   // No results: what removing each chip would show (§3.16).
   const index = useMemo(() => [...buildPhraseIndex(vocabs), ...personPhraseList].sort((a, b) => b.phrase.length - a.phrase.length), [vocabs, personPhraseList])
   const noResults = search.isSuccess && !example && total === 0
@@ -288,11 +332,14 @@ export function SearchPage() {
     search.isError && !first
       ? ''
       : example
-        ? [`${plural(total, 'similar shot')} to ${example.name}`, strongText, rightsText].filter(Boolean).join(' · ')
+        ? [`${plural(total, 'similar shot')} to ${example.name}${inScope ? ` ${inScope}` : ''}`, strongText, rightsText].filter(Boolean).join(' · ')
         : search.isLoading && !first
           ? 'Searching…'
-          : [`${plural(total, 'shot')}${total && results.length >= total ? ` in ${plural(files, 'file')}` : ''}`, strongText, rightsText, secs ? `${secs} s` : null].filter(Boolean).join(' · ')
-  useDocumentTitle(params.q ? `“${params.q}”` : example ? `Similar to ${example.name}` : params.similar ? 'Similar shots' : null, 'Search')
+          : inScope
+            ? [`${plural(total, 'shot')} ${inScope}`, total && results.length >= total ? plural(files, 'file') : null, strongText, rightsText, secs ? `${secs} s` : null].filter(Boolean).join(' · ')
+            : [`${plural(total, 'shot')}${total && results.length >= total ? ` in ${plural(files, 'file')}` : ''}`, strongText, rightsText, secs ? `${secs} s` : null].filter(Boolean).join(' · ')
+  const scopeTitle = inScope ? inScope.replace(/^in /, 'In ') : null
+  useDocumentTitle(params.q ? `“${params.q}”` : example ? `Similar to ${example.name}` : params.similar ? 'Similar shots' : scopeTitle, 'Search')
 
   const rail = (
     <FilterRail
@@ -305,6 +352,7 @@ export function SearchPage() {
       onCollapse={drawer ? undefined : () => prefs.set({ railOpen: false })}
       onClose={drawer ? () => { setUi({ railDrawer: false }); setStaged(null) } : undefined}
       drawer={drawer}
+      scopeFromWords={scopeViews.filter((c) => c.typed).map((c) => `${c.lead} ${c.name}`)}
     />
   )
 
@@ -316,6 +364,7 @@ export function SearchPage() {
       intended={req.intended_use}
       query={params.q}
       editField={editField}
+      keep={keepScope(params)}
       onClose={overlay ? () => setSheetUid(null) : undefined}
       onCollapse={overlay ? undefined : () => prefs.set({ inspectorOpen: false })}
     />
@@ -344,6 +393,19 @@ export function SearchPage() {
         </details>
       </EmptyState>
     )
+  } else if (noResults && scopeNotes.length) {
+    const n = scopeNotes[0]
+    body = (
+      <EmptyState icon={FolderSearch} title={n.kind === 'folder' ? `No folder called “${n.missing}”` : `No collection called “${n.missing}”`} role="status" actions={scopeFixButtons(n)}>
+        <p data-testid="scope-note">
+          {n.closest.length
+            ? <>The closest {n.closest.length === 1 ? 'folder is' : 'folders are'} <strong>{n.closest.join(', ')}</strong>.</>
+            : n.kind === 'folder'
+              ? 'Folder names come from where footage was added. Library → Folders lists them all.'
+              : 'Collections are matched by their exact name.'}
+        </p>
+      </EmptyState>
+    )
   } else if (noResults) {
     const sugg = chips
       .map((c, i) => ({ c, n: suggestions[i]?.data?.total }))
@@ -351,7 +413,7 @@ export function SearchPage() {
       .sort((a, b) => (b.n ?? 0) - (a.n ?? 0))
     body = (
       <EmptyState
-        title={params.q ? `No shots match “${params.q}”` : active ? `Your filters hide all the shots` : 'No shots yet'}
+        title={params.q ? `No shots match “${params.q}”${inScope ? ` ${inScope}` : ''}` : active ? `Your filters hide all the shots${inScope ? ` ${inScope}` : ''}` : inScope ? `No shots ${inScope}` : 'No shots yet'}
         actions={
           <>
             {sugg.map(({ c, n }) => (
@@ -445,8 +507,9 @@ export function SearchPage() {
         onToggleGroup={() => setParams({ ...params, group: params.group === 'files' ? undefined : 'files' })}
         activeName={activeName}
         queryText={first?.query.text ?? ''}
-        label={params.q ? `Results for ${params.q}` : 'All shots'}
+        label={params.q ? `Results for ${params.q}${inScope ? ` ${inScope}` : ''}` : inScope ? `All shots ${inScope}` : 'All shots'}
         onSelectAll={selectAll}
+        onScopeFolder={(folder) => setParams({ ...params, folder: [folder], collection: undefined }, false)}
       />
       </>
     )
@@ -467,7 +530,7 @@ export function SearchPage() {
           </aside>
         ))}
       <main id="main" className={s.main} aria-busy={search.isFetching || undefined} tabIndex={-1}>
-        <h1 className="visually-hidden">{params.q ? `Search results for ${params.q}` : example ? `Shots similar to ${example.name}` : 'Search'}</h1>
+        <h1 className="visually-hidden">{params.q ? `Search results for ${params.q}${inScope ? ` ${inScope}` : ''}` : example ? `Shots similar to ${example.name}` : scopeTitle ? `Shots ${inScope}` : 'Search'}</h1>
         <ChipRow
           query={first?.query}
           state={state}
@@ -477,6 +540,11 @@ export function SearchPage() {
           extra={extra}
           phrases={personPhraseList}
           onOpenPerson={(id) => navigate({ to: '/people/$personId', params: { personId: id } })}
+          scope={scopeViews}
+          onClearAll={() => {
+            setUi({ example: null })
+            setParams({ group: params.group, strict: params.strict }, false)
+          }}
         />
         <div className={s.header}>
           {drawer && (
@@ -549,7 +617,16 @@ export function SearchPage() {
           </div>
         )}
         {/* The person filter note is the PERSON chip above; other notes are cautions. */}
-        {first?.notes?.filter((n) => !(personChips && isPersonNote(n))).map((n) => (
+        {!noResults && scopeNotes.map((n) => (
+          <div key={`${n.kind}:${n.missing}`} className={`${s.notice} ${s.noticeCaution}`} data-testid="scope-note">
+            <TriangleAlert size={16} strokeWidth={1.75} aria-hidden="true" />
+            <span className={s.noticeText}>
+              <span>{`No ${n.kind} called “${n.missing}”.${n.closest.length ? ` Closest: ${n.closest.join(', ')}.` : ''}`}</span>
+            </span>
+            {scopeFixButtons(n, 'sm')}
+          </div>
+        ))}
+        {first?.notes?.filter((n) => !(personChips && isPersonNote(n)) && !parseScopeNote(n)).map((n) => (
           <div key={n} className={`${s.notice} ${isPersonNote(n) ? '' : s.noticeCaution}`}>
             <TriangleAlert size={16} strokeWidth={1.75} aria-hidden="true" />
             <span className={s.noticeText}>
@@ -577,7 +654,7 @@ export function SearchPage() {
               <Button variant="primary" onPress={() => { if (staged) setParams(staged, false); setStaged(null); setUi({ railDrawer: false }) }}>
                 {stagedDebounced !== undefined ? `Show ${plural(stagedDebounced, 'shot')}` : 'Show results'}
               </Button>
-              <Button variant="secondary" onPress={() => setStaged({ q: params.q })}>
+              <Button variant="secondary" onPress={() => setStaged({ q: params.q, ...keepScope(params) })}>
                 Reset
               </Button>
             </div>

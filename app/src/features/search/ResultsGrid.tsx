@@ -3,7 +3,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { useIsFetching } from '@tanstack/react-query'
 import { Popover } from 'react-aria-components'
 import {
-  Copy, ExternalLink, FileVideoCamera, Film, FolderOpen, Layers, PenLine, Play, Plus, ScanSearch, ShieldCheck,
+  Copy, ExternalLink, FileVideoCamera, Film, FolderOpen, FolderSearch, Layers, PenLine, Play, Plus, ScanSearch, ShieldCheck,
 } from 'lucide-react'
 import type { SearchResult } from '../../api/types'
 import { mediaUrl } from '../../api/client'
@@ -16,6 +16,7 @@ import { isTyping } from '../../hooks/useHotkeys'
 import { bridge, can, MOD } from '../../lib/bridge'
 import { buildRows, gridGeometry, moveIndex, rowOfItem, type VRow } from '../../lib/gridLayout'
 import { humanise } from '../../lib/format'
+import { basename } from '../../lib/scope'
 import type { RightsState } from '../../lib/rights'
 import { usePrefs, useUi, type ResultsView } from '../../lib/store'
 import { formatDuration, formatTimecode, fpsLabel, fpsTitle } from '../../lib/timecode'
@@ -53,6 +54,8 @@ export interface ResultsGridProps {
   queryText: string
   /** Select every result of the query (pages through the core, not just the loaded rows). */
   onSelectAll?: () => void
+  /** Scope search to a result's folder (absolute path). */
+  onScopeFolder?: (folder: string) => void
 }
 
 /** Match-rail values 0..1: the core's absolute strength, or the score relative to the top when nothing was scored. */
@@ -450,6 +453,9 @@ export function ResultsGrid(props: ResultsGridProps) {
             <MenuItem icon={FileVideoCamera} onAction={() => window.dispatchEvent(new CustomEvent('mc:open-file', { detail: menuResult }))}>Open file</MenuItem>
             <MenuItem icon={Play} shortcut="Space" onAction={() => controllers.current.get(menu?.index ?? -1)?.togglePreview(performance.now())}>Preview</MenuItem>
             <MenuItem icon={ScanSearch} shortcut="S" onAction={() => props.onSimilar(targetUids(menuResult))}>Find similar</MenuItem>
+            {menuResult.folder && props.onScopeFolder && (
+              <MenuItem icon={FolderSearch} onAction={() => props.onScopeFolder?.(menuResult.folder as string)}>{`Search in folder ${basename(menuResult.folder)}`}</MenuItem>
+            )}
             <MenuSeparator />
             <MenuItem icon={Plus} shortcut="B" onAction={() => props.onAddToActive(targetUids(menuResult))}>{`Add to ${props.activeName}`}</MenuItem>
             <MenuItem icon={Layers} shortcut="A" onAction={() => props.onAddTo(targetUids(menuResult))}>Add to…</MenuItem>
@@ -520,14 +526,16 @@ function ListItem({ r, index, focused, selected, rights, view, onFocusIndex, onA
   }
   if (view === 'list') {
     return (
-      <div {...handlers} aria-label={`${desc}. ${r.filename}`} className={`${s.item} ${s.listItem}`}>
+      <div {...handlers} aria-label={`${desc}. ${r.filename}${r.folder ? `, in ${basename(r.folder)}` : ''}`} className={`${s.item} ${s.listItem}`}>
         {r.thumb ? <img className={s.thumbSm} src={mediaUrl(r.thumb)} alt="" loading="lazy" decoding="async" /> : <span className={s.thumbSm} />}
         <span className={s.cellMono}>
           <Timecode seconds={inS} fps={r.fps} size="xs" /> → <Timecode seconds={outS} fps={r.fps} size="xs" />
         </span>
         <span className={s.cellMono}>{formatDuration(outS - inS)}</span>
         <span className={s.cellText}>{desc}</span>
-        <span className={`${s.cellText} ${s.wideOnly}`} style={{ color: 'var(--fg-2)' }}>{r.filename}</span>
+        <span className={`${s.cellText} ${s.wideOnly}`} style={{ color: 'var(--fg-2)' }} title={r.folder ? `${r.folder}/${r.filename}` : r.filename}>
+          {r.folder ? `${basename(r.folder)} › ${r.filename}` : r.filename}
+        </span>
         <span className={`${s.cellText} ${s.wideOnly}`} style={{ color: 'var(--fg-2)' }}>{humanise(r.edit_type)}</span>
         <span className={`${s.cellMono} ${s.wideOnly}`} title={fpsTitle(r.fps)}>{fpsLabel(r.fps)}</span>
         <span className={`${s.cellMono} ${s.wideOnly}`}>{r.resolution?.replace('x', '×')}</span>
@@ -539,11 +547,11 @@ function ListItem({ r, index, focused, selected, rights, view, onFocusIndex, onA
   }
   const snippet = r.why.find((w) => w.snippet)?.snippet
   return (
-    <div {...handlers} aria-label={`${desc}. ${r.filename}`} className={`${s.item} ${s.logItem}`}>
+    <div {...handlers} aria-label={`${desc}. ${r.filename}${r.folder ? `, in ${basename(r.folder)}` : ''}`} className={`${s.item} ${s.logItem}`}>
       {r.thumb ? <img className={s.thumbLog} src={mediaUrl(r.thumb)} alt="" loading="lazy" decoding="async" /> : <span className={s.thumbLog} />}
       <div className={s.logBody}>
         <span className={s.cellMono}>
-          <Timecode seconds={inS} fps={r.fps} size="xs" /> → <Timecode seconds={outS} fps={r.fps} size="xs" /> · {formatDuration(outS - inS)} · {r.filename}
+          <Timecode seconds={inS} fps={r.fps} size="xs" /> → <Timecode seconds={outS} fps={r.fps} size="xs" /> · {formatDuration(outS - inS)} · {r.folder ? `${basename(r.folder)} › ` : ''}{r.filename}
         </span>
         <span className={s.logText}>{desc}</span>
         {snippet && <Snippet text={snippet} />}

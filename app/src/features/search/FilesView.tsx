@@ -4,6 +4,7 @@ import { mediaUrl } from '../../api/client'
 import { Timecode } from '../../components/Timecode'
 import { humanise } from '../../lib/format'
 import { useUi } from '../../lib/store'
+import { FolderCrumbs } from './FolderCrumbs'
 import t from '../../styles/type.module.css'
 import s from './ResultsGrid.module.css'
 
@@ -30,6 +31,7 @@ export function FilesView({ results, onOpen }: { results: SearchResult[]; onOpen
               <span className={t.slate}>
                 {shots.length} matching shot{shots.length === 1 ? '' : 's'}
               </span>
+              <FolderCrumbs folder={shots[0].folder} />
             </div>
             <div className={s.fileStrip}>
               {sorted.map((r) => (

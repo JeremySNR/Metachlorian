@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { fromState, includeFrom, showsBlocked, toRequest, toState, validateSearch, withBlocked } from './searchParams'
+import { defaultParseSearch } from '@tanstack/react-router'
+import {
+  effectiveScope, fromState, includeFrom, showsBlocked, similarRightsOf, stringifySearch, toRequest, toState, validateSearch, withBlocked, withoutScope, withScope, withScopeFix,
+} from './searchParams'
 
 describe('search URL params', () => {
   it('validates and drops junk', () => {
@@ -35,5 +38,47 @@ describe('search URL params', () => {
   it('puts strictness in the URL and the request', () => {
     expect(toRequest({ q: 'x', strict: 'strict' }).strictness).toBe('strict')
     expect(toRequest({ q: 'x' }).strictness).toBeUndefined()
+  })
+})
+
+describe('search scope in the URL', () => {
+  it('reads one or repeated folder= and collection= params', () => {
+    expect(validateSearch({ folder: 'Disney 2026' })).toEqual({ folder: ['Disney 2026'] })
+    expect(validateSearch({ folder: ['/a/sample', 2026, ''], collection: 'c1' })).toEqual({ folder: ['/a/sample', '2026'], collection: ['c1'] })
+    expect(validateSearch({ folder: [] })).toEqual({})
+  })
+  it('writes repeated params that the router reads back', () => {
+    const p = { q: 'night', folder: ['/home/demo/sample', 'Disney 2026'], collection: ['c1'], f: { min_fps: 25 } }
+    const str = stringifySearch(p)
+    expect(str).toContain('folder=%2Fhome%2Fdemo%2Fsample&folder=Disney+2026')
+    expect(str).toContain('collection=c1')
+    expect(validateSearch(defaultParseSearch(str))).toEqual(p)
+    // A single numeric-looking name survives the round trip as text.
+    expect(validateSearch(defaultParseSearch(stringifySearch({ folder: ['2026'] })))).toEqual({ folder: ['2026'] })
+    expect(stringifySearch({ q: 'x' })).toBe('?q=x')
+  })
+  it('sends the scope in filters, beside the other filters', () => {
+    expect(toRequest({ folder: ['sample'] }).filters).toEqual({ folder: ['sample'] })
+    expect(toRequest({ q: 'x', f: { log: true }, collection: ['c1'] }).filters).toEqual({ log: true, collection: ['c1'] })
+    expect(toRequest({ q: 'x' }).filters).toBeUndefined()
+  })
+  it('keeps the scope through chip edits and passes it to similar searches', () => {
+    const p = { q: 'night folder:"extra"', folder: ['/a/sample'] }
+    expect(fromState(toState(p), p).folder).toEqual(['/a/sample'])
+    expect(effectiveScope(p)).toEqual({ folder: ['/a/sample', 'extra'], collection: [] })
+    // Raw router search (not yet validated): a single folder= is a string.
+    expect(effectiveScope({ folder: '/a/sample' } as never)).toEqual({ folder: ['/a/sample'], collection: [] })
+    expect(similarRightsOf(p).scope).toEqual({ folder: ['/a/sample', 'extra'], collection: [] })
+    expect(similarRightsOf({ q: 'x' }).scope).toBeUndefined()
+  })
+  it('changes and removes scopes from the URL or the words', () => {
+    expect(withScope({ q: 'x', folder: ['a'] }, { collection: ['c1'] })).toEqual({ q: 'x', folder: undefined, collection: ['c1'] })
+    expect(withoutScope({ folder: ['a', 'b'] }, 'folder', 'A')).toEqual({ folder: ['b'] })
+    expect(withoutScope({ q: 'folder:"extra" night' }, 'folder', 'extra')).toEqual({ q: 'night' })
+    expect(withoutScope({ q: 'night' }, 'folder', 'extra')).toBeNull()
+  })
+  it('replaces a folder that does not exist with the closest one', () => {
+    expect(withScopeFix({ folder: ['Disney 2025'] }, 'folder', 'Disney 2025', 'Videos/Holidays/Disney 2026')).toEqual({ folder: ['Videos/Holidays/Disney 2026'] })
+    expect(withScopeFix({ q: 'folder:"samples" night' }, 'folder', 'samples', 'sample')).toEqual({ q: 'night', folder: ['sample'] })
   })
 })

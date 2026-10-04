@@ -10,7 +10,8 @@ import { activeFilterCount } from '../../lib/chips'
 import { formatNumber, humanise, shortLabel } from '../../lib/format'
 import { COMMON_TERRITORIES } from '../../lib/rights'
 import { MOD } from '../../lib/bridge'
-import { DEFAULT_INCLUDE, fromState, hasUse, includeFrom, showsBlocked, toState, withBlocked, type SearchParams } from './searchParams'
+import { DEFAULT_INCLUDE, fromState, hasUse, includeFrom, scopeOf, showsBlocked, toState, withBlocked, withScope, type SearchParams } from './searchParams'
+import { ScopeControl } from './ScopePicker'
 import t from '../../styles/type.module.css'
 import s from './FilterRail.module.css'
 
@@ -25,12 +26,14 @@ interface Props {
   /** Tablet drawer: close without applying. */
   onClose?: () => void
   drawer?: boolean
+  /** Scopes written in the words (folder:"…"), named, to show under the Scope control. */
+  scopeFromWords?: string[]
 }
 
 const VERDICT_LABEL: Record<Verdict, string> = { allowed: 'Cleared', restricted: 'Restricted', unknown: 'Rights unknown', blocked: 'Blocked' }
 
 /** Filter rail (system.md §3.4). Each facet maps 1:1 to a search filter. */
-export function FilterRail({ params, facets, excludedByRights, vocabs, label, onChange, onCollapse, onClose, drawer }: Props) {
+export function FilterRail({ params, facets, excludedByRights, vocabs, label, onChange, onCollapse, onClose, drawer, scopeFromWords }: Props) {
   const state = toState(params)
   const [showAllEdit, setShowAllEdit] = useState(false)
   const active = activeFilterCount(state)
@@ -101,13 +104,14 @@ export function FilterRail({ params, facets, excludedByRights, vocabs, label, on
         {active > 0 && <span className={s.headCount} aria-label={`${active} active`}>{drawer ? `· ${active}` : active}</span>}
         <span className={s.headSpacer} />
         {active > 0 && (
-          <Button variant="quiet" size="sm" onPress={() => onChange({ q: params.q, similar: params.similar, group: params.group, strict: params.strict })}>
+          <Button variant="quiet" size="sm" onPress={() => onChange({ q: params.q, similar: params.similar, group: params.group, strict: params.strict, folder: params.folder, collection: params.collection })}>
             Clear all
           </Button>
         )}
         {onCollapse && <IconButton icon={PanelLeftClose} label="Collapse filters" shortcut={`${MOD}\\`} size="sm" onPress={onCollapse} />}
         {onClose && <IconButton icon={X} label="Close filters" shortcut="Esc" size="sm" onPress={onClose} />}
       </div>
+      <ScopeControl value={scopeOf(params)} onChange={(scope) => onChange(withScope(params, scope))} fromWords={scopeFromWords} />
       <div className={s.scroll}>
         <Section title="Edit stage" count={editSelected.length} defaultExpanded>
           <div className={s.group}>

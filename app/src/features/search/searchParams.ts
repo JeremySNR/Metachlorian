@@ -1,9 +1,12 @@
 /**
  * URL ⇄ search state. Every search is a shareable URL (ADR 013 §5):
- * /search?q=…&req=…&exc=…&f=…&use=…&ch=…&terr=…&inc=…&blocked=show&strict=…&similar=…
+ * /search?q=…&req=…&exc=…&f=…&use=…&ch=…&terr=…&inc=…&blocked=show&strict=…&similar=…&folder=…&collection=…
+ * (folder and collection repeat: folder=a&folder=b).
  */
+import { defaultStringifySearch } from '@tanstack/react-router'
 import type { SearchFilters, SearchRequest, Strictness, TermMap, Verdict } from '../../api/types'
 import type { SearchState } from '../../lib/chips'
+import { hasScope, mergeScopes, SCOPE_KINDS, scopeList, scopeTokens, stripScopeToken, type Scope, type ScopeKind } from '../../lib/scope'
 
 export interface SearchParams {
   q?: string
@@ -22,6 +25,10 @@ export interface SearchParams {
   similar?: string
   assets?: string
   group?: 'files'
+  /** Search scope: only footage in these folders (name, relative or absolute path). */
+  folder?: string[]
+  /** Search scope: only shots in these collections (uid or name). */
+  collection?: string[]
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -69,6 +76,10 @@ export function validateSearch(raw: Record<string, unknown>): SearchParams {
   if (f) p.f = f
   for (const k of ['use', 'ch', 'terr', 'inc', 'similar', 'assets'] as const) {
     const v = str(raw[k])
+    if (v) p[k] = v
+  }
+  for (const k of SCOPE_KINDS) {
+    const v = scopeList(raw[k])
     if (v) p[k] = v
   }
   if (raw.group === 'files') p.group = 'files'
@@ -141,7 +152,7 @@ export function toRequest(p: SearchParams): SearchRequest {
   const req: SearchRequest = { q: p.q ?? '' }
   if (p.req) req.require = p.req
   if (p.exc) req.exclude = p.exc
-  if (p.f) req.filters = p.f
+  if (p.f || hasScope(scopeOf(p))) req.filters = { ...(p.f ?? {}), ...(p.folder?.length ? { folder: p.folder } : {}), ...(p.collection?.length ? { collection: p.collection } : {}) }
   if (hasUse(p)) req.intended_use = { use: p.use ?? null, channel: p.ch ?? null, territory: p.terr ?? null, include: includeFrom(p) }
   req.hide_blocked = !showsBlocked(p)
   if (p.strict) req.strictness = p.strict
@@ -150,7 +161,74 @@ export function toRequest(p: SearchParams): SearchRequest {
   return req
 }
 
-/** Rights options for similar-shot searches (GET /api/shots/{uid}/similar, POST /api/similar). */
-export function similarRightsOf(p: SearchParams): { use: string | null; channel: string | null; territory: string | null; include: Verdict[] | null; hideBlocked: boolean } {
-  return { use: p.use ?? null, channel: p.ch ?? null, territory: p.terr ?? null, include: hasUse(p) ? includeFrom(p) : null, hideBlocked: !showsBlocked(p) }
+/**
+ * Rights and scope for similar-shot searches (GET /api/shots/{uid}/similar, POST /api/similar): the same
+ * verdicts and Hide blocked as search, inside the same folder or collection (chosen or written in the words).
+ */
+export function similarRightsOf(p: SearchParams): { use: string | null; channel: string | null; territory: string | null; include: Verdict[] | null; hideBlocked: boolean; scope?: Scope } {
+  const scope = effectiveScope(p)
+  return { use: p.use ?? null, channel: p.ch ?? null, territory: p.terr ?? null, include: hasUse(p) ? includeFrom(p) : null, hideBlocked: !showsBlocked(p), ...(hasScope(scope) ? { scope } : {}) }
+}
+
+// ---------------------------------------------------------------- scope
+
+/** The scope chosen in the scope control (URL folder= / collection=). */
+export function scopeOf(p: SearchParams): Scope {
+  // Tolerates raw router search (a single folder= parses as a string, a number-like name as a number).
+  return { folder: scopeList(p.folder) ?? [], collection: scopeList(p.collection) ?? [] }
+}
+
+/** Chosen scope plus any folder:"…" / collection:"…" written in the words. */
+export function effectiveScope(p: SearchParams): Scope {
+  return mergeScopes(scopeOf(p), scopeTokens(p.q))
+}
+
+/** Replace the chosen scope (Everything = empty). Written scopes stay in the words. */
+export function withScope(p: SearchParams, scope: Partial<Scope>): SearchParams {
+  return { ...p, folder: scope.folder?.length ? scope.folder : undefined, collection: scope.collection?.length ? scope.collection : undefined }
+}
+
+/** Params that keep only the scope (and the rights choices) for a new similar search. */
+export function keepScope(p: SearchParams): Pick<SearchParams, 'folder' | 'collection'> {
+  return { folder: p.folder, collection: p.collection }
+}
+
+/** Remove one scope value, from the URL or from the words. Null when it is in neither. */
+export function withoutScope(p: SearchParams, kind: ScopeKind, value: string): SearchParams | null {
+  const list = p[kind] ?? []
+  const lower = value.toLowerCase()
+  if (list.some((v) => v.toLowerCase() === lower)) {
+    const rest = list.filter((v) => v.toLowerCase() !== lower)
+    return { ...p, [kind]: rest.length ? rest : undefined }
+  }
+  const q = p.q ? stripScopeToken(p.q, kind, value) : null
+  return q === null ? null : { ...p, q: q || undefined }
+}
+
+/** The one-click fix for "No folder called x. Closest: y.": search y instead (the chosen scope takes it). */
+export function withScopeFix(p: SearchParams, kind: ScopeKind, missing: string, replacement: string): SearchParams {
+  const base = withoutScope(p, kind, missing) ?? p
+  const list = (base[kind] ?? []).filter((v) => v.toLowerCase() !== replacement.toLowerCase())
+  return { ...base, [kind]: [...list, replacement] }
+}
+
+/**
+ * Router search serialiser: the default (JSON for objects), except the scope lists, which repeat
+ * (folder=a&folder=b) so links stay readable. The default parser reads repeated keys back as a list.
+ */
+export function stringifySearch(search: Record<string, unknown>): string {
+  const rest: Record<string, unknown> = { ...search }
+  const repeat: [string, string][] = []
+  for (const k of SCOPE_KINDS) {
+    const v = rest[k]
+    if (Array.isArray(v) && v.every((x) => typeof x === 'string')) {
+      for (const x of v) repeat.push([k, x])
+      delete rest[k]
+    }
+  }
+  const base = defaultStringifySearch(rest)
+  if (!repeat.length) return base
+  const out = new URLSearchParams(base.slice(1))
+  for (const [k, v] of repeat) out.append(k, v)
+  return `?${out.toString()}`
 }

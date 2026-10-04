@@ -18,6 +18,9 @@ import { SignalTable } from './SignalTable'
 import { AddToCollectionButton, BlockedNote, ExportMenu, InCollections, Moments, RightsBlock, Section, shotRightsState, SimilarStrip, Transcript, WhyMatched } from './ShotPanels'
 import { techSummary } from './techSummary'
 import { ShotPeople } from '../people/ShotPeople'
+import { FolderCrumbs } from '../search/FolderCrumbs'
+import { dirname } from '../../lib/folders'
+import { hasScope, mergeScopes, scopeList, scopeTokens } from '../../lib/scope'
 import t from '../../styles/type.module.css'
 import s from './Shot.module.css'
 
@@ -40,6 +43,10 @@ export function ShotPage() {
   const d = shot.data
   useDocumentTitle(d ? `Shot ${d.idx + 1}` : 'Shot', d?.filename)
   const inOut = io.uid === shotId ? io : { uid: shotId, i: null, o: null }
+  // Similar shots stay inside the last search's folder or collection (chosen, or written as folder:"…").
+  const lastScope = mergeScopes({ folder: scopeList(paging?.req.filters?.folder), collection: scopeList(paging?.req.filters?.collection) }, scopeTokens(paging?.req.q))
+  const scoped = hasScope(lastScope)
+  const scopeParams = scoped ? { folder: lastScope.folder.length ? lastScope.folder : undefined, collection: lastScope.collection.length ? lastScope.collection : undefined } : {}
 
   useEffect(() => {
     rememberRecentShot(shotId)
@@ -72,7 +79,7 @@ export function ShotPage() {
     if ((e.target as HTMLElement).closest('[data-testid="signals"], [role="group"]')) return
     if (e.key === '[') goShot(prevResult)
     else if (e.key === ']') goNext()
-    else if (e.key.toLowerCase() === 's' && d) navigate({ to: '/search', search: { similar: d.uid } })
+    else if (e.key.toLowerCase() === 's' && d) navigate({ to: '/search', search: { similar: d.uid, ...scopeParams } })
     else if (e.key === 'Escape' && !document.querySelector('[role="dialog"]')) router.history.back()
   })
 
@@ -87,7 +94,8 @@ export function ShotPage() {
 
   const fps = d.technical.fps
   const iu = paging?.req.intended_use
-  const similarRights = { use: iu?.use ?? null, channel: iu?.channel ?? null, territory: iu?.territory ?? null, include: iu?.include ?? null, hideBlocked: paging?.req.hide_blocked ?? true }
+  const similarRights = { use: iu?.use ?? null, channel: iu?.channel ?? null, territory: iu?.territory ?? null, include: iu?.include ?? null, hideBlocked: paging?.req.hide_blocked ?? true, ...(scoped ? { scope: lastScope } : {}) }
+  const similarSearch = { similar: d.uid, ...scopeParams }
   const state = shotRightsState(d)
   const edit = typeof d.edit_type === 'object' && d.edit_type ? d.edit_type.term : (d.edit_type as string | null)
   const shotCount = undefined as number | undefined
@@ -152,10 +160,10 @@ export function ShotPage() {
           <Moments moments={d.moments} fps={fps} onSeek={(tt) => player.current?.seek(tt)} />
         </Section>
         <Section
-          title="Similar shots"
+          title={scoped ? 'Similar shots in this search scope' : 'Similar shots'}
           id="sim"
           action={
-            <Button variant="quiet" size="sm" icon={ScanSearch} shortcut="S" onPress={() => navigate({ to: '/search', search: { similar: d.uid } })}>
+            <Button variant="quiet" size="sm" icon={ScanSearch} shortcut="S" onPress={() => navigate({ to: '/search', search: similarSearch })}>
               See all
             </Button>
           }
@@ -198,6 +206,10 @@ export function ShotPage() {
             </dd>
             <dt>Edit stage</dt>
             <dd>{edit ? humanise(edit) : 'Not classified yet'}</dd>
+            <dt>Folder</dt>
+            <dd>
+              <FolderCrumbs folder={dirname(d.path)} />
+            </dd>
             <dt>Path</dt>
             <dd style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)' }}>{d.path}</dd>
           </dl>

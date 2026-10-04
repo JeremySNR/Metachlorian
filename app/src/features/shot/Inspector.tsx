@@ -15,6 +15,8 @@ import { SignalTable } from './SignalTable'
 import { AddToCollectionButton, BlockedNote, ExportMenu, InCollections, RightsBlock, Section, shotRightsState, WhyMatched } from './ShotPanels'
 import { techSummary } from './techSummary'
 import { ShotPeople } from '../people/ShotPeople'
+import { FolderCrumbs } from '../search/FolderCrumbs'
+import { dirname } from '../../lib/folders'
 import t from '../../styles/type.module.css'
 import s from './Shot.module.css'
 
@@ -26,10 +28,12 @@ interface Props {
   onClose?: () => void
   onCollapse?: () => void
   editField?: string | null
+  /** Search scope to keep when finding similar shots. */
+  keep?: { folder?: string[]; collection?: string[] }
 }
 
 /** Right-hand inspector (system.md §2.1, §9.1): follows grid focus; Enter opens Shot detail. */
-export function Inspector({ uid, result, intended, query, onClose, onCollapse, editField }: Props) {
+export function Inspector({ uid, result, intended, query, onClose, onCollapse, editField, keep }: Props) {
   const shot = useShot(uid, intended)
   const { vocabs, label } = useVocabularies()
   const navigate = useNavigate()
@@ -80,6 +84,7 @@ export function Inspector({ uid, result, intended, query, onClose, onCollapse, e
             <span className={s.fileLink}>{result?.filename}</span>
           )}
           {edit && <span className={t.slate}>{humanise(edit)}</span>}
+          <FolderCrumbs folder={result?.folder ?? (d ? dirname(d.path) : null)} className={s.subCrumbs} />
         </div>
       )}
       <div className={s.scroll} data-testid="inspector">
@@ -115,7 +120,7 @@ export function Inspector({ uid, result, intended, query, onClose, onCollapse, e
             <BlockedNote state={state} />
             <div className={s.actions}>
               <AddToCollectionButton uids={[uid]} inPoint={io.i} outPoint={io.o} />
-              <Button variant="secondary" icon={ScanSearch} shortcut="S" onPress={() => navigate({ to: '/search', search: { similar: uid } })}>
+              <Button variant="secondary" icon={ScanSearch} shortcut="S" onPress={() => navigate({ to: '/search', search: { similar: uid, ...keep } })}>
                 Find similar
               </Button>
               <ExportMenu shot={d} inPoint={io.i} outPoint={io.o} state={state} />

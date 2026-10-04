@@ -136,6 +136,24 @@
   composes: slate from '../../styles/type.module.css';
 }
 
+/* Scope chip: where search looks. Filled and solid-edged, with a folder or collection icon, so it never
+   reads as a filter value; still neutral (no accent). */
+.scopeChip {
+  background: var(--bg-pressed);
+  border-color: var(--border-strong);
+}
+
+.scopeChip svg:first-child {
+  color: var(--fg-2);
+  flex: none;
+}
+
+.scopeLead {
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-2);
+}
+
 .chipValue {
   font-size: var(--text-xs);
   line-height: var(--leading-xs);

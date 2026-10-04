@@ -1,0 +1,222 @@
+/* Library → Folders: a nested list of folders (hairlines, no boxes), facts in tabular figures. */
+
+.intro {
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--fg-2);
+  max-inline-size: var(--measure-prose);
+}
+
+.intro code {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+}
+
+.find {
+  flex: 0 1 360px;
+  min-inline-size: min(240px, 100%);
+}
+
+.count {
+  font-size: var(--text-xs);
+  color: var(--fg-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  container-type: inline-size;
+  container-name: folders;
+}
+
+.nested {
+  padding-inline-start: var(--space-6);
+  border-inline-start: var(--border-width) solid var(--border-subtle);
+  margin-inline-start: calc(var(--target-min) / 2);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 2fr) auto;
+  grid-template-areas: 'name facts actions' 'files files files';
+  gap: var(--space-2) var(--space-4);
+  align-items: center;
+  padding-block: var(--space-2);
+  border-block-end: var(--border-width) solid var(--border-subtle);
+}
+
+.rowOpen {
+  padding-block-end: var(--space-4);
+}
+
+.name {
+  grid-area: name;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1_5);
+  min-inline-size: 0;
+}
+
+.chev {
+  display: grid;
+  place-items: center;
+  inline-size: var(--target-min);
+  block-size: var(--target-min);
+  flex: none;
+  border: 0;
+  background: transparent;
+  color: var(--fg-2);
+  border-radius: var(--radius-sm);
+}
+
+.chev[data-hovered] {
+  background: var(--bg-hover);
+}
+
+.chev[data-focus-visible] {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.chevSpace {
+  inline-size: var(--target-min);
+  flex: none;
+}
+
+.icon {
+  color: var(--fg-2);
+  flex: none;
+}
+
+.nameText {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+
+.nameText h3 {
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.path {
+  font-family: var(--font-mono);
+  font-feature-settings: var(--font-mono-features);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-3);
+  overflow-wrap: anywhere;
+}
+
+.facts {
+  grid-area: facts;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-5);
+  margin: 0;
+  min-inline-size: 0;
+}
+
+.facts > div {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+
+.facts dt {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-medium);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  color: var(--fg-3);
+  font-feature-settings: var(--font-mono-features);
+}
+
+.facts dd {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.actions {
+  grid-area: actions;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  justify-content: flex-end;
+}
+
+.files {
+  grid-area: files;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-inline-start: calc(var(--target-min) + var(--space-1_5));
+  min-inline-size: 0;
+}
+
+.fileCell {
+  overflow-wrap: anywhere;
+}
+
+.fileCell a {
+  color: var(--fg-1);
+}
+
+.sub {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--fg-3);
+}
+
+.muted {
+  font-size: var(--text-sm);
+  color: var(--fg-2);
+}
+
+@container folders (width < 760px) {
+  .row {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'name' 'facts' 'actions' 'files';
+  }
+  .facts,
+  .actions {
+    padding-inline-start: calc(var(--target-min) + var(--space-1_5));
+    justify-content: flex-start;
+  }
+  .files {
+    padding-inline-start: 0;
+  }
+}
+
+@container folders (width < 480px) {
+  .hideNarrow {
+    display: none;
+  }
+}
+
+@media (pointer: coarse) {
+  .chev {
+    inline-size: var(--target-coarse);
+    block-size: var(--target-coarse);
+  }
+  .chevSpace {
+    inline-size: var(--target-coarse);
+  }
+}

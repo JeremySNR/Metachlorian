@@ -120,6 +120,8 @@ interface UiState {
   sendDialog: ({ kind: 'collection'; uid: string } | { kind: 'shots'; uids: string[] }) & { consumer?: 'cutawan' | 'nle'; use?: IntendedUse | null } | null
   rightsDialog: { assetUids: string[]; shotUid?: string; title?: string } | null
   addToDialog: string[] | null
+  /** Command menu: "Search in folder…" / "Search in collection…". */
+  scopeDialog: 'folder' | 'collection' | null
   setSelection: (s: Set<string>) => void
   toggleSelected: (uid: string) => void
   clearSelection: () => void
@@ -145,6 +147,7 @@ export const useUi = create<UiState>()((set, get) => ({
   sendDialog: null,
   rightsDialog: null,
   addToDialog: null,
+  scopeDialog: null,
   setSelection: (s) => set({ selection: s }),
   toggleSelected: (uid) => {
     const s = new Set(get().selection)

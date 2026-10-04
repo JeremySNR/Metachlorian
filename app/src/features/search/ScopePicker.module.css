@@ -1,0 +1,288 @@
+/* Search scope: the rail control, its popover and the command-menu dialog. */
+
+.control {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  border-block-end: var(--border-width) solid var(--border-subtle);
+  flex: none;
+}
+
+.controlLabel {
+  composes: slate from '../../styles/type.module.css';
+}
+
+.fromWords {
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-2);
+}
+
+.controlRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-inline-size: 0;
+}
+
+.trigger {
+  flex: 1;
+  min-inline-size: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  block-size: var(--control-md);
+  padding-inline: var(--space-2);
+  background: var(--bg-raised);
+  color: var(--fg-1);
+  border: var(--border-width) solid var(--border-control);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  text-align: start;
+  outline: none;
+}
+
+.trigger svg {
+  color: var(--fg-2);
+  flex: none;
+}
+
+.trigger[data-hovered] {
+  border-color: var(--border-strong);
+}
+
+.trigger[data-focus-visible] {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* Scoped: the same weight as a chosen filter value, not the accent. */
+.triggerScoped {
+  background: var(--bg-pressed);
+  border-color: var(--border-strong);
+  font-weight: var(--weight-medium);
+}
+
+.triggerText {
+  flex: 1;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.popover {
+  composes: popover from '../../components/Overlay.module.css';
+  inline-size: min(420px, calc(100vw - 32px));
+}
+
+.dialog {
+  outline: none;
+  padding: var(--space-3);
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-inline-size: 0;
+}
+
+.everything {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--fg-2);
+  padding-block: var(--space-2);
+}
+
+.chooser {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-inline-size: 0;
+}
+
+.find {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  block-size: var(--control-md);
+  padding-inline: var(--space-2);
+  background: var(--bg-raised);
+  border: var(--border-width) solid var(--border-control);
+  border-radius: var(--radius-sm);
+  color: var(--fg-2);
+}
+
+.find[data-focus-within] {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: 0;
+}
+
+.findInput {
+  flex: 1;
+  min-inline-size: 0;
+  border: 0;
+  background: transparent;
+  color: var(--fg-1);
+  font-size: var(--text-sm);
+  outline: none;
+}
+
+.findInput::placeholder {
+  color: var(--fg-3);
+}
+
+.findInput::-webkit-search-cancel-button {
+  display: none;
+}
+
+.findClear {
+  display: grid;
+  place-items: center;
+  inline-size: var(--target-min);
+  block-size: var(--target-min);
+  border: 0;
+  background: transparent;
+  color: var(--fg-2);
+  border-radius: var(--radius-sm);
+}
+
+.findClear[data-hovered] {
+  background: var(--bg-hover);
+}
+
+.findClear[data-focus-visible] {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+}
+
+.tree {
+  max-block-size: min(50vh, 360px);
+  overflow-y: auto;
+  outline: none;
+  display: flex;
+  flex-direction: column;
+  padding: 2px;
+}
+
+.treeItem {
+  border-radius: var(--radius-sm);
+  outline: none;
+  color: var(--fg-1);
+  cursor: default;
+}
+
+.treeItem[data-hovered],
+.treeItem[data-focused] {
+  background: var(--bg-hover);
+}
+
+.treeItem[data-focus-visible] {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: calc(-1 * var(--focus-ring-width));
+}
+
+.treeRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1_5);
+  min-block-size: 40px;
+  padding-inline-end: var(--space-2);
+  min-inline-size: 0;
+}
+
+.chev {
+  display: grid;
+  place-items: center;
+  inline-size: var(--target-min);
+  block-size: var(--target-min);
+  flex: none;
+  border: 0;
+  background: transparent;
+  color: var(--fg-2);
+  border-radius: var(--radius-sm);
+}
+
+.chev[data-hovered] {
+  background: var(--bg-pressed);
+}
+
+.chevSpace {
+  inline-size: var(--target-min);
+  flex: none;
+}
+
+.rowIcon {
+  color: var(--fg-2);
+  flex: none;
+}
+
+.rowText {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.rowName {
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  font-weight: var(--weight-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rowMeta {
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-2);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rowCheck {
+  color: var(--key);
+  flex: none;
+}
+
+.empty,
+.more {
+  font-size: var(--text-sm);
+  color: var(--fg-2);
+  padding: var(--space-2);
+}
+
+.more {
+  font-size: var(--text-xs);
+  padding-block: 0;
+}
+
+@media (pointer: coarse) {
+  .chev,
+  .findClear {
+    inline-size: var(--target-coarse);
+    block-size: var(--target-coarse);
+  }
+  .chevSpace {
+    inline-size: var(--target-coarse);
+  }
+  .treeRow {
+    min-block-size: var(--target-coarse);
+  }
+}
+
+@media (forced-colors: active) {
+  .treeItem[data-focused] {
+    outline: 2px solid Highlight;
+  }
+  .rowCheck {
+    color: Highlight;
+  }
+}

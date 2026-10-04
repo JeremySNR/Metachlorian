@@ -371,7 +371,7 @@ export const ShotCard = memo(function ShotCard({ r, index, colIndex, focused, se
               {pm.matched}/{pm.total}
             </span>
           )}
-          <span className={s.title}>{r.caption || r.summary || r.filename}</span>
+          <span className={s.title} title={r.folder ? `${r.folder.split('/').pop()} › ${r.filename}` : r.filename}>{r.caption || r.summary || r.filename}</span>
         </span>
       </div>
     </div>

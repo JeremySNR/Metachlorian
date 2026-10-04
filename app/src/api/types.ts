@@ -183,6 +183,8 @@ export interface SearchResult extends ShotSummary {
   identities?: PersonRef[]
   /** At or above the strictness threshold; strong results come first. */
   strong?: boolean
+  /** Absolute directory of the file. */
+  folder?: string
 }
 
 export type Strictness = 'loose' | 'balanced' | 'strict'
@@ -205,6 +207,10 @@ export interface SearchFilters {
   edit_type?: string[] | string | null
   captured_after?: string | null
   captured_before?: string | null
+  /** Only footage in this folder or its subfolders: a name, a relative path or an absolute path (a list means any). */
+  folder?: string | string[] | null
+  /** Only shots in this collection: uid or exact name (a list means any). */
+  collection?: string | string[] | null
 }
 
 export type TermMap = Record<string, string[]>
@@ -482,6 +488,8 @@ export interface AssetListItem {
   path: string
   status: string
   duration: number | null
+  /** Shoot date (ISO) when the file carries one. */
+  captured?: string | null
   width: number | null
   height: number | null
   fps: number | null
@@ -500,6 +508,29 @@ export interface AssetListItem {
 export interface AssetList {
   total: number
   assets: AssetListItem[]
+}
+
+/** GET /api/folders: every folder holding footage; counts include subfolders. */
+export interface Folder {
+  path: string
+  name: string
+  /** From the source root's name: "Videos/Holidays/Disney 2026". */
+  relative: string
+  /** The watched folder (source) it belongs to. */
+  source: string
+  /** 0 = a source root. */
+  depth: number
+  files: number
+  shots: number
+  hours: number
+  captured_from: string | null
+  captured_to: string | null
+  subfolders: number
+}
+
+export interface FolderList {
+  total: number
+  folders: Folder[]
 }
 
 // ---------------------------------------------------------------- library

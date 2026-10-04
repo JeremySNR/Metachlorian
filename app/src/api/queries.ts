@@ -7,12 +7,13 @@ import { useCallback, useMemo } from 'react'
 import { api, qs } from './client'
 import type {
   AdminSettings, AssetDoc, AssetList, AuditEntry, Collection, CollectionSummary, CorrectionsResponse, ExportClipResult, ExportMode,
-  Health, IntendedUse, LibraryStats, Me, OpenRouterModel, PackageResult, PackageTarget, PeopleList, PersonDetail, Processing, ProviderId,
+  FolderList, Health, IntendedUse, LibraryStats, Me, OpenRouterModel, PackageResult, PackageTarget, PeopleList, PersonDetail, Processing, ProviderId,
   ProviderKey, ProvidersResponse, ProviderTest, RightsCheck, RightsRecord, SearchRequest, SearchResponse, ShotDoc, Source, Sprites,
   TokensResponse, User, Verdict, Vocabulary,
 } from './types'
 import { humanise, shortLabel } from '../lib/format'
 import type { Locality } from '../lib/egress'
+import { scopeQueryParams, type Scope } from '../lib/scope'
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -76,17 +77,24 @@ export function useSearch(req: SearchRequest | null) {
   })
 }
 
-/** Rights options for similar-shot searches: the same verdict, intended use and Hide blocked as search. */
+/** Options for similar-shot searches: the same verdict, intended use, Hide blocked and scope as search. */
 export interface SimilarRights {
   use?: string | null
   channel?: string | null
   territory?: string | null
   include?: Verdict[] | null
   hideBlocked?: boolean
+  /** Only footage in these folders / shots in these collections (repeated folder= and collection= params). */
+  scope?: Partial<Scope> | null
 }
 
-function similarQs(limit: number, r: SimilarRights = {}) {
-  return qs({ limit, use: r.use, channel: r.channel, territory: r.territory, include: r.include?.length ? r.include.join(',') : undefined, hide_blocked: r.hideBlocked === false ? 'false' : undefined })
+export function similarQs(limit: number, r: SimilarRights = {}) {
+  const base = qs({ limit, use: r.use, channel: r.channel, territory: r.territory, include: r.include?.length ? r.include.join(',') : undefined, hide_blocked: r.hideBlocked === false ? 'false' : undefined })
+  const extra = scopeQueryParams(r.scope)
+  if (!extra.length) return base
+  const p = new URLSearchParams(base.slice(1))
+  for (const [k, v] of extra) p.append(k, v)
+  return `?${p.toString()}`
 }
 
 export const useSimilar = (uid: string | null | undefined, limit = 24, rights: SimilarRights = {}) =>
@@ -126,8 +134,25 @@ export function ensureSprites(assetUid: string): Promise<Sprites | null> {
   return queryClient.ensureQueryData({ ...assetQuery(assetUid), staleTime: 10 * 60_000 }).then((a) => a.media?.sprites ?? null)
 }
 
-export const useAssets = (params: { q?: string; edit_type?: string; status?: string; limit?: number; offset?: number } = {}) =>
-  useQuery({ queryKey: ['assets', params], queryFn: () => api.get<AssetList>(`/api/assets${qs({ limit: 500, ...params })}`), placeholderData: keepPreviousData })
+export const useAssets = (params: { q?: string; edit_type?: string; status?: string; limit?: number; offset?: number; folder?: string; collection?: string } = {}, opts: { enabled?: boolean } = {}) =>
+  useQuery({ queryKey: ['assets', params], queryFn: () => api.get<AssetList>(`/api/assets${qs({ limit: 500, ...params })}`), placeholderData: keepPreviousData, enabled: opts.enabled ?? true })
+
+// ---------------------------------------------------------------- folders
+/** Folders holding footage (counts include subfolders), sorted by relative path. `q` matches name or path. */
+export const foldersQuery = (q = '', limit = 1000) => ({
+  queryKey: ['folders', q, limit],
+  queryFn: () => api.get<FolderList>(`/api/folders${qs({ q: q.trim() || undefined, limit })}`),
+  staleTime: 60_000,
+})
+
+export const useFolders = (q = '', opts: { enabled?: boolean } = {}) => useQuery({ ...foldersQuery(q), placeholderData: keepPreviousData, enabled: opts.enabled ?? true })
+
+/** Files in a folder (and its subfolders) for the folder browser: edit stages and the files list. */
+export const folderAssetsQuery = (folder: string) => ({
+  queryKey: ['assets', { folder, limit: 500 }],
+  queryFn: () => api.get<AssetList>(`/api/assets${qs({ folder, limit: 500 })}`),
+  staleTime: 60_000,
+})
 
 export const useLibraryStats = (opts: { refetchInterval?: number | false } = {}) =>
   useQuery({ queryKey: ['stats'], queryFn: () => api.get<LibraryStats>('/api/library/stats'), refetchInterval: opts.refetchInterval, staleTime: 10_000 })

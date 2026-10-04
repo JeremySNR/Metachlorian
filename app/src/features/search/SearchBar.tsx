@@ -14,7 +14,7 @@ import { MOD } from '../../lib/bridge'
 import { useUi } from '../../lib/store'
 import { VOCAB_SLATE } from '../../lib/chips'
 import { shortLabel } from '../../lib/format'
-import { similarRightsOf, type SearchParams } from './searchParams'
+import { effectiveScope, similarRightsOf, validateSearch, type SearchParams } from './searchParams'
 import t from '../../styles/type.module.css'
 import s from './SearchBar.module.css'
 
@@ -49,7 +49,7 @@ export function SearchBar() {
   const navigate = useNavigate()
   const location = useRouterState({ select: (st) => st.location })
   const onSearch = location.pathname === '/search'
-  const params = (onSearch ? location.search : {}) as SearchParams
+  const params = validateSearch(onSearch ? (location.search as Record<string, unknown>) : {})
   const urlQ = params.q ?? ''
   const [draft, setDraft] = useState(urlQ)
   const lastSent = useRef(urlQ)
@@ -158,8 +158,13 @@ export function SearchBar() {
     }
     setExampleBusy(true)
     try {
-      // Same rights verdict, intended use and Hide blocked as text search (keep only the rights params).
-      const keep: SearchParams = { use: params.use, ch: params.ch, terr: params.terr, inc: params.inc, blocked: params.blocked, strict: params.strict }
+      // Same rights verdict, intended use, Hide blocked and scope as text search (keep only those params;
+      // a folder:"…" written in the words becomes the chosen scope, since the words are cleared).
+      const scope = effectiveScope(params)
+      const keep: SearchParams = {
+        use: params.use, ch: params.ch, terr: params.terr, inc: params.inc, blocked: params.blocked, strict: params.strict,
+        folder: scope.folder.length ? scope.folder : undefined, collection: scope.collection.length ? scope.collection : undefined,
+      }
       const rights = similarRightsOf(keep)
       const response = await searchByExample(file, 120, rights)
       useUi.getState().set({ example: { name: file.name, kind, response, file, rightsKey: JSON.stringify(rights) }, selection: new Set() })

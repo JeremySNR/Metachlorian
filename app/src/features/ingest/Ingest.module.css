@@ -51,8 +51,8 @@
 
 .cardActions {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-1);
-  margin-inline-start: calc(-1 * var(--space-2));
 }
 
 .addForm {

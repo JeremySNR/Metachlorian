@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from '@tanstack/react-router'
 import { GridList, GridListItem, useDragAndDrop, type Key } from 'react-aria-components'
-import { ArrowDown, ArrowUp, Download, Ellipsis, Film, GripVertical, Layers, PenLine, Plus, Scissors, Send, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, Download, Ellipsis, Film, GripVertical, Layers, PenLine, Plus, Scissors, Search, Send, Trash2 } from 'lucide-react'
 import type { Collection, CollectionItem } from '../../api/types'
 import { ApiError, mediaUrl } from '../../api/client'
 import {
@@ -260,6 +260,18 @@ function CollectionView({ col }: { col: Collection }) {
               Make active (B adds here)
             </Button>
           )}
+          <Button
+            variant="secondary"
+            icon={Search}
+            isDisabled={!items.length}
+            data-testid="search-in-collection"
+            onPress={() => {
+              navigate({ to: '/search', search: { collection: [col.uid] } })
+              window.setTimeout(() => window.dispatchEvent(new Event('mc:focus-search')), 60)
+            }}
+          >
+            Search in this collection
+          </Button>
           <Button variant="secondary" icon={Download} shortcut={`${MOD}E`} isDisabled={!items.length} onPress={() => useUi.getState().set({ sendDialog: { kind: 'collection', uid: col.uid, consumer: 'nle' } })} data-testid="export-timeline">
             Export timeline
           </Button>

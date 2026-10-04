@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { Autocomplete, Input, Menu, MenuItem, MenuSection, Header, SearchField, type Key } from 'react-aria-components'
 import {
-  Clapperboard, Film, HardDrive, Keyboard, Layers, Library, ListChecks, Moon, PanelLeft, PanelRight, ScanFace, Search, Settings, ShieldCheck, Sun, SunMoon, type LucideIcon,
+  Clapperboard, Film, FolderSearch, FolderTree, HardDrive, Keyboard, Layers, Library, ListChecks, Moon, PanelLeft, PanelRight, ScanFace, Search, Settings, ShieldCheck, Sun, SunMoon, type LucideIcon,
 } from 'lucide-react'
 import { useCollections } from '../../api/queries'
 import { Dialog } from '../../components/Dialog'
@@ -48,6 +48,8 @@ export function CommandMenu() {
     const p = usePrefs.getState()
     const actions: Cmd[] = [
       { id: 'focus-search', label: 'Search shots', icon: Search, meta: '/', run: () => window.setTimeout(() => window.dispatchEvent(new Event('mc:focus-search')), 30) },
+      { id: 'scope-folder', label: 'Search in folder…', icon: FolderSearch, run: () => set({ scopeDialog: 'folder' }) },
+      { id: 'scope-collection', label: 'Search in collection…', icon: Layers, run: () => set({ scopeDialog: 'collection' }) },
       { id: 'toggle-rail', label: 'Toggle filter rail', icon: PanelLeft, meta: `${MOD}\\`, run: () => p.set({ railOpen: !usePrefs.getState().railOpen }) },
       { id: 'toggle-inspector', label: 'Toggle inspector', icon: PanelRight, meta: `${MOD}I`, run: () => p.set({ inspectorOpen: !usePrefs.getState().inspectorOpen }) },
       { id: 'theme-dark', label: 'Theme: dark', icon: Moon, run: () => p.set({ theme: 'dark' }) },
@@ -62,6 +64,7 @@ export function CommandMenu() {
       { id: 'go-ingest', label: 'Go to Ingest and processing', icon: HardDrive, meta: `${MOD}4`, run: () => navigate({ to: '/ingest' }) },
       { id: 'go-rights', label: 'Go to Rights and governance', icon: ShieldCheck, meta: `${MOD}5`, run: () => navigate({ to: '/rights' }) },
       { id: 'go-people', label: 'Go to People', icon: ScanFace, meta: `${MOD}6`, run: () => navigate({ to: '/people' }) },
+      { id: 'go-folders', label: 'Go to Library folders', icon: FolderTree, run: () => navigate({ to: '/library/folders' }) },
       { id: 'go-corrections', label: 'Go to Corrections log', icon: ListChecks, run: () => navigate({ to: '/library/corrections' }) },
       { id: 'go-settings', label: 'Go to Settings', icon: Settings, meta: `${MOD},`, run: () => navigate({ to: '/settings/$section', params: { section: 'appearance' } }) },
       { id: 'go-tokens', label: 'Settings: API tokens for agents', icon: Settings, run: () => navigate({ to: '/settings/$section', params: { section: 'tokens' } }) },

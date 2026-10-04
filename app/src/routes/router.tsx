@@ -1,7 +1,7 @@
 import { createRootRoute, createRoute, createRouter, lazyRouteComponent, redirect } from '@tanstack/react-router'
 import { AppShell } from '../features/shell/AppShell'
 import { SearchPage } from '../features/search/SearchPage'
-import { validateSearch } from '../features/search/searchParams'
+import { stringifySearch, validateSearch } from '../features/search/searchParams'
 import { NotFound } from '../features/shell/NotFound'
 
 const rootRoute = createRootRoute({ component: AppShell, notFoundComponent: () => <NotFound /> })
@@ -38,6 +38,15 @@ export const collectionsRoute = createRoute({ getParentRoute: () => rootRoute, p
 export const collectionRoute = createRoute({ getParentRoute: () => rootRoute, path: '/collections/$collectionId', component: collectionsComponent })
 
 export const libraryRoute = createRoute({ getParentRoute: () => rootRoute, path: '/library', component: lazyRouteComponent(() => import('../features/library/LibraryPage'), 'LibraryPage') })
+export const foldersRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/library/folders',
+  validateSearch: (raw: Record<string, unknown>): { q?: string; open?: string } => ({
+    ...(typeof raw.q === 'string' && raw.q.trim() ? { q: raw.q } : {}),
+    ...(typeof raw.open === 'string' && raw.open ? { open: raw.open } : {}),
+  }),
+  component: lazyRouteComponent(() => import('../features/library/FoldersPage'), 'FoldersPage'),
+})
 export const correctionsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/library/corrections',
@@ -85,10 +94,10 @@ export const settingsRoute = createRoute({
 })
 
 const routeTree = rootRoute.addChildren([
-  indexRoute, searchRoute, shotRoute, fileRoute, collectionsRoute, collectionRoute, libraryRoute, correctionsRoute, rightsRoute, peopleRoute, personRoute, ingestRoute, settingsIndex, settingsRoute,
+  indexRoute, searchRoute, shotRoute, fileRoute, collectionsRoute, collectionRoute, libraryRoute, foldersRoute, correctionsRoute, rightsRoute, peopleRoute, personRoute, ingestRoute, settingsIndex, settingsRoute,
 ])
 
-export const router = createRouter({ routeTree, defaultPreload: 'intent', scrollRestoration: false })
+export const router = createRouter({ routeTree, defaultPreload: 'intent', scrollRestoration: false, stringifySearch })
 
 declare module '@tanstack/react-router' {
   interface Register {

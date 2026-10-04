@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { Button as RacButton, Tag, TagGroup, TagList, type Key } from 'react-aria-components'
-import { Pin, PinOff, X } from 'lucide-react'
+import { Folder, Layers, Pin, PinOff, X } from 'lucide-react'
 import type { SearchResponse } from '../../api/types'
 import { Button } from '../../components/Button'
 import { Ic } from '../../components/Icon'
@@ -19,6 +19,18 @@ export interface ExtraChip {
   onRemove: () => void
 }
 
+/** Where search looks: "In Disney 2026" / "In collection: Kids on rides" (chosen, or written as folder:"…"). */
+export interface ScopeChipView {
+  key: string
+  kind: 'folder' | 'collection'
+  lead: string
+  name: string
+  /** Full value (path or uid) for the tooltip. */
+  value: string
+  typed: boolean
+  onRemove: () => void
+}
+
 interface Props {
   query: SearchResponse['query'] | undefined
   state: SearchState
@@ -30,6 +42,10 @@ interface Props {
   phrases?: PhraseEntry[]
   /** Enter on a PERSON chip opens that person. */
   onOpenPerson?: (id: string) => void
+  /** Scope chips, shown first and apart from the filters. */
+  scope?: ScopeChipView[]
+  /** Clear all (chips, extra chips and scope) in one step. */
+  onClearAll?: () => void
 }
 
 /**
@@ -39,7 +55,7 @@ interface Props {
  * their own labelled group with an outline-only, dotted style, so they never
  * read as hard filters. Chips wrap instead of scrolling out of sight.
  */
-export function ChipRow({ query, state, vocabs, label, onChange, extra = [], phrases, onOpenPerson }: Props) {
+export function ChipRow({ query, state, vocabs, label, onChange, extra = [], phrases, onOpenPerson, scope = [], onClearAll }: Props) {
   const index = useMemo(() => [...buildPhraseIndex(vocabs), ...(phrases ?? [])].sort((a, b) => b.phrase.length - a.phrase.length), [vocabs, phrases])
   const chips = useMemo(() => (query ? chipsFromQuery(query, state, label, index) : []), [query, state, label, index])
   const rowRef = useRef<HTMLDivElement>(null)
@@ -62,7 +78,7 @@ export function ChipRow({ query, state, vocabs, label, onChange, extra = [], phr
   const promote = (chip: QueryChip) => onChange(chip.kind === 'require' && !chip.inferred ? demoteChip(state, chip) : promoteChip(state, chip))
   const exclude = (chip: QueryChip) => apply(toggleExcludeChip(state, chip, index), chip)
 
-  const all = chips.length + extra.length
+  const all = chips.length + extra.length + scope.length
   if (!all) return null
 
   const hard = chips.filter((c) => c.kind !== 'prefer')
@@ -136,6 +152,36 @@ export function ChipRow({ query, state, vocabs, label, onChange, extra = [], phr
           }
         }}
       >
+        {scope.length > 0 && (
+          <TagGroup
+            aria-label="Search scope"
+            onRemove={(keys) => {
+              for (const k of keys) scope.find((c) => c.key === k)?.onRemove()
+            }}
+            className={s.tagGroup}
+          >
+            <TagList className={s.tagList}>
+              {scope.map((c) => (
+                <Tag
+                  key={c.key}
+                  id={c.key}
+                  textValue={`${c.lead} ${c.name}${c.typed ? ', from your words' : ''}`}
+                  className={[s.chip, s.scopeChip, c.typed && s.inferred, tip.tip].filter(Boolean).join(' ')}
+                  data-tip={c.typed ? `From your words: ${c.kind}:"${c.value}". Removing it edits the words.` : c.value !== c.name ? c.value : undefined}
+                  data-testid="scope-chip"
+                  data-kind={c.kind}
+                >
+                  <Ic icon={c.kind === 'folder' ? Folder : Layers} size={14} />
+                  <span className={s.scopeLead}>{c.lead}</span>
+                  <span className={s.chipValue}>{c.name}</span>
+                  <RacButton slot="remove" className={s.chipBtn} aria-label={`Remove scope ${c.name}, search everything`}>
+                    <Ic icon={X} size={14} />
+                  </RacButton>
+                </Tag>
+              ))}
+            </TagList>
+          </TagGroup>
+        )}
         {(extra.length > 0 || hard.length > 0) && (
           <TagGroup aria-label="Search filters" onRemove={onRemove} className={s.tagGroup}>
             <TagList className={s.tagList}>
@@ -169,6 +215,7 @@ export function ChipRow({ query, state, vocabs, label, onChange, extra = [], phr
           variant="quiet"
           size="sm"
           onPress={() => {
+            if (onClearAll) return onClearAll()
             extra.forEach((e) => e.onRemove())
             onChange({ q: '', require: {}, exclude: {}, filters: {}, use: null })
           }}

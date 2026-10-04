@@ -156,7 +156,7 @@ test('14 people: name someone, search by name, merge, not this person, restore',
     const res = await (await page.request.post('/api/search', { data: { q: NAME, limit: 50 }, headers: H })).json()
     expect(res.notes.join(' ')).toContain('recognised faces')
     expect(res.total).toBeGreaterThan(0)
-    for (const r of res.results) expect(r.people.map((p: { id: number }) => p.id)).toContain(small.id)
+    for (const r of res.results) expect(r.identities.map((p: { id: number }) => p.id)).toContain(small.id)
     await page.locator('[role=grid] [role=gridcell][data-uid]').first().click()
     const insp = page.getByTestId('inspector')
     await expect(insp.getByTestId('shot-people')).toContainText(NAME)

@@ -17,8 +17,9 @@
 
 .panelSub {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: var(--space-2);
+  gap: 0 var(--space-2);
   padding: var(--space-1_5) var(--space-4);
   border-block-end: var(--border-width) solid var(--border-subtle);
   min-inline-size: 0;
@@ -665,4 +666,9 @@
 
 .playerWrap {
   max-inline-size: 1100px;
+}
+
+/* The file's folder under its name (each part scopes search to that folder). */
+.subCrumbs {
+  flex-basis: 100%;
 }

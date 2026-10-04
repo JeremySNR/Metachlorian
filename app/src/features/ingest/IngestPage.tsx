@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { DropZone, FileTrigger } from 'react-aria-components'
-import { Check, ChevronRight, CircleAlert, CircleCheck, CircleDashed, CircleX, Cloud, Cpu, FolderOpen, HardDrive, LoaderCircle, RefreshCw, Trash2, Upload } from 'lucide-react'
+import { Check, ChevronRight, CircleAlert, CircleCheck, CircleDashed, CircleX, Cloud, Cpu, FolderOpen, FolderSearch, FolderTree, HardDrive, LoaderCircle, RefreshCw, Trash2, Upload } from 'lucide-react'
 import type { QueueJob } from '../../api/types'
 import { api, ApiError, upload } from '../../api/client'
 import { useAsset, useHealth, useProcessing, useSources } from '../../api/queries'
@@ -18,6 +18,7 @@ import l from '../library/Library.module.css'
 import s from './Ingest.module.css'
 import { STEPS, stepStates, updatingText } from '../../lib/processing'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
+import { searchFolder } from '../library/FoldersPage'
 
 const STEP_ICON = { done: Check, active: LoaderCircle, waiting: CircleDashed, failed: CircleX }
 
@@ -27,6 +28,7 @@ export function IngestPage() {
   useDocumentTitle('Ingest and processing')
   const sources = useSources()
   const health = useHealth()
+  const navigate = useNavigate()
   const qc = useQueryClient()
   const [uri, setUri] = useState('')
   const [watch, setWatch] = useState(true)
@@ -141,6 +143,16 @@ export function IngestPage() {
                   <span title={formatDateTime(src.last_scan)}>Scanned {formatRelative(src.last_scan)}</span>
                 </div>
                 <div className={s.cardActions}>
+                  {src.kind !== 's3' && src.assets > 0 && (
+                    <>
+                      <Button variant="secondary" size="sm" icon={FolderSearch} onPress={() => searchFolder(navigate, src.uri.replace(/\/+$/, ''))} aria-label={`Search this folder: ${src.uri}`}>
+                        Search this folder
+                      </Button>
+                      <Button variant="quiet" size="sm" icon={FolderTree} onPress={() => navigate({ to: '/library/folders', search: { open: src.uri.replace(/\/+$/, '') } })} aria-label={`Show files in ${src.uri}`}>
+                        Show files
+                      </Button>
+                    </>
+                  )}
                   <Button
                     variant="quiet"
                     size="sm"

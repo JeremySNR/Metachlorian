@@ -37,6 +37,9 @@ export function LibraryTabs() {
       <Link to="/library" className={s.tab} activeOptions={{ exact: true }}>
         Overview
       </Link>
+      <Link to="/library/folders" className={s.tab}>
+        Folders
+      </Link>
       <Link to="/library/corrections" className={s.tab}>
         Corrections log
       </Link>

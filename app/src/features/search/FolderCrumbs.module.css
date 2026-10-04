@@ -1,0 +1,64 @@
+.crumbs {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1_5);
+  min-inline-size: 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-2);
+}
+
+.crumbs ol {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--space-1);
+  min-inline-size: 0;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.crumbs li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-inline-size: 0;
+}
+
+.icon {
+  color: var(--fg-3);
+  flex: none;
+}
+
+.sep {
+  color: var(--fg-3);
+}
+
+.crumb {
+  color: var(--fg-2);
+  text-decoration: underline;
+  text-decoration-color: var(--border-control);
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
+  border-radius: var(--radius-xs);
+  min-block-size: var(--target-min);
+  display: inline-flex;
+  align-items: center;
+}
+
+.crumb:hover {
+  color: var(--fg-1);
+  text-decoration-color: currentColor;
+}
+
+.crumb:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+@media (pointer: coarse) {
+  .crumb {
+    min-block-size: var(--target-coarse);
+  }
+}
