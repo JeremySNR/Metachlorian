@@ -30,6 +30,11 @@ class Unavailable(Exception):
     """
 
 
+class CannotDecode(Exception):
+    """The file cannot be read here (no decoder for its format). Permanent: not retried, the file is marked
+    as an error with this message, and it is tried again when the decoding setup changes."""
+
+
 @dataclass
 class Signal:
     level: str  # asset | shot

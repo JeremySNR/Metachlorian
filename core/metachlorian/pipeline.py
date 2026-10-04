@@ -15,7 +15,7 @@ from typing import Any
 import numpy as np
 
 from .analysers import registry
-from .analysers.base import AnalysisContext, Analyser, Unavailable
+from .analysers.base import AnalysisContext, Analyser, CannotDecode, Unavailable
 from .config import Settings
 from .db import Database, dumps, loads, now
 from .jobs import queue
@@ -205,6 +205,10 @@ def run_job(db: Database, settings: Settings, job: dict) -> str:
     except Unavailable as e:
         commit(db, job, analyser, AnalysisContext(db, settings, asset, analyser), "unavailable", {}, str(e), started)
         result = "unavailable"
+    except CannotDecode as e:
+        commit(db, job, analyser, AnalysisContext(db, settings, asset, analyser), "failed", {}, str(e), started)
+        db.x("UPDATE jobs SET status='failed' WHERE id=?", (job["id"],))
+        result = "failed"
     except Exception as e:
         log.warning("%s failed on %s: %s", analyser.name, asset["filename"], e)
         log.debug(traceback.format_exc())

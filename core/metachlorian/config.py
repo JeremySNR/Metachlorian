@@ -162,6 +162,10 @@ class Settings:
     # Imports from web links (YouTube, Vimeo... via yt-dlp). Browser whose login yt-dlp may borrow for private
     # videos (chrome, edge, firefox, brave, opera, vivaldi, safari; only on the machine running the server),
     # the default quality cap, and an optional yt-dlp executable (else PATH, else downloaded on first use).
+    # Camera raw that FFmpeg cannot read: a command per file extension that converts it to a working master
+    # the rest of the pipeline reads, e.g. {"r3d": "REDline --i {input} --o {output_stem} ..."}. Placeholders:
+    # {input} (the raw file), {output} (the .mov to write), {output_stem} (it without the extension), {output_dir}.
+    raw_decoders: dict = field(default_factory=dict)
     import_cookies_browser: str = ""
     import_max_height: int = 1080
     ytdlp_path: str = ""

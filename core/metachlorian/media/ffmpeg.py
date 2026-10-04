@@ -151,7 +151,23 @@ def technical_metadata(path: str | Path) -> dict[str, Any]:
     hint_src = " ".join(str(x) for x in (tags.get("com.apple.quicktime.camera.identifier"), tags.get("gamma"), tags.get("comment"), transfer, out.get("video_profile")) if x).lower()
     out["log_hint"] = next((h for h in LOG_HINTS if h != "hlg" and h in hint_src), None)
     out["tags"] = {k: v_ for k, v_ in tags.items() if len(str(v_)) < 200}
+    if out.get("hdr"):
+        out["max_luminance"] = hdr_peak_nits(path)
     return out
+
+
+def hdr_peak_nits(path: str | Path) -> float | None:
+    """Content peak brightness of HDR10 video: MaxCLL, else the mastering display's peak (first frame's side data)."""
+    try:
+        p = run([ffprobe_bin(), "-v", "error", "-select_streams", "v:0", "-read_intervals", "%+#1", "-show_frames",
+                 "-show_entries", "frame=side_data_list", "-of", "json", str(path)], timeout=60)
+        sds = [sd for f in json.loads(p.stdout).get("frames", []) for sd in f.get("side_data_list", []) or []]
+    except (RuntimeError, ValueError, subprocess.TimeoutExpired):
+        return None
+    cll = next((float(sd["max_content"]) for sd in sds if sd.get("max_content")), None)
+    mastering = next((_ratio(sd.get("max_luminance")) for sd in sds if sd.get("max_luminance")), None)
+    peak = cll or mastering
+    return round(peak, 1) if peak and 100 < peak <= 10000 else None
 
 
 def _exiftool(path: str | Path) -> dict[str, Any]:
@@ -203,20 +219,98 @@ def resolution_class(w: int, h: int) -> str:
 
 # ---------------------------------------------------------------- renditions
 
+# ---------------------------------------------------------------------- display conversion
+# Everything people look at and every model reads is the proxy, so the proxy is display-referred SDR
+# BT.709 whatever the source: any bit depth (8-16 bit, float), chroma (4:2:0 / 4:2:2 / 4:4:4, alpha),
+# matrix, range or transfer. HDR (PQ, HLG) is tone-mapped per BT.2408: reference white 203 nits maps to SDR
+# white, and highlights up to the stream's peak (or 1000 nits) roll off softly above 70%.
+REFERENCE_WHITE_NITS = 203
+# ffprobe's colour names that zscale accepts as-is; the few it does not know are translated.
+_MATRIX = {"bt709", "fcc", "bt470bg", "smpte170m", "smpte240m", "ycgco", "bt2020nc", "bt2020c", "chroma-derived-nc",
+           "chroma-derived-c", "ictcp"}
+_PRIM = {"bt709", "bt470m", "bt470bg", "smpte170m", "smpte240m", "film", "bt2020", "smpte428", "smpte431", "smpte432",
+         "jedec-p22", "ebu3213"}
+_TRC = {"bt709", "smpte170m", "smpte240m", "bt470m", "bt470bg", "linear", "log100", "log316", "iec61966-2-4",
+        "iec61966-2-1", "bt2020-10", "bt2020-12", "smpte2084", "arib-std-b67"}
+_TRC_ALIAS = {"gamma22": "bt470m", "gamma28": "bt470bg", "bt1361e": "bt709", "smpte428": "bt709"}
+_HDR_TRC = {"smpte2084", "arib-std-b67"}
+
+
+def _is_rgb(pix: str) -> bool:
+    return pix.startswith(("gbr", "rgb", "bgr", "argb", "abgr", "0rgb", "0bgr", "x2rgb", "x2bgr"))
+
+
+def display_filter(tech: dict[str, Any], height: int | None = None, peak_nits: float | None = None) -> str:
+    """ffmpeg filter chain: any source -> 8-bit 4:2:0 SDR BT.709, limited range, progressive, scaled to ``height``."""
+    pix = tech.get("pix_fmt") or ""
+    h = int(tech.get("height") or 1080)
+    sd = h <= 576
+    parts: list[str] = []
+    if tech.get("interlaced"):
+        parts.append("bwdif=mode=send_frame:deint=interlaced")
+    if height:
+        parts.append(f"scale=-2:'min({height},ih)':flags=bicubic")
+    if "a" in pix.replace("gray", "").split("p")[0] or pix.startswith(("yuva", "gbrap", "rgba", "bgra", "argb", "abgr", "ya")):
+        parts.append("format=gbrp16le" if _is_rgb(pix) else "format=yuv444p16le")  # drop alpha (premultiplied: over black)
+    rgb = _is_rgb(pix)
+    jpeg = pix.startswith("yuvj")
+    t_in = _TRC_ALIAS.get(tech.get("color_transfer") or "", tech.get("color_transfer"))
+    trc = t_in if t_in in _TRC else "bt709"
+    p_in = tech.get("color_primaries")
+    # Untagged: SD is BT.601 (PAL or NTSC primaries), HD and up BT.709 — what players assume.
+    hdr = trc in _HDR_TRC
+    prim = p_in if p_in in _PRIM else ("bt2020" if hdr else "bt470bg" if sd and h in (576, 288) else "smpte170m" if sd else "bt709")
+    rng = {"pc": "full", "jpeg": "full", "tv": "limited", "mpeg": "limited"}.get(tech.get("color_range") or "",
+                                                                                "full" if rgb or jpeg else "limited")
+    m_in = tech.get("color_space")
+    mat = "gbr" if rgb else m_in if m_in in _MATRIX else ("bt2020nc" if hdr else "smpte170m" if sd or jpeg else "bt709")
+    # Stamp the (normalised) description on the frames once, so every conversion step agrees, even for untagged files.
+    parts.append(f"setparams=color_primaries={prim}:color_trc={trc}:colorspace={mat}:range={'pc' if rng == 'full' else 'tv'}")
+    if hdr:
+        peak = max(1.0, (peak_nits or tech.get("max_luminance") or 1000.0) / REFERENCE_WHITE_NITS)
+        parts += [f"zscale=t=linear:npl={REFERENCE_WHITE_NITS}", "format=gbrpf32le", "zscale=p=bt709",
+                  f"tonemap=tonemap=mobius:param=0.7:peak={peak:.3f}:desat=0",
+                  "zscale=t=bt709:m=bt709:r=limited:dither=error_diffusion"]
+    else:
+        parts.append("zscale=t=bt709:p=bt709:m=bt709:r=limited:dither=error_diffusion")
+    parts.append("format=yuv420p")
+    return ",".join(parts)
+
+
+BT709_TAGS = ["-colorspace", "bt709", "-color_trc", "bt709", "-color_primaries", "bt709", "-color_range", "tv"]
+_DECODE_ERR = re.compile(r"error while decoding|corrupt|concealing \d+|Invalid NAL|missing picture|decode_slice_header error|"
+                         r"Invalid data found|non-existing PPS|top block unavailable|left block unavailable", re.I)
+
+
 def make_proxy(src: str | Path, dst: str | Path, height: int = 540, crf: int = 26, fps_cap: float = 30.0,
-               src_fps: float | None = None) -> None:
-    """H.264 proxy with a 1 s GOP for instant seeking/scrubbing, faststart for streaming."""
+               src_fps: float | None = None, tech: dict[str, Any] | None = None) -> dict[str, Any]:
+    """H.264 proxy with a 1 s GOP for instant seeking/scrubbing, faststart for streaming, converted to display
+    SDR BT.709 (see display_filter). Returns how the colour was handled and how many decode errors were seen."""
     dst = Path(dst)
     tmp = dst.with_suffix(".tmp.mp4")
     gop = max(1, int(round(min(src_fps or fps_cap, fps_cap))))
-    vf = f"scale=-2:'min({height},ih)':flags=bicubic,format=yuv420p"
-    if src_fps and src_fps > fps_cap + 0.5:
-        vf = f"fps={fps_cap}," + vf
-    args = [ffmpeg_bin(), "-y", "-v", "error", "-i", str(src), "-map", "0:v:0", "-map", "0:a:0?",
-            "-vf", vf, "-c:v", "libx264", "-preset", "veryfast", "-crf", str(crf), "-g", str(gop), "-keyint_min", str(gop),
-            "-sc_threshold", "0", "-c:a", "aac", "-b:a", "96k", "-ac", "2", "-movflags", "+faststart", "-map_metadata", "-1", str(tmp)]
-    run(args)
-    tmp.replace(dst)
+    pre = f"fps={fps_cap}," if src_fps and src_fps > fps_cap + 0.5 else ""
+    chains = []
+    if tech:
+        chains.append(("display", pre + display_filter(tech, height)))
+    chains.append(("basic", pre + f"scale=-2:'min({height},ih)':flags=bicubic,format=yuv420p"))
+    last: Exception | None = None
+    for kind, vf in chains:
+        args = [ffmpeg_bin(), "-y", "-v", "error", "-i", str(src), "-map", "0:v:0", "-map", "0:a:0?",
+                "-vf", vf, "-c:v", "libx264", "-preset", "veryfast", "-crf", str(crf), "-g", str(gop), "-keyint_min", str(gop),
+                "-sc_threshold", "0", *BT709_TAGS, "-c:a", "aac", "-b:a", "96k", "-ac", "2", "-movflags", "+faststart",
+                "-map_metadata", "-1", str(tmp)]
+        try:
+            p = run(args)
+        except RuntimeError as e:  # e.g. a colour description zimg cannot convert: fall back rather than fail
+            last = e
+            continue
+        tmp.replace(dst)
+        errs = sum(1 for line in p.stderr.decode(errors="replace").splitlines() if _DECODE_ERR.search(line))
+        hdr = bool(tech and (tech.get("color_transfer") or "") in _HDR_TRC)
+        return {"colour": ("hdr_tonemapped" if hdr else "converted") if kind == "display" else "unconverted",
+                "decode_errors": errs, "fallback_reason": str(last)[-300:] if last else None}
+    raise last or RuntimeError("proxy failed")
 
 
 def extract_audio(src: str | Path, dst: str | Path, rate: int = 16000) -> bool:
@@ -364,6 +458,38 @@ def loudness(src: str | Path) -> dict[str, Any]:
         "true_peak_dbfs": grab(r"Peak:\s*(-?[\d.]+|-inf) dBFS"),
         "momentary": momentary,
     }
+
+
+def render_master(src: str | Path, dst_stem: str | Path, start: float, end: float, tech: dict[str, Any] | None = None) -> Path:
+    """A trimmed copy of an original that keeps its quality for editing: 10-bit and 4:2:2 become ProRes 422 HQ,
+    4:4:4 / RGB / alpha / 12-bit and up ProRes 4444 (10-bit, or 12-bit with alpha in ProRes itself), colour tags (HDR, log,
+    BT.2020) and interlacing kept, PCM audio. Plain 8-bit 4:2:0 stays H.264 at near-transparent quality. Returns the file."""
+    tech = tech or technical_metadata(src)
+    pix = tech.get("pix_fmt") or ""
+    depth = int(tech.get("bit_depth") or 8)
+    alpha = pix.startswith(("yuva", "gbrap", "rgba", "bgra", "argb", "abgr", "ya"))
+    rich = depth > 8 or (tech.get("chroma") in ("4:2:2", "4:4:4")) or alpha or _is_rgb(pix) or bool(tech.get("hdr"))
+    dur = max(0.04, end - start)
+    tags = []
+    for opt, key in (("-colorspace", "color_space"), ("-color_trc", "color_transfer"), ("-color_primaries", "color_primaries"),
+                     ("-color_range", "color_range")):
+        if tech.get(key) and tech[key] not in ("unknown", "reserved"):
+            tags += [opt, str(tech[key])]
+    vf = ["-vf", "setfield=tff"] if tech.get("interlaced") else []
+    il = ["-flags", "+ildct+ilme"] if tech.get("interlaced") else []
+    if rich:
+        four = tech.get("chroma") == "4:4:4" or alpha or _is_rgb(pix) or depth > 10
+        dst = Path(dst_stem).with_suffix(".mov")
+        venc = ["-c:v", "prores_ks", "-profile:v", "4" if four else "3", "-vendor", "apl0",
+                "-pix_fmt", ("yuva444p10le" if alpha else "yuv444p10le") if four else "yuv422p10le", *il]
+        aenc = ["-c:a", "pcm_s24le"]
+    else:
+        dst = Path(dst_stem).with_suffix(".mp4")
+        venc = ["-c:v", "libx264", "-preset", "medium", "-crf", "14", "-pix_fmt", "yuv420p", *il]
+        aenc = ["-c:a", "aac", "-b:a", "256k"]
+    run([ffmpeg_bin(), "-y", "-v", "error", "-ss", f"{start:.3f}", "-i", str(src), "-t", f"{dur:.3f}", "-map", "0:v:0", "-map", "0:a?",
+         *vf, *venc, *tags, *aenc, "-map_metadata", "0", "-movflags", "+faststart", str(dst)])
+    return dst
 
 
 def render_clip(src: str | Path, dst: str | Path, start: float, end: float, reencode: bool = True, height: int | None = None) -> None:

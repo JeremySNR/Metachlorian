@@ -16,10 +16,17 @@ from ..db import Database, dumps, now
 
 log = logging.getLogger(__name__)
 
-VIDEO_EXTS = {".mp4", ".mov", ".m4v", ".mkv", ".webm", ".avi", ".mxf", ".mts", ".m2ts", ".ts", ".mpg", ".mpeg",
-              ".wmv", ".flv", ".3gp", ".dv", ".braw", ".r3d", ".insv", ".lrv"}
-# Formats ffmpeg cannot decode without vendor SDKs: registered but flagged.
-NEEDS_VENDOR_SDK = {".braw", ".r3d"}
+# Everything FFmpeg decodes is analysed: any codec, bit depth (8-16 bit, float), chroma and colour space.
+VIDEO_EXTS = {".mp4", ".mov", ".qt", ".m4v", ".mkv", ".webm", ".avi", ".mxf", ".gxf", ".lxf", ".mts", ".m2ts", ".m2t", ".ts",
+              ".mpg", ".mpeg", ".m2v", ".mpv", ".vob", ".mod", ".tod", ".wmv", ".asf", ".flv", ".f4v", ".3gp", ".3g2", ".dv",
+              ".divx", ".ogv", ".nut", ".y4m", ".ivf", ".rm", ".rmvb", ".cine", ".h264", ".264", ".h265", ".265", ".hevc",
+              ".insv", ".360", ".lrv", ".wtv"}
+# Camera raw that only the maker's decoder can read. Registered and analysed through a configured raw
+# decoder (Settings > Formats) that converts it to a working master; without one, reported clearly.
+RAW_EXTS = {".braw": "Blackmagic RAW", ".r3d": "RED R3D", ".ari": "ARRIRAW", ".arx": "ARRIRAW HDE", ".crm": "Canon Cinema RAW Light",
+            ".nev": "Nikon N-RAW", ".mcraw": "MotionCam RAW"}
+VIDEO_EXTS |= set(RAW_EXTS)
+NEEDS_VENDOR_SDK = set(RAW_EXTS)  # kept for callers; raw files are no longer rejected at registration
 # Camera sidecar/low-res proxies that duplicate a master file.
 SKIP_SUFFIXES = {".lrv", ".thm"}
 
@@ -123,12 +130,12 @@ def register_file(db: Database, path: str | Path, source_id: int | None = None, 
             c.execute("UPDATE asset_paths SET mtime=?, size=?, seen_at=? WHERE path=?", (st.st_mtime, st.st_size, now(), key))
             return "changed", row["id"]
         uid = new_uid("a")
-        status = "error" if suffix in NEEDS_VENDOR_SDK else "new"
+        status = "new"
         cur = c.execute(
             "INSERT INTO assets(uid, source_id, path, filename, local_path, size, mtime, quick_hash, content_hash, status, priority, created_at, updated_at, summary)"
             " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (uid, source_id, key, name, None if str(lp) == key else str(lp), st.st_size, st.st_mtime, qh, ch, status, priority, now(), now(),
-             dumps({"error": "Needs the camera vendor's SDK to decode; transcode to ProRes/H.264 first."} if status == "error" else {})))
+             dumps({})))
         aid = cur.lastrowid
         c.execute("INSERT INTO asset_paths(asset_id, path, mtime, size, seen_at) VALUES(?,?,?,?,?)", (aid, key, st.st_mtime, st.st_size, now()))
         return "added", aid

@@ -79,6 +79,12 @@ terms:
     synonyms: [interlace, combing, field order, interlace artifacts]
     broader: null
     mappings: {movielabs: null, iptc: null}
+  - id: decode_errors
+    label: Damaged picture
+    definition: The file has stretches the decoder could not read (corruption, an interrupted recording or a bad copy).
+    synonyms: [corrupt, corrupted, damaged, broken file, decode errors, glitches, macroblocking]
+    broader: null
+    mappings: {movielabs: null, iptc: null}
   - id: dropped_frames
     label: Dropped / duplicated frames
     definition: Stutter from dropped, repeated or frame-rate-converted frames.

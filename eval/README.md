@@ -83,6 +83,26 @@ Subtitle references paraphrase and omit lines (e.g. "We have main engine start�
 WER overstates errors. VAD settings were tuned on this set (19% → 15%). Language identification: 4/4 files correct (all English).
 Diarisation counts are approximate (TitaNet-small on 2 s utterances under-clusters; films over-cluster) — known weakness.
 
+## Formats, bit depths and colour
+
+`formats/make_matrix.sh` builds 21 camera-style files plus two fake camera-raw files: Sony XAVC HS (HEVC 4:2:2 10-bit HLG,
+as an A6700 records) and XAVC S-I (H.264 4:2:2 10-bit All-Intra), HLG and HDR10/PQ, HEVC and H.264 4:4:4 at 10 and 12 bit,
+ProRes 422 HQ and 4444 XQ with alpha, DNxHR HQX and 444 (MXF and MOV), XDCAM HD422 and AVCHD interlaced, AV1 and VP9
+10-bit, CineForm 12-bit RGB, uncompressed v210, FFV1 16-bit RGB, JPEG 2000 12-bit, MJPEG and DV. Results
+(`results/formats-matrix.txt`), with every file run through the whole pipeline:
+
+- **All 21 decodable files analysed with no failed step**; every proxy is browser-playable H.264 4:2:0 8-bit tagged BT.709.
+- **Colour:** mean difference from the true test pattern (0–255) is 1–2 for files tagged correctly or stored as RGB or
+  JPEG, and about 9 for untagged files that FFmpeg itself encoded with BT.601 maths. We show those as BT.709, as every
+  player does, so the mismatch is in the file. HDR (HLG, PQ) is tone-mapped to SDR (BT.2408 reference white,
+  soft roll-off): 11–13 from the SDR pattern, against 74–95 before the change, when HDR previews were neither converted
+  nor labelled.
+- **Camera raw** (BRAW, R3D, ARRIRAW, Canon RAW Light, N-RAW) fails once with a message naming the maker's decoder,
+  and works through a configured decoder (tested with a stand-in tool).
+- **Damaged files** are reported (`quality.decode_errors`) instead of silently giving a black or glitched preview. The test
+  set found one this way: Ubuntu 24.04's libx264 writes 10-bit 4:2:2 streams no FFmpeg can decode, whereas the same
+  profile from a current x264 decodes cleanly with FFmpeg 6.1.
+
 ## People (face identity)
 
 Demo library, CPU: 134 recognisable faces in 63 files → 67 people (19 s for the whole library). CREMA-D's 10 different

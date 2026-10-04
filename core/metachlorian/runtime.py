@@ -132,7 +132,7 @@ def start_background(settings: Settings) -> dict[str, Any]:
 def save_settings(settings: Settings, changes: dict[str, Any]) -> None:
     """Apply admin changes and persist them to <data_dir>/config.toml."""
     editable = {"workers", "proxy_height", "sprite_interval", "max_segment_s", "allow_remote", "face_identity", "vlm", "llm", "require_auth",
-                "import_cookies_browser", "import_max_height", "ytdlp_path"}
+                "import_cookies_browser", "import_max_height", "ytdlp_path", "raw_decoders"}
     for k, v in changes.items():
         if k not in editable:
             raise ValueError(f"'{k}' cannot be changed here")

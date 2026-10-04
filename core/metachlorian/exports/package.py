@@ -195,7 +195,9 @@ def build_package(db: Database, settings: Settings, items: list[dict[str, Any]],
     for r in resolved:
         d = r["doc"]
         a = asset_docs[d["asset_id"]]
-        src = Path(a["path"]) if not str(a["path"]).startswith("s3://") else Path(db.q1("SELECT local_path FROM assets WHERE id=?", (a["id"],))["local_path"] or "")
+        # The cached copy (object storage) or decoded master (camera raw) when there is one, else the file itself.
+        lp = db.q1("SELECT local_path FROM assets WHERE id=?", (a["id"],))["local_path"]
+        src = Path(lp) if lp else Path(a["path"])
         proxy = settings.media_dir / d["asset_uid"] / "proxy.mp4"
         h_in = max(0.0, r["in"] - handles)
         h_out = min(float(a.get("duration") or r["out"]), r["out"] + handles)
@@ -206,7 +208,8 @@ def build_package(db: Database, settings: Settings, items: list[dict[str, Any]],
         if media_policy in ("proxies", "trimmed_originals", "stringout"):
             fname = f"{r['item_id']}.mp4"
             if media_policy == "trimmed_originals" and src.exists():
-                ffmpeg.render_clip(src, tmp / "media" / fname, h_in, h_out, reencode=True)
+                # Keeps bit depth, chroma, HDR/log tags and alpha (ProRes when the original needs it).
+                fname = ffmpeg.render_master(src, tmp / "media" / r["item_id"], h_in, h_out, a.get("technical")).name
                 kind = "trimmed_original"
             else:
                 ffmpeg.render_clip(proxy if proxy.exists() else src, tmp / "media" / fname, h_in, h_out, reencode=True)
@@ -438,12 +441,19 @@ def _concat(tmp: Path, parts: list[tuple[Path, float, float]], out: Path, rate: 
     for p, a, b in parts:
         args += ["-ss", f"{a:.3f}", "-t", f"{b - a:.3f}", "-i", str(p)]
     fc = []
-    for i in range(len(parts)):
-        fc.append(f"[{i}:v]scale={w}:{h}:force_original_aspect_ratio=decrease,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps={rate.numerator}/{rate.denominator}[v{i}]")
+    for i, (p, _, _) in enumerate(parts):
+        # A viewing rendition: every part converted to SDR BT.709 first, so HDR, log-tagged, 10-bit and SDR clips cut together.
+        try:
+            disp = ffmpeg.display_filter(ffmpeg.technical_metadata(p)).rsplit(",format=yuv420p", 1)[0] + ","
+        except RuntimeError:
+            disp = ""
+        fc.append(f"[{i}:v]{disp}scale={w}:{h}:force_original_aspect_ratio=decrease,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2,setsar=1,"
+                  f"fps={rate.numerator}/{rate.denominator}[v{i}]")
         fc.append(f"[{i}:a]aformat=sample_rates=48000:channel_layouts=stereo[a{i}]")
     fc.append("".join(f"[v{i}][a{i}]" for i in range(len(parts))) + f"concat=n={len(parts)}:v=1:a=1[v][a]")
     args += ["-filter_complex", ";".join(fc), "-map", "[v]", "-map", "[a]", "-c:v", "libx264", "-preset", "fast", "-crf", "20",
-             "-g", str(max(1, round(float(rate)))), "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", str(out)]
+             "-g", str(max(1, round(float(rate)))), "-pix_fmt", "yuv420p", *ffmpeg.BT709_TAGS, "-c:a", "aac", "-b:a", "160k",
+             "-movflags", "+faststart", str(out)]
     try:
         ffmpeg.run(args)
     except RuntimeError:
@@ -512,12 +522,16 @@ def export_clip(db: Database, settings: Settings, shot_uid: str, a_in: float | N
     out_dir = out_dir or settings.export_dir / "clips"
     out_dir.mkdir(parents=True, exist_ok=True)
     stem = f"{Path(a['filename']).stem}_{T.timecode(a_in, rate).replace(':', '').replace(';', '')}-{T.timecode(a_out, rate).replace(':', '').replace(';', '')}"
-    if mode in ("file", "proxy"):
-        src = Path(a["path"]) if mode == "file" else settings.media_dir / a["uid"] / "proxy.mp4"
-        if mode == "file" and not src.exists():
+    if mode == "proxy":
+        dst = out_dir / f"{stem}_proxy.mp4"
+        ffmpeg.render_clip(settings.media_dir / a["uid"] / "proxy.mp4", dst, a_in, a_out, reencode=True)
+        return {"mode": mode, "file": str(dst), "bytes": dst.stat().st_size, "reference": ref}
+    if mode == "file":
+        lp = db.q1("SELECT local_path FROM assets WHERE id=?", (doc["asset_id"],))["local_path"]
+        src = Path(lp) if lp else Path(a["path"])  # a camera-raw file's decoded master
+        if not src.exists():
             raise FileNotFoundError("the original file is not reachable from this server; use mode=proxy")
-        dst = out_dir / f"{stem}{'_proxy' if mode == 'proxy' else ''}.mp4"
-        ffmpeg.render_clip(src, dst, a_in, a_out, reencode=True)
+        dst = ffmpeg.render_master(src, out_dir / stem, a_in, a_out, a.get("technical"))
         return {"mode": mode, "file": str(dst), "bytes": dst.stat().st_size, "reference": ref}
     if mode in ("otio", "fcpxml", "edl"):
         seq = T.Sequence(stem, rate, a.get("width") or 1920, a.get("height") or 1080, [T.Clip(
