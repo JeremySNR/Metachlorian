@@ -382,6 +382,8 @@ export interface ShotDoc {
   summary: ShotSummary
   /** Recognised people in the shot (face identity), largest face first. */
   people_identities?: PersonRef[]
+  /** Every folder the file was found in (a duplicate lives in several). */
+  folders?: string[]
 }
 
 // ---------------------------------------------------------------- assets
@@ -526,6 +528,8 @@ export interface Folder {
   captured_from: string | null
   captured_to: string | null
   subfolders: number
+  /** Files per edit stage term; "unclassified" until the file is analysed. */
+  edit_types?: Record<string, number>
 }
 
 export interface FolderList {

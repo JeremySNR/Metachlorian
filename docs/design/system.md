@@ -451,7 +451,9 @@ button appears when there are 2 or more chips.
   (quiet sm), then a collapse button (`panel-left`).
 - Sections are RAC `Disclosure`s. Each facet maps 1:1 to a `search_shots` filter (ADR 011) and its values
   come from the controlled vocabularies (ADR 010; labels from `list_vocabularies`, never hard-coded). In
-  this order:
+  this order, after the **Scope** control at the top (Everything / a folder / a collection; a folder tree
+  with file counts, hours and shoot dates; shown as a filled scope chip leading the chip row, and settable by
+  typing `folder:"…"` or `collection:"…"`):
   1. **Edit stage** (`edit_type`: Raw, Selects, Assembly, Rough cut, Fine cut, Locked cut, Finished,
      Programme recording, shown as an ordered list);
   2. **Rights** (intended use + verdict, see below);

@@ -124,8 +124,13 @@ function FolderList({ nodes, expanded, onToggle, open, onOpen, flat, level }: { 
 function FolderRow({ folder: f, hasChildren, expanded, onToggle, open, onOpen, flat }: { folder: FolderT; hasChildren: boolean; expanded: boolean; onToggle: () => void; open: boolean; onOpen: (open: boolean) => void; flat: boolean }) {
   const navigate = useNavigate()
   const { label } = useVocabularies()
-  const files = useQuery(folderAssetsQuery(f.path))
-  const stages = files.data ? editStageCounts(files.data.assets) : []
+  // The file list loads only when the folder is opened; the edit-stage summary comes with the folder.
+  const files = useQuery({ ...folderAssetsQuery(f.path), enabled: open })
+  const stages = f.edit_types
+    ? Object.entries(f.edit_types).map(([term, count]) => ({ term: term === 'unclassified' ? null : term, count }))
+    : files.data
+      ? editStageCounts(files.data.assets)
+      : []
   const id = `files-${f.path.replace(/[^a-z0-9]+/gi, '-')}`
   const dates = formatDateRange(f.captured_from, f.captured_to)
   return (
@@ -166,12 +171,12 @@ function FolderRow({ folder: f, hasChildren, expanded, onToggle, open, onOpen, f
         <div>
           <dt>Edit stage</dt>
           <dd data-testid="folder-stages">
-            {files.isLoading
+            {!f.edit_types && files.isLoading
               ? '…'
               : stages.length
                 ? stages.map((x) => `${x.term ? label('edit_type', x.term) : 'Not classified'} ${formatNumber(x.count)}`).join(' · ')
                 : '—'}
-            {files.data && files.data.total > files.data.assets.length ? ` (first ${formatNumber(files.data.assets.length)} files)` : ''}
+            {!f.edit_types && files.data && files.data.total > files.data.assets.length ? ` (first ${formatNumber(files.data.assets.length)} files)` : ''}
           </dd>
         </div>
       </dl>

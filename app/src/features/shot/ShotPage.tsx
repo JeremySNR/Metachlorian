@@ -208,7 +208,9 @@ export function ShotPage() {
             <dd>{edit ? humanise(edit) : 'Not classified yet'}</dd>
             <dt>Folder</dt>
             <dd>
-              <FolderCrumbs folder={dirname(d.path)} />
+              {(d.folders?.length ? d.folders : [dirname(d.path)]).map((f) => (
+                <FolderCrumbs key={f} folder={f} />
+              ))}
             </dd>
             <dt>Path</dt>
             <dd style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)' }}>{d.path}</dd>

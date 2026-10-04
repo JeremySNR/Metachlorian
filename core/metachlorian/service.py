@@ -3,6 +3,7 @@ server offer, with permission checks and audit logging in one place, so
 agents are never second-class users and never get more than people do."""
 from __future__ import annotations
 
+import posixpath
 import shutil
 import threading
 from collections import Counter
@@ -105,6 +106,9 @@ class Library:
         neighbours = self.db.q("SELECT uid, idx FROM shots WHERE asset_id=? AND active=1 AND idx IN (?, ?)", (doc["asset_id"], doc["idx"] - 1, doc["idx"] + 1))
         doc["neighbours"] = {("previous" if r["idx"] < doc["idx"] else "next"): r["uid"] for r in neighbours}
         doc["summary"] = summarise_doc(doc)
+        # Every folder the file was found in (duplicates live in several).
+        doc["folders"] = sorted({posixpath.dirname(r["path"].replace("\\", "/"))
+                                 for r in self.db.q("SELECT path FROM asset_paths WHERE asset_id=?", (doc["asset_id"],))})
         self._log(p, "get_shot", uid)
         return doc
 

@@ -43,7 +43,8 @@ def list_folders(db: Database, q: str = "", parent: str | None = None, limit: in
     """Every folder that holds footage (directly or below), with file, shot and hour counts and the date range."""
     sources = sorted(((r["id"], _norm(r["uri"]).rstrip("/")) for r in db.q("SELECT id, uri FROM sources")), key=lambda x: -len(x[1]))
     shots = {r[0]: r[1] for r in db.q("SELECT asset_id, COUNT(*) FROM shot_index GROUP BY asset_id")}
-    rows = db.q("SELECT p.path, a.id, a.duration, a.mtime, json_extract(a.tech, '$.capture_date') cap FROM asset_paths p"
+    rows = db.q("SELECT p.path, a.id, a.duration, a.mtime, json_extract(a.tech, '$.capture_date') cap,"
+                " json_extract(a.summary, '$.edit_type.term') edit FROM asset_paths p"
                 " JOIN assets a ON a.id=p.asset_id WHERE a.deleted_at IS NULL")
     agg: dict[str, dict[str, Any]] = {}
     for r in rows:
@@ -55,16 +56,18 @@ def list_folders(db: Database, q: str = "", parent: str | None = None, limit: in
         cap = str(r["cap"] or "")[:10] or dt.datetime.fromtimestamp(r["mtime"], dt.timezone.utc).date().isoformat()
         d = directory
         while True:
-            e = agg.setdefault(d, {"assets": set(), "hours": 0.0, "shots": 0, "from": cap, "to": cap, "root": root, "children": set()})
+            e = agg.setdefault(d, {"assets": set(), "hours": 0.0, "shots": 0, "from": cap, "to": cap, "root": root, "children": set(), "edit": {}})
             if r["id"] not in e["assets"]:
                 e["assets"].add(r["id"])
+                e["edit"][r["edit"]] = e["edit"].get(r["edit"], 0) + 1
                 e["hours"] += (r["duration"] or 0) / 3600
                 e["shots"] += shots.get(r["id"], 0)
                 e["from"], e["to"] = min(e["from"], cap), max(e["to"], cap)
             if d == root or "/" not in d.strip("/"):
                 break
             up = posixpath.dirname(d)
-            agg.setdefault(up, {"assets": set(), "hours": 0.0, "shots": 0, "from": cap, "to": cap, "root": root, "children": set()})["children"].add(d)
+            agg.setdefault(up, {"assets": set(), "hours": 0.0, "shots": 0, "from": cap, "to": cap, "root": root, "children": set(),
+                                "edit": {}})["children"].add(d)
             d = up
     out = []
     for d, e in agg.items():
@@ -76,7 +79,9 @@ def list_folders(db: Database, q: str = "", parent: str | None = None, limit: in
             continue
         out.append({"path": d, "name": posixpath.basename(d) or d, "relative": rel, "source": e["root"],
                     "depth": rel.count("/"), "files": len(e["assets"]), "shots": e["shots"], "hours": round(e["hours"], 3),
-                    "captured_from": e["from"], "captured_to": e["to"], "subfolders": len(e["children"])})
+                    "captured_from": e["from"], "captured_to": e["to"], "subfolders": len(e["children"]),
+                    # Files per edit stage (raw / selects / finished); "unclassified" until the rollup has run.
+                    "edit_types": {(k or "unclassified"): v for k, v in sorted(e["edit"].items(), key=lambda kv: -kv[1])}})
     out.sort(key=lambda x: x["relative"].lower())
     return {"total": len(out), "folders": out[:limit]}
 

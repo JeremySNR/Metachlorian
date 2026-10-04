@@ -210,6 +210,9 @@ class SearchEngine:
         req = self._scope_from_text(req)
         parsed = parse(req.q) if (req.q and req.parse_query) else Parsed(text=req.q, semantic=req.q, keywords=req.q.split())
         filters = {**parsed.filters, **{k: v for k, v in req.filters.items() if v is not None}}
+        for k in ("folder", "collection"):  # always echoed as lists, however they were given
+            if k in filters:
+                filters[k] = _as_list(filters[k]) or None
         prefer = {k: list(v) for k, v in parsed.prefer.items()}
         for k, v in req.prefer.items():
             prefer.setdefault(k, []).extend(t for t in v if t not in prefer.get(k, []))
@@ -572,7 +575,12 @@ class SearchEngine:
                 notes.append(f"No folder called \"{name}\"." + (f" Closest: {', '.join(near)}." if near else ""))
         for ref in _as_list(filters.get("collection")):
             if not self._collection_ids([ref]):
-                notes.append(f"No collection called \"{ref}\".")
+                import difflib
+
+                names = [r["name"] for r in self.db.q("SELECT name FROM collections")]
+                near = difflib.get_close_matches(ref.lower(), [n.lower() for n in names], n=3, cutoff=0.5)
+                near = [n for n in names if n.lower() in near]
+                notes.append(f"No collection called \"{ref}\"." + (f" Closest: {', '.join(near)}." if near else ""))
         return notes
 
     def _person_names(self) -> dict[str, int]:
