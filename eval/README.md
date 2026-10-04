@@ -55,7 +55,7 @@ sets come from the same 63-file library, so treat them as indicative.
 | Setting top-1 / any kept term | 69% / 79% | 76% / 80% |
 | Time of day | 93% | 93% |
 | People count bucket | 78% | 80% |
-| On-screen text present | 87% | 96% |
+| On-screen text present | 92% | 96% |
 | Shot size exact / within one step | 35% / 79% | 45% / 91% |
 | Aerial precision / recall | 0.63 / 0.63 | 0.75 / 1.00 |
 | Blank / unusable frames flagged | 3 / 3 | — |

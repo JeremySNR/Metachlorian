@@ -29,7 +29,7 @@ def _norm(t: str) -> str:
 
 class OcrAnalyser(Analyser):
     name = "ocr"
-    version = "1.0.0"
+    version = "1.1.0"
     requires = ("keyframes",)
     priority = 45
     description = "On-screen text with positions, titles, lower thirds and burned-in captions."
@@ -52,8 +52,15 @@ class OcrAnalyser(Analyser):
             kfs = shot.keyframes
             if len(kfs) > 3:  # first, middle, last: enough for titles, lower thirds and captions
                 kfs = [kfs[0], kfs[len(kfs) // 2], kfs[-1]]
+            # Middle keyframe first; the others only when it shows text (needed to tell titles, lower thirds
+            # and changing captions apart). Most shots have no text, so this saves two detector passes each.
+            if len(kfs) > 1:
+                mid = len(kfs) // 2
+                kfs = [kfs[mid]] + kfs[:mid] + kfs[mid + 1:]
             last_small, last_res = None, None
-            for kf in kfs:
+            for n, kf in enumerate(kfs):
+                if n == 1 and not items:
+                    break
                 rgb = load_keyframe(ctx, kf)
                 H, W = rgb.shape[:2]
                 small = cv2.resize(cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY), (64, 36), interpolation=cv2.INTER_AREA).astype(np.float32) / 255
