@@ -1,3 +1,4 @@
+import brandMark from '../../assets/metachlorian-mark.svg'
 import { useEffect, useState } from 'react'
 import { Link, Outlet, useNavigate } from '@tanstack/react-router'
 import { TooltipTrigger, Focusable } from 'react-aria-components'
@@ -146,12 +147,7 @@ export function AppShell() {
       </a>
       <header className={s.topbar}>
         <Link to="/search" className={s.brand} aria-label="Metachlorian, go to search">
-          <span className={s.mark} aria-hidden="true">
-            <span />
-            <span />
-            <span />
-            <span />
-          </span>
+          <img className={s.mark} src={brandMark} alt="" aria-hidden="true" />
           <span className={s.wordmark}>Metachlorian</span>
         </Link>
         {compactNav ? (
