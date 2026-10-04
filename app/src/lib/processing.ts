@@ -3,32 +3,33 @@
  * An "updating" file is analysed and searchable, refreshing with newer analyser versions.
  */
 import type { AnalyserInfo, ProcessingAsset, QueueJob } from '../api/types'
-import { humanise, plural } from './format'
+import { humanise } from './format'
 
 export const STEPS: { label: string; analysers: string[] }[] = [
-  { label: 'Probe', analysers: ['technical'] },
+  { label: 'Probe', analysers: ['technical', 'place'] },
   { label: 'Proxies', analysers: ['proxy'] },
   { label: 'Shots', analysers: ['shots', 'keyframes'] },
-  { label: 'Vision', analysers: ['embed', 'visual_tags', 'motion', 'quality', 'ocr', 'people', 'caption'] },
+  { label: 'Vision', analysers: ['embed', 'visual_tags', 'motion', 'quality', 'ocr', 'people', 'faces', 'caption'] },
   { label: 'Audio', analysers: ['audio', 'speech'] },
   { label: 'Index', analysers: ['fusion', 'rollup', 'text_embed'] },
 ]
 
 export type StepState = 'done' | 'active' | 'waiting' | 'failed'
 
-/** Analysers being refreshed for an "updating" file: its running jobs, plus the queued ones when the core lists them. */
-export function updatingAnalysers(a: ProcessingAsset, running: QueueJob[]): string[] {
-  const names = [...running.filter((j) => j.uid === a.uid).map((j) => j.analyser), ...(a.pending ?? [])]
-  return [...new Set(names)]
+/** Analysers being refreshed for an "updating" file: the core's `pending` list (queued and running, in queue order). */
+export function updatingAnalysers(a: ProcessingAsset): string[] {
+  return [...new Set(a.pending)]
 }
 
-/** "Updating: rollup, fusion" / "Updating: fusion + 2 queued" / "Updating: 2 steps queued". */
-export function updatingText(a: ProcessingAsset, running: QueueJob[]): string {
-  const names = updatingAnalysers(a, running).map((n) => humanise(n).toLowerCase())
-  const listed = new Set(updatingAnalysers(a, running))
-  const extra = Math.max(0, a.queued + a.running - listed.size)
-  if (names.length) return `Updating: ${names.join(', ')}${extra ? ` + ${extra} queued` : ''}`
-  return extra ? `Updating: ${plural(extra, 'step')} queued` : 'Updating'
+/** "Updating: rollup, fusion" (every queued or running analyser, by name). */
+export function updatingText(a: ProcessingAsset): string {
+  const names = updatingAnalysers(a).map((n) => humanise(n).toLowerCase())
+  return names.length ? `Updating: ${names.join(', ')}` : 'Updating'
+}
+
+/** Files with queued or running jobs for an analyser ("caption" → 12). */
+export function filesPending(assets: ProcessingAsset[], analyser: string): number {
+  return assets.filter((a) => a.pending.includes(analyser)).length
 }
 
 /** Step states for a queue row from its counts, running and failed jobs (approximate between polls). */
@@ -37,7 +38,7 @@ export function stepStates(a: ProcessingAsset, available: AnalyserInfo[], runnin
   if (a.status === 'updating') {
     // Analysed and searchable: steps stay done except the ones being refreshed.
     const runningSet = new Set(running.filter((j) => j.uid === a.uid).map((j) => j.analyser))
-    const pendingSet = new Set(a.pending ?? [])
+    const pendingSet = new Set(a.pending)
     const failedSet = new Set(failed.filter((j) => j.uid === a.uid).map((j) => j.analyser))
     return STEPS.map((st) => {
       const names = st.analysers.filter((n) => order.includes(n))

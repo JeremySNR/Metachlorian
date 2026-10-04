@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useIsFetching } from '@tanstack/react-query'
 import { useNavigate, useRouterState } from '@tanstack/react-router'
 import { FileTrigger } from 'react-aria-components'
-import { History, ImageUp, Search, Tag, X } from 'lucide-react'
-import { searchByExample, useVocabularies } from '../../api/queries'
+import { History, ImageUp, ScanFace, Search, Tag, X } from 'lucide-react'
+import { searchByExample, useNamedPeople, useVocabularies } from '../../api/queries'
 import { ApiError } from '../../api/client'
 import { IconButton } from '../../components/Button'
 import { Ic } from '../../components/Icon'
@@ -37,7 +37,7 @@ export function saveRecent(q: string) {
 
 interface Suggestion {
   id: string
-  kind: 'tag' | 'recent'
+  kind: 'tag' | 'recent' | 'person'
   label: string
   slate: string
   vocab?: string
@@ -61,6 +61,7 @@ export function SearchBar() {
   const fetching = useIsFetching({ queryKey: ['search'] }) > 0
   const showProgress = useDelayedFlag(fetching || exampleBusy, 400)
   const { vocabs } = useVocabularies()
+  const named = useNamedPeople()
   const example = useUi((u) => u.example)
 
   // URL → field (chip edits rewrite the words; back/forward restore them).
@@ -110,11 +111,20 @@ export function SearchBar() {
         if (out.length >= 8) break
       }
     }
+    if (word.length >= 2) {
+      // People (named face clusters): Tab adds a PERSON filter, like a tag.
+      for (const p of named.data?.people ?? []) {
+        if (p.name && p.name.toLowerCase().split(/\s+/).some((w) => w.startsWith(word))) {
+          out.push({ id: `person:${p.id}`, kind: 'person', label: p.name, slate: 'PERSON', vocab: 'person', term: String(p.id) })
+        }
+        if (out.length >= 12) break
+      }
+    }
     if (!draft.trim()) {
       for (const r of loadRecent()) out.push({ id: `recent:${r}`, kind: 'recent', label: r, slate: 'RECENT' })
     }
     return out
-  }, [word, draft, vocabs])
+  }, [word, draft, vocabs, named.data])
   const showSuggest = open && suggestions.length > 0
 
   const accept = (sug: Suggestion) => {
@@ -267,9 +277,9 @@ export function SearchBar() {
               }}
               onMouseEnter={() => setActive(i)}
             >
-              <Ic icon={sug.kind === 'tag' ? Tag : History} />
+              <Ic icon={sug.kind === 'tag' ? Tag : sug.kind === 'person' ? ScanFace : History} />
               <span>{sug.label}</span>
-              <span className={`${t.slate} ${s.suggestMeta}`}>{sug.kind === 'tag' ? `${sug.slate} · Tab adds` : sug.slate}</span>
+              <span className={`${t.slate} ${s.suggestMeta}`}>{sug.kind === 'recent' ? sug.slate : `${sug.slate} · Tab adds`}</span>
             </div>
           ))}
         </div>

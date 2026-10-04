@@ -2,10 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearch as useRouteSearch } from '@tanstack/react-router'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { CircleAlert, FolderPlus, Info, LayoutGrid, ListVideo, PanelLeftOpen, PanelRightOpen, Rows3, SearchX, SlidersHorizontal, TriangleAlert } from 'lucide-react'
-import type { SearchRequest, SearchResponse, SearchResult, Strictness } from '../../api/types'
+import type { PersonRef, SearchRequest, SearchResponse, SearchResult, Strictness } from '../../api/types'
 import { api, ApiError } from '../../api/client'
 import {
-  buildPackage, PAGE_SIZE, searchByExample, useAddToCollection, useCollections, useCreateCollection, useLibraryStats, useSearch, useShot, useVocabularies,
+  buildPackage, PAGE_SIZE, searchByExample, useAddToCollection, useCollections, useCreateCollection, useLibraryStats, useNamedPeople, useSearch, useShot, useVocabularies,
 } from '../../api/queries'
 import { Button, IconButton } from '../../components/Button'
 import { Sheet } from '../../components/Dialog'
@@ -16,10 +16,11 @@ import { isDrawerRail, isOverlayInspector, useTier } from '../../hooks/useMediaQ
 import { isMod, isTyping, useDocumentKeys } from '../../hooks/useHotkeys'
 import { useDebounced } from '../../hooks/useDebounced'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
-import { activeFilterCount, buildPhraseIndex, chipsFromQuery, removeChip, type SearchState } from '../../lib/chips'
+import { activeFilterCount, buildPhraseIndex, chipsFromQuery, removeChip, type QueryChip, type SearchState } from '../../lib/chips'
 import { MOD } from '../../lib/bridge'
 import { noStrongMatches, strongDivider } from '../../lib/gridLayout'
 import { formatNumber, plural } from '../../lib/format'
+import { isPersonNote, onlyNames, personLabel, personPhrases, PERSON_VOCAB } from '../../lib/people'
 import { stateFromBadge, stateFromVerdict } from '../../lib/rights'
 import { usePrefs, useUi, type ResultsView, type ThumbSize } from '../../lib/store'
 import { Inspector } from '../shot/Inspector'
@@ -42,6 +43,9 @@ export function searchErrorText(err: unknown): string {
   }
   return "The search didn't complete."
 }
+
+/** A chip's value as it reads mid-sentence ("Removing night…"); names keep their capitals. */
+const chipWord = (c: QueryChip) => (c.kind === 'person' ? c.label : c.label.toLowerCase())
 
 export function rightsOf(r: SearchResult) {
   return r.rights ? stateFromVerdict(r.rights.verdict, r.rights.reasons) : stateFromBadge(r.rights_badge)
@@ -97,6 +101,18 @@ export function SearchPage() {
   const total = example ? results.length : (first?.total ?? 0)
   const state = toState(params)
 
+  // People (face identity): PERSON chips name the identities the core filtered by, from named people and the results.
+  const namedPeople = useNamedPeople()
+  const peopleById = useMemo(() => {
+    const m = new Map<number, PersonRef>()
+    for (const r of results) if (Array.isArray(r.people)) for (const p of r.people) m.set(p.id, p)
+    for (const p of namedPeople.data?.people ?? []) m.set(p.id, p)
+    return m
+  }, [results, namedPeople.data])
+  const personPhraseList = useMemo(() => personPhrases(namedPeople.data?.people ?? []), [namedPeople.data])
+  const chipLabel = useCallback((vocab: string, term: string) => (vocab === PERSON_VOCAB ? personLabel(term, peopleById) : label(vocab, term)), [label, peopleById])
+  const personChips = (first?.query.require?.[PERSON_VOCAB]?.length ?? 0) > 0
+
   const stats = useLibraryStats({ refetchInterval: 10_000 })
   const processing = stats.data?.status?.processing ?? 0
   const [seen, setSeen] = useState<{ at: number; shots: number | null }>({ at: 0, shots: null })
@@ -115,10 +131,13 @@ export function SearchPage() {
 
   const hasQuery = Boolean(params.q?.trim() || params.similar || example)
   // The core orders strong matches first; the divider sits after the first strong_count of the whole list.
-  const strength = first ? { total, strong_count: first.strong_count, strictness: first.strictness } : null
+  // A query that is only known names is a person filter (the core doesn't score it): no strong/weak split.
+  const personNames = (first?.query.require?.[PERSON_VOCAB] ?? []).map((id) => personLabel(id, peopleById))
+  const nameOnly = !example && onlyNames(params.q ?? '', personNames)
+  const strength = first && !nameOnly ? { total, strong_count: first.strong_count, strictness: first.strictness } : null
   const split = strongDivider(strength)
   const noStrong = !search.isError && noStrongMatches(strength)
-  const scored = Boolean(first?.strictness)
+  const scored = Boolean(first?.strictness) && !nameOnly
 
   const overlay = isOverlayInspector(tier)
   const drawer = isDrawerRail(tier)
@@ -240,10 +259,10 @@ export function SearchPage() {
     })
 
   // No results: what removing each chip would show (§3.16).
-  const index = useMemo(() => buildPhraseIndex(vocabs), [vocabs])
+  const index = useMemo(() => [...buildPhraseIndex(vocabs), ...personPhraseList].sort((a, b) => b.phrase.length - a.phrase.length), [vocabs, personPhraseList])
   const noResults = search.isSuccess && !example && total === 0
   const wantSuggestions = (noResults || noStrong) && !example
-  const chips = useMemo(() => (wantSuggestions && first ? chipsFromQuery(first.query, state, label, index).slice(0, 4) : []), [wantSuggestions, first, state, label, index])
+  const chips = useMemo(() => (wantSuggestions && first ? chipsFromQuery(first.query, state, chipLabel, index).slice(0, 4) : []), [wantSuggestions, first, state, chipLabel, index])
   const suggestions = useQueries({
     queries: chips.map((c) => {
       const next = removeChip(state, c, index)
@@ -337,7 +356,7 @@ export function SearchPage() {
           <>
             {sugg.map(({ c, n }) => (
               <Button key={c.key} variant="secondary" onPress={() => { const next = removeChip(state, c, index); if (next) setState(next) }}>
-                {`Remove ${c.label.toLowerCase()} (${formatNumber(n ?? 0)})`}
+                {`Remove ${chipWord(c)} (${formatNumber(n ?? 0)})`}
               </Button>
             ))}
             {active > 0 && <Button variant="quiet" onPress={() => setParams({ q: params.q })}>Clear all filters</Button>}
@@ -348,7 +367,7 @@ export function SearchPage() {
           <p>
             {sugg.slice(0, 2).map(({ c, n }, i) => (
               <span key={c.key}>
-                {i ? ' ' : ''}Removing <strong>{c.label.toLowerCase()}</strong> would show {plural(n ?? 0, 'shot')}.
+                {i ? ' ' : ''}Removing <strong>{chipWord(c)}</strong> would show {plural(n ?? 0, 'shot')}.
               </span>
             ))}
           </p>
@@ -375,7 +394,7 @@ export function SearchPage() {
             {sugg.length
               ? sugg.slice(0, 2).map(({ c, n }, i) => (
                   <span key={c.key}>
-                    {i ? ' ' : ''}Removing <strong>{c.label.toLowerCase()}</strong> would give {plural(n ?? 0, 'strong match', 'strong matches')}.
+                    {i ? ' ' : ''}Removing <strong>{chipWord(c)}</strong> would give {plural(n ?? 0, 'strong match', 'strong matches')}.
                   </span>
                 ))
               : `Nothing clears the ${STRICT_LABEL[strictness]} threshold. The ${plural(total, 'weaker match', 'weaker matches')} below may still be useful.`}
@@ -383,7 +402,7 @@ export function SearchPage() {
           <div className={s.noStrongActions}>
             {sugg.map(({ c, n }) => (
               <Button key={c.key} variant="secondary" size="sm" onPress={() => { const next = removeChip(state, c, index); if (next) setState(next) }}>
-                {`Remove ${c.label.toLowerCase()} (${formatNumber(n ?? 0)})`}
+                {`Remove ${chipWord(c)} (${formatNumber(n ?? 0)})`}
               </Button>
             ))}
             {strictness !== 'loose' && (
@@ -449,7 +468,16 @@ export function SearchPage() {
         ))}
       <main id="main" className={s.main} aria-busy={search.isFetching || undefined} tabIndex={-1}>
         <h1 className="visually-hidden">{params.q ? `Search results for ${params.q}` : example ? `Shots similar to ${example.name}` : 'Search'}</h1>
-        <ChipRow query={first?.query} state={state} vocabs={vocabs} label={label} onChange={setState} extra={extra} />
+        <ChipRow
+          query={first?.query}
+          state={state}
+          vocabs={vocabs}
+          label={chipLabel}
+          onChange={setState}
+          extra={extra}
+          phrases={personPhraseList}
+          onOpenPerson={(id) => navigate({ to: '/people/$personId', params: { personId: id } })}
+        />
         <div className={s.header}>
           {drawer && (
             <Button variant="secondary" size="sm" icon={SlidersHorizontal} onPress={() => { setStaged(params); setUi({ railDrawer: true }) }}>
@@ -520,8 +548,9 @@ export function SearchPage() {
             )}
           </div>
         )}
-        {first?.notes?.map((n) => (
-          <div key={n} className={`${s.notice} ${s.noticeCaution}`}>
+        {/* The person filter note is the PERSON chip above; other notes are cautions. */}
+        {first?.notes?.filter((n) => !(personChips && isPersonNote(n))).map((n) => (
+          <div key={n} className={`${s.notice} ${isPersonNote(n) ? '' : s.noticeCaution}`}>
             <TriangleAlert size={16} strokeWidth={1.75} aria-hidden="true" />
             <span className={s.noticeText}>
               <span>{n}</span>

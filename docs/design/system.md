@@ -935,7 +935,7 @@ letterbox wells at final size (no shimmer). Panels that are loading keep their p
 |---|---|
 | `⌘K` | Command menu |
 | `⌘F`, or `/` (single key) | Focus search |
-| `⌘1` … `⌘5` | Go to Search · Library · Collections · Ingest · Rights |
+| `⌘1` … `⌘6` | Go to Search · Library · Collections · Ingest · Rights · People |
 | `⌘,` | Settings |
 | `⌘\` | Toggle filter rail |
 | `⌘I` | Toggle inspector |
@@ -1092,6 +1092,8 @@ These numbers are the acceptance gates in ADR 013 (`bench/`).
 | Volume / muted | `volume-2` / `volume-x` | Captions | `captions` |
 | Place | `map-pin` | Tag | `tag` |
 | More | `ellipsis` | Source offline | `unplug` |
+| People (face identity) | `scan-face` | Not this person | `user-round-x` |
+| Merge people | `combine` | Provider key | `key-round` |
 
 ---
 
@@ -1215,7 +1217,25 @@ Each surface uses the shell (§2.1) unless noted. The wireframes for Search, Sho
    - *Model adapters*: a table with name, task (shots / vision / audio / transcript / embeddings), where it
      runs (**Local** or **Leaves this machine** chip), status and *Test*;
    - *Storage and proxies*;
+   - *Privacy and analysis*: face recognition on/off, and where analysis content goes;
    - *About*.
+
+   *Model adapters* chooses a **provider** for captions (vision language model) and, unless "Use a different
+   provider for summaries" is on, the same for the language model: *Local* (CPU tier or your own
+   OpenAI-compatible server), *OpenAI*, *OpenRouter* or *ChatGPT via Codex*. Each option says what it unlocks,
+   its speed and its cost; hosted ones always carry the **Leaves this machine** chip and list exactly what is
+   sent and what never is (face crops and embeddings, footage, audio, names). API keys are write-only (masked,
+   with where they came from). Saving a hosted provider asks first (§3.20) and turns hosted adapters on;
+   going back to Local turns them off when nothing hosted remains.
+10. **People** (`/people`, `/people/:id`, `⌘6`): face identity, local only.
+   - Named people first, then *Unnamed: help name them*, largest groups first. Tiles are square face crops
+     with the name (or *Name this person* inline), shots and files. Select (Key ring, as cards) and *Merge…*,
+     or drag one tile onto another (the selection is the non-drag alternative, 2.5.7).
+   - A person's page: every face grouped by file, each linked to its shot with timecode; *Not this person*
+     per face (moves it to a new person, with *Undo*); *Find shots with this person* (primary), *Merge into…*,
+     and *Forget this person* (admin, filled-danger confirm naming what is deleted).
+   - Search shows a `PERSON` chip when a known name became a hard filter; the inspector and Shot detail list
+     the people in a shot as small face chips, and unnamed ones offer *Name…*.
 
 ---
 

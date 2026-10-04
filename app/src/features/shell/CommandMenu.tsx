@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { Autocomplete, Input, Menu, MenuItem, MenuSection, Header, SearchField, type Key } from 'react-aria-components'
 import {
-  Clapperboard, Film, HardDrive, Keyboard, Layers, Library, ListChecks, Moon, PanelLeft, PanelRight, Search, Settings, ShieldCheck, Sun, SunMoon, type LucideIcon,
+  Clapperboard, Film, HardDrive, Keyboard, Layers, Library, ListChecks, Moon, PanelLeft, PanelRight, ScanFace, Search, Settings, ShieldCheck, Sun, SunMoon, type LucideIcon,
 } from 'lucide-react'
 import { useCollections } from '../../api/queries'
 import { Dialog } from '../../components/Dialog'
@@ -61,10 +61,12 @@ export function CommandMenu() {
       { id: 'go-collections', label: 'Go to Collections', icon: Layers, meta: `${MOD}3`, run: () => navigate({ to: '/collections' }) },
       { id: 'go-ingest', label: 'Go to Ingest and processing', icon: HardDrive, meta: `${MOD}4`, run: () => navigate({ to: '/ingest' }) },
       { id: 'go-rights', label: 'Go to Rights and governance', icon: ShieldCheck, meta: `${MOD}5`, run: () => navigate({ to: '/rights' }) },
+      { id: 'go-people', label: 'Go to People', icon: ScanFace, meta: `${MOD}6`, run: () => navigate({ to: '/people' }) },
       { id: 'go-corrections', label: 'Go to Corrections log', icon: ListChecks, run: () => navigate({ to: '/library/corrections' }) },
       { id: 'go-settings', label: 'Go to Settings', icon: Settings, meta: `${MOD},`, run: () => navigate({ to: '/settings/$section', params: { section: 'appearance' } }) },
       { id: 'go-tokens', label: 'Settings: API tokens for agents', icon: Settings, run: () => navigate({ to: '/settings/$section', params: { section: 'tokens' } }) },
       { id: 'go-adapters', label: 'Settings: model adapters', icon: Settings, run: () => navigate({ to: '/settings/$section', params: { section: 'adapters' } }) },
+      { id: 'go-privacy', label: 'Settings: privacy and analysis (face recognition)', icon: Settings, run: () => navigate({ to: '/settings/$section', params: { section: 'privacy' } }) },
     ]
     const cols: Cmd[] = (collections.data ?? []).map((c) => ({ id: `col-${c.uid}`, label: c.name, icon: Layers, meta: `${c.items} shots`, run: () => navigate({ to: '/collections/$collectionId', params: { collectionId: c.uid } }) }))
     const shots: Cmd[] = recent.slice(0, 6).map((uid) => {

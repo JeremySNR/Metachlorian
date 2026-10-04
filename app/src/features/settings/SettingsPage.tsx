@@ -1,13 +1,12 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link, useParams } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
-import { Bot, Cloud, Copy, HardDrive, KeyRound, Plus, Trash2 } from 'lucide-react'
-import type { AdminSettings, ModelEndpoint, Scope } from '../../api/types'
+import { Bot, Cloud, Copy, HardDrive, KeyRound, Plus, ScanFace, Trash2 } from 'lucide-react'
+import type { Scope } from '../../api/types'
 import { api, ApiError } from '../../api/client'
-import { checkEndpointLocality, useAdminSettings, useAudit, useEndpointLocality, useHealth, useMe, useTokens, useUsers } from '../../api/queries'
-import { useDebounced } from '../../hooks/useDebounced'
+import { useAdminSettings, useAudit, useHealth, useMe, usePeople, useTokens, useUsers } from '../../api/queries'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
-import { endpointHost, localityBadge, needsEgressConfirm, type Locality } from '../../lib/egress'
+import { ModelAdapters } from './ModelProviders'
 import { Button } from '../../components/Button'
 import { Dialog } from '../../components/Dialog'
 import { EmptyState, StatusText } from '../../components/EmptyState'
@@ -15,7 +14,7 @@ import { Checkbox, NumberField, Radio, RadioGroup, Select, Switch, TextField } f
 import { Segmented } from '../../components/Segmented'
 import { toast } from '../../components/Toast'
 import { bridge, can, desktopInfo, type DesktopInfo } from '../../lib/bridge'
-import { formatDateTime, formatNumber, formatRelative, humanise } from '../../lib/format'
+import { formatDateTime, formatRelative, humanise, plural } from '../../lib/format'
 import { usePrefs, type Density, type MotionPref, type Theme } from '../../lib/store'
 import { Keys, SHORTCUTS } from '../shell/ShortcutsDialog'
 import l from '../library/Library.module.css'
@@ -29,6 +28,7 @@ const SECTIONS: { id: string; label: string; admin?: boolean; desktop?: boolean 
   { id: 'users', label: 'Users and roles', admin: true },
   { id: 'tokens', label: 'API tokens for agents', admin: true },
   { id: 'adapters', label: 'Model adapters', admin: true },
+  { id: 'privacy', label: 'Privacy and analysis', admin: true },
   { id: 'audit', label: 'Audit log', admin: true },
   { id: 'storage', label: 'Storage and proxies', admin: true },
   { id: 'about', label: 'About' },
@@ -67,7 +67,8 @@ export function SettingsPage() {
           {current?.id === 'connection' && <Connection />}
           {current?.id === 'users' && <Users />}
           {current?.id === 'tokens' && <Tokens />}
-          {current?.id === 'adapters' && <Adapters />}
+          {current?.id === 'adapters' && <ModelAdapters onAdminError={(e) => <AdminOnly error={e} />} />}
+          {current?.id === 'privacy' && <PrivacySettings />}
           {current?.id === 'audit' && <Audit />}
           {current?.id === 'storage' && <Storage />}
           {current?.id === 'about' && <About />}
@@ -382,145 +383,68 @@ function Tokens() {
   )
 }
 
-function Adapters() {
+/** Face identity on or off, and where analysis content goes (system.md §3.20). */
+function PrivacySettings() {
   const settings = useAdminSettings()
   const health = useHealth()
+  const people = usePeople({ limit: 1 })
   const qc = useQueryClient()
-  const [confirm, setConfirm] = useState<null | { host: string; sends: string; go: () => Promise<void> }>(null)
+  const [busy, setBusy] = useState(false)
   if (settings.isError) return <AdminOnly error={settings.error} />
-  const d = settings.data
-  if (!d) return <div aria-busy="true" />
-  const save = async (body: Partial<AdminSettings['settings']>) => {
+  const st = settings.data?.settings
+  if (!st) return <div aria-busy="true" />
+  const setFaces = async (on: boolean) => {
+    setBusy(true)
     try {
-      await api.put('/api/admin/settings', body as Record<string, unknown>)
-      toast({ title: 'Model adapters saved' })
-      qc.invalidateQueries({ queryKey: ['admin', 'settings'] })
-      qc.invalidateQueries({ queryKey: ['health'] })
+      await api.put('/api/admin/settings', { face_identity: on })
+      for (const k of [['admin', 'settings'], ['people'], ['processing']]) qc.invalidateQueries({ queryKey: k })
+      toast({
+        title: on ? 'Face recognition is on' : 'Face recognition is off',
+        description: on ? 'Files are queued to find faces; people appear as analysis finishes.' : 'No new faces are matched. People already found stay until you forget them.',
+        tone: 'info',
+      })
     } catch (e) {
-      toast({ title: "Couldn't save", description: e instanceof ApiError ? e.detail : String(e), tone: 'error' })
+      toast({ title: "Couldn't change face recognition", description: e instanceof ApiError ? e.detail : String(e), tone: 'error' })
+    } finally {
+      setBusy(false)
     }
   }
-  // The core classifies the host; anything it does not call local needs the §3.20 confirmation first.
-  const saveAdapter = async (key: 'vlm' | 'llm', ep: ModelEndpoint, sends: string) => {
-    const go = () => save({ [key]: ep } as Partial<AdminSettings['settings']>)
-    let loc: Locality | null = null
-    if (ep.base_url.trim()) {
-      try {
-        loc = await checkEndpointLocality(ep.base_url)
-      } catch {
-        loc = null
-      }
-    }
-    if (needsEgressConfirm(ep.base_url, loc)) setConfirm({ host: endpointHost(ep.base_url), sends, go })
-    else await go()
-  }
-  const remote = d.egress.content_leaves_machine
+  const remote = health.data?.egress.content_leaves_machine
+  const known = people.data?.total ?? 0
   return (
     <section className={s.group}>
-      <p>
-        {remote ? <StatusText tone="caution" icon={Cloud} filled>Leaves this machine</StatusText> : <StatusText tone="neutral" icon={HardDrive}>Local: nothing leaves this machine</StatusText>}
-      </p>
-      {!health.data?.vlm && (
-        <p className={s.muted}>No vision language model is configured, so Metachlorian uses its CPU tier: local SigLIP labels, motion, audio, speech and on-screen text. Descriptions are assembled from those signals. Add an OpenAI-compatible endpoint below for richer captions.</p>
-      )}
-      <AdapterForm
-        title="Vision language model (captions)"
-        ep={d.settings.vlm}
-        allowRemote={d.settings.allow_remote}
-        sends="Frames (sampled keyframes) and analyser text, during analysis of every new file"
-        onSave={(ep) => saveAdapter('vlm', ep, 'Frames from your footage')}
-      />
-      <AdapterForm
-        title="Language model (summaries and query help)"
-        ep={d.settings.llm}
-        allowRemote={d.settings.allow_remote}
-        sends="Analyser text and search queries"
-        onSave={(ep) => saveAdapter('llm', ep, 'Analyser text and your search queries')}
-      />
-      <Row label="Allow hosted adapters" hint="Off: endpoints the core doesn't classify as local are refused.">
-        <Switch
-          isSelected={d.settings.allow_remote}
-          onChange={(v) => (v ? setConfirm({ host: 'hosted endpoints', sends: 'Frames and text', go: () => save({ allow_remote: true }) }) : save({ allow_remote: false }))}
-        >
-          {d.settings.allow_remote ? 'Allowed' : 'Refused'}
-        </Switch>
-      </Row>
-      <h2>Bundled models</h2>
-      <table className={l.table}>
-        <thead>
-          <tr>
-            <th>Model</th>
-            <th>Purpose</th>
-            <th>Licence</th>
-            <th className={l.num}>Size</th>
-            <th>Runs</th>
-          </tr>
-        </thead>
-        <tbody>
-          {d.models.map((m) => (
-            <tr key={m.name}>
-              <td style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)' }}>{m.name}</td>
-              <td>{m.purpose}</td>
-              <td>{m.licence}</td>
-              <td className={l.num}>{formatNumber(m.size_mb)} MB</td>
-              <td>{m.installed ? <StatusText tone="neutral" icon={HardDrive}>Local</StatusText> : <StatusText tone="caution">Not installed</StatusText>}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <Dialog
-        isOpen={Boolean(confirm)}
-        onOpenChange={(o) => !o && setConfirm(null)}
-        title="Content will leave this machine"
-        size="s"
-        role="alertdialog"
-        footer={<><Button variant="secondary" autoFocus onPress={() => setConfirm(null)}>Cancel</Button><Button variant="dangerFilled" onPress={async () => { await confirm?.go(); setConfirm(null) }}>Turn on and send</Button></>}
-      >
-        <p data-testid="egress-confirm">
-          <strong>{confirm?.sends} will be sent to {confirm?.host}.</strong> This happens during analysis of every new file. Footage files themselves are not uploaded.
-        </p>
-      </Dialog>
+      <div className={s.group}>
+        <h2>Face identity</h2>
+        <Row label="Face recognition" hint="Finds faces, groups them into people you can name, and lets search filter by person.">
+          <Switch isSelected={st.face_identity} isDisabled={busy} onChange={setFaces}>
+            {st.face_identity ? 'On' : 'Off'}
+          </Switch>
+        </Row>
+        <ul className={s.facts}>
+          <li>Runs only on this machine, with bundled models (YuNet to find faces, SFace to compare them).</li>
+          <li>Face crops and face embeddings stay in this library. They are never sent to a model provider, hosted or not.</li>
+          <li>Names are yours: only editors can name or merge people, and agents can't.</li>
+          <li>An admin can forget a person on their page, which deletes their face crops and embeddings.</li>
+        </ul>
+        <div>
+          <Link to="/people" className={s.inlineLink}>
+            <ScanFace size={16} strokeWidth={1.75} aria-hidden="true" />
+            {known ? `People · ${plural(known, 'person', 'people')} found` : 'People'}
+          </Link>
+        </div>
+      </div>
+      <div className={s.group}>
+        <h2>Model providers</h2>
+        <Row label="Where analysis runs" hint="Captions and summaries can use a hosted provider; everything else runs here.">
+          {remote ? <StatusText tone="caution" icon={Cloud} filled>Leaves this machine</StatusText> : <StatusText tone="neutral" icon={HardDrive}>Local: nothing leaves this machine</StatusText>}
+        </Row>
+        <div>
+          <Link to="/settings/$section" params={{ section: 'adapters' }} className={s.inlineLink}>
+            Model adapters
+          </Link>
+        </div>
+      </div>
     </section>
-  )
-}
-
-function AdapterForm({ title, ep, allowRemote, sends, onSave }: { title: string; ep: ModelEndpoint; allowRemote: boolean; sends: string; onSave: (ep: ModelEndpoint) => void }) {
-  // "Runs on this machine or our own network" is a declaration only; it starts off for a new endpoint
-  // and never makes a public host local. The badge shows the core's classification of the host.
-  const [draft, setDraft] = useState<ModelEndpoint>(() => ({ ...ep, local: ep.base_url ? ep.local : false }))
-  const url = useDebounced(draft.base_url, 400)
-  const loc = useEndpointLocality(url)
-  const badge = localityBadge({ baseUrl: draft.base_url, locality: url === draft.base_url ? loc.data : null, error: loc.isError, allowRemote })
-  const enabled = Boolean(draft.base_url && draft.model)
-  const leaves = badge.tone === 'caution'
-  return (
-    <div className={s.adapter}>
-      <div className={s.adapterHead}>
-        <h3>{title}</h3>
-        <span data-testid="locality-badge" data-state={badge.state} aria-live="polite">
-          {badge.state === 'unset' ? (
-            <StatusText tone="neutral">Not configured</StatusText>
-          ) : leaves ? (
-            <StatusText tone="caution" icon={Cloud} filled>{badge.label}</StatusText>
-          ) : (
-            <StatusText tone="neutral" icon={badge.state === 'local' ? HardDrive : undefined}>{badge.label}</StatusText>
-          )}
-        </span>
-      </div>
-      {badge.detail && <p className={s.muted} style={{ fontSize: 'var(--text-sm)' }}>{badge.detail}{leaves && enabled ? ` Sends: ${sends}.` : ''}</p>}
-      <div className={s.form}>
-        <TextField label="Endpoint (OpenAI-compatible)" value={draft.base_url} onChange={(v) => setDraft({ ...draft, base_url: v })} placeholder="http://127.0.0.1:8080/v1" mono className={s.formWide} />
-        <TextField label="Model" value={draft.model} onChange={(v) => setDraft({ ...draft, model: v })} mono />
-        <TextField label="API key environment variable" value={draft.api_key_env} onChange={(v) => setDraft({ ...draft, api_key_env: v })} mono placeholder="OPENAI_API_KEY" />
-        <Switch isSelected={draft.local} onChange={(v) => setDraft({ ...draft, local: v })} className={s.formWide}>
-          Runs on this machine or our own network
-        </Switch>
-        <p className={`${s.muted} ${s.formWide}`} style={{ fontSize: 'var(--text-xs)' }}>
-          Metachlorian decides locality from the address itself; this switch can't make a public host count as local.
-        </p>
-      </div>
-      <div><Button variant="secondary" onPress={() => onSave(draft)}>Save</Button></div>
-    </div>
   )
 }
 

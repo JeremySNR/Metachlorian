@@ -1,0 +1,465 @@
+/* People (face identity). Tiles follow the shot card: footage-like frame, edge strip below, Key only for selection. */
+
+.filter {
+  inline-size: min(280px, 100%);
+}
+
+.privacy {
+  display: flex;
+  align-items: start;
+  gap: var(--space-2);
+  color: var(--fg-2);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  max-inline-size: var(--measure-prose);
+}
+
+.privacy svg {
+  flex: none;
+  margin-block-start: 1px;
+  color: var(--fg-3);
+}
+
+.offNote {
+  white-space: normal;
+}
+
+.sectionCount {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--fg-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.hint {
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--fg-2);
+  max-inline-size: var(--measure-prose);
+}
+
+.slate {
+  composes: slate from '../../styles/type.module.css';
+}
+
+/* ---------------------------------------------------------------- grid of people */
+.grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(136px, 100%), 1fr));
+  gap: var(--space-4) var(--thumb-gap);
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-inline-size: 0;
+  border-radius: var(--radius-sm);
+}
+
+.tile[data-drop-target] .frame {
+  outline: var(--focus-ring-width) dashed var(--key);
+  outline-offset: 2px;
+}
+
+.frame {
+  position: relative;
+  border-radius: var(--radius-sm);
+}
+
+/* Selection ring outside the face, like the shot card (§1.10). */
+.tile[data-selected] .frame {
+  box-shadow: 0 0 0 var(--select-ring-gap) var(--bg-canvas), 0 0 0 calc(var(--select-ring-gap) + var(--select-ring-width)) var(--key);
+}
+
+.frameLink {
+  display: block;
+  border-radius: var(--radius-sm);
+  outline: none;
+}
+
+.frameLink:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: calc(var(--focus-ring-offset) + var(--select-ring-gap) + var(--select-ring-width));
+}
+
+.tileCheck {
+  position: absolute;
+  inset-block-start: var(--space-1_5);
+  inset-inline-start: var(--space-1_5);
+  padding: var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--scrim);
+  min-block-size: 0;
+  opacity: 0;
+}
+
+.tile:hover .tileCheck,
+.tile:focus-within .tileCheck,
+.tile[data-selected] .tileCheck {
+  opacity: 1;
+}
+
+@media (pointer: coarse) {
+  .tileCheck {
+    opacity: 1;
+    padding: calc((var(--target-coarse) - 16px) / 2);
+    inset-block-start: 0;
+    inset-inline-start: 0;
+  }
+}
+
+.tileBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0_5);
+  min-inline-size: 0;
+}
+
+.nameLine {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-inline-size: 0;
+  min-block-size: var(--control-sm);
+}
+
+.name,
+.unnamedLabel {
+  composes: cardTitle from '../../styles/type.module.css';
+  color: var(--fg-1);
+  text-decoration: none;
+  min-inline-size: 0;
+}
+
+.unnamedLabel {
+  color: var(--fg-2);
+  font-weight: var(--weight-regular);
+}
+
+.name:hover,
+.unnamedLabel:hover {
+  text-decoration: underline;
+}
+
+.counts {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-3);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: var(--font-mono-features);
+}
+
+.nameButton {
+  align-self: start;
+  margin-inline-start: calc(-1 * var(--space-2));
+}
+
+/* ---------------------------------------------------------------- face crops */
+.face {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  inline-size: 100%;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--bg-letterbox);
+  color: var(--fg-3);
+}
+
+.face img {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.face-s {
+  inline-size: 32px;
+  flex: none;
+  border-radius: var(--radius-xs);
+}
+
+.face-m {
+  inline-size: 100%;
+}
+
+/* ---------------------------------------------------------------- name editor */
+.nameEditor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-inline-size: 0;
+}
+
+.nameRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-inline-size: 0;
+}
+
+.nameInput {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.clash {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--fg-2);
+}
+
+/* ---------------------------------------------------------------- selection bar */
+.selectionBar {
+  position: sticky;
+  inset-block-end: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  min-block-size: var(--selectionbar-height);
+  padding: var(--space-2) var(--space-4);
+  background: var(--bg-panel);
+  border-block-start: var(--border-width) solid var(--border-default);
+  z-index: var(--z-sticky);
+}
+
+.selCount {
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.selHint {
+  flex: 1;
+  min-inline-size: 0;
+  font-size: var(--text-xs);
+  color: var(--fg-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------- dialogs */
+.dialogBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.keepList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.keepRow,
+.pickRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-block-size: 44px;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  outline: none;
+  font-size: var(--text-sm);
+}
+
+.keepRow[data-hovered],
+.pickRow[data-hovered],
+.pickRow[data-focused] {
+  background: var(--bg-hover);
+}
+
+.keepRow[data-focus-visible],
+.pickRow[data-focus-visible] {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.dot {
+  inline-size: 16px;
+  block-size: 16px;
+  border-radius: var(--radius-full);
+  border: var(--border-width) solid var(--border-control);
+  background: var(--bg-raised);
+  flex: none;
+  display: grid;
+  place-items: center;
+}
+
+.keepRow[data-selected] .dot {
+  border-color: var(--fg-1);
+}
+
+.keepRow[data-selected] .dot::after {
+  content: '';
+  inline-size: 8px;
+  block-size: 8px;
+  border-radius: var(--radius-full);
+  background: var(--fg-1);
+}
+
+.pickRow[data-selected] {
+  background: var(--bg-selected);
+  box-shadow: inset 2px 0 0 var(--key);
+}
+
+.keepText {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+
+.pickList {
+  max-block-size: min(320px, 40vh);
+  overflow: auto;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1);
+  outline: none;
+}
+
+.pickList[data-focus-visible] {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+}
+
+/* ---------------------------------------------------------------- person page */
+.personHead {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  align-self: start;
+  color: var(--fg-2);
+  text-decoration: none;
+  font-size: var(--text-sm);
+  min-block-size: var(--target-min);
+  margin-inline-start: calc(-1 * var(--space-1));
+  padding-inline: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+}
+
+.back:hover {
+  background: var(--bg-hover);
+  color: var(--fg-1);
+}
+
+.personTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-inline-size: 0;
+}
+
+.personTitle > .face {
+  inline-size: 96px;
+  flex: none;
+}
+
+.personText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-inline-size: 0;
+  flex: 1;
+}
+
+.personText h1 {
+  font-family: var(--font-sans);
+  font-size: var(--text-xl);
+  line-height: var(--leading-xl);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-tight);
+  overflow-wrap: anywhere;
+}
+
+.unnamedTitle {
+  color: var(--fg-2);
+}
+
+.personText .nameEditor {
+  max-inline-size: 360px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.fileLink {
+  color: var(--fg-2);
+  text-transform: none;
+  letter-spacing: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
+}
+
+.faces {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(120px, 100%), 1fr));
+  gap: var(--space-4) var(--thumb-gap);
+}
+
+.faceItem {
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  gap: var(--space-1);
+  min-inline-size: 0;
+}
+
+.faceItem .frameLink {
+  inline-size: 100%;
+}
+
+.faceItem .frameLink:focus-visible {
+  outline-offset: var(--focus-ring-offset);
+}
+
+.faceMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--space-1_5);
+  font-size: var(--text-xs);
+  color: var(--fg-2);
+}
+
+.confirmed {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--fg-3);
+}
+
+.faceItem > :last-child {
+  margin-inline-start: calc(-1 * var(--space-2));
+}
+
+@media (width < 640px) {
+  .personTitle > .face {
+    inline-size: 64px;
+  }
+  .grid {
+    grid-template-columns: repeat(auto-fill, minmax(min(120px, 100%), 1fr));
+  }
+}

@@ -17,6 +17,7 @@ import { Player, type PlayerHandle } from './Player'
 import { SignalTable } from './SignalTable'
 import { AddToCollectionButton, BlockedNote, ExportMenu, InCollections, Moments, RightsBlock, Section, shotRightsState, SimilarStrip, Transcript, WhyMatched } from './ShotPanels'
 import { techSummary } from './techSummary'
+import { ShotPeople } from '../people/ShotPeople'
 import t from '../../styles/type.module.css'
 import s from './Shot.module.css'
 
@@ -176,6 +177,11 @@ export function ShotPage() {
         <Section title="Rights" id="r2">
           <RightsBlock shot={d} vocabs={vocabs} />
         </Section>
+        {d.people_identities && (
+          <Section title="People" id="p2">
+            <ShotPeople people={d.people_identities} />
+          </Section>
+        )}
         <Section title="Signals" id="sig2" action={<span className={t.slate}>E edits</span>}>
           <SignalTable shot={d} vocabs={vocabs} label={label} collapsible />
         </Section>

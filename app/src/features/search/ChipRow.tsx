@@ -6,7 +6,7 @@ import { Button } from '../../components/Button'
 import { Ic } from '../../components/Icon'
 import { toast } from '../../components/Toast'
 import {
-  buildPhraseIndex, chipsFromQuery, demoteChip, promoteChip, removeChip, toggleExcludeChip, type QueryChip, type SearchState,
+  buildPhraseIndex, chipsFromQuery, demoteChip, promoteChip, removeChip, toggleExcludeChip, type PhraseEntry, type QueryChip, type SearchState,
 } from '../../lib/chips'
 import type { Vocabulary } from '../../api/types'
 import tip from '../../components/Tip.module.css'
@@ -26,6 +26,10 @@ interface Props {
   label: (vocab: string, term: string) => string
   onChange: (next: SearchState) => void
   extra?: ExtraChip[]
+  /** Extra phrases to find chip words with (names of known people). */
+  phrases?: PhraseEntry[]
+  /** Enter on a PERSON chip opens that person. */
+  onOpenPerson?: (id: string) => void
 }
 
 /**
@@ -35,8 +39,8 @@ interface Props {
  * their own labelled group with an outline-only, dotted style, so they never
  * read as hard filters. Chips wrap instead of scrolling out of sight.
  */
-export function ChipRow({ query, state, vocabs, label, onChange, extra = [] }: Props) {
-  const index = useMemo(() => buildPhraseIndex(vocabs), [vocabs])
+export function ChipRow({ query, state, vocabs, label, onChange, extra = [], phrases, onOpenPerson }: Props) {
+  const index = useMemo(() => [...buildPhraseIndex(vocabs), ...(phrases ?? [])].sort((a, b) => b.phrase.length - a.phrase.length), [vocabs, phrases])
   const chips = useMemo(() => (query ? chipsFromQuery(query, state, label, index) : []), [query, state, label, index])
   const rowRef = useRef<HTMLDivElement>(null)
 
@@ -74,24 +78,27 @@ export function ChipRow({ query, state, vocabs, label, onChange, extra = [] }: P
   }
 
   const tag = (c: QueryChip) => {
-    const isTerm = Boolean(c.vocab && c.term)
+    const person = c.kind === 'person'
+    const isTerm = Boolean(c.vocab && c.term) && !person
     const required = c.kind === 'require'
     const preferred = c.kind === 'prefer'
-    const tipText = preferred
-      ? `Preferred, not required: shots without it still show, ranked lower.${c.words ? ` From your words “${c.words}”.` : ''} Pin to require it.`
-      : c.inferred && c.words
-        ? `From your words “${c.words}”`
-        : undefined
+    const tipText = person
+      ? `Only shots where ${c.label} can be seen (recognised faces).${c.inferred && c.words ? ` From your words “${c.words}”.` : ''} Enter opens their page.`
+      : preferred
+        ? `Preferred, not required: shots without it still show, ranked lower.${c.words ? ` From your words “${c.words}”.` : ''} Pin to require it.`
+        : c.inferred && c.words
+          ? `From your words “${c.words}”`
+          : undefined
     return (
       <Tag
         key={c.key}
         id={c.key}
-        textValue={`${c.slate} ${c.label}${preferred ? ', preferred, not required' : required ? ', required' : ''}`}
-        className={[s.chip, preferred && s.preferred, c.inferred && s.inferred, c.kind === 'exclude' && s.excluded, required && s.required, tip.tip].filter(Boolean).join(' ')}
+        textValue={`${c.slate} ${c.label}${person ? ', only shots where they can be seen' : preferred ? ', preferred, not required' : required ? ', required' : ''}`}
+        className={[s.chip, preferred && s.preferred, c.inferred && s.inferred, c.kind === 'exclude' && s.excluded, (required || person) && s.required, tip.tip].filter(Boolean).join(' ')}
         data-tip={tipText}
         data-testid="query-chip"
         data-kind={c.kind}
-        onAction={isTerm ? () => promote(c) : undefined}
+        onAction={isTerm ? () => promote(c) : person && onOpenPerson ? () => onOpenPerson(c.term as string) : undefined}
         data-chip={c.key}
         onPointerDown={(e: React.PointerEvent) => {
           if (e.altKey && isTerm) {

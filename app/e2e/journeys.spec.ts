@@ -343,18 +343,21 @@ test('08 processing status is visible', async ({ page }) => {
   const vlm = page.getByRole('textbox', { name: 'Endpoint (OpenAI-compatible)' }).first()
   await expect(page.getByRole('switch', { name: 'Runs on this machine or our own network' }).first()).not.toBeChecked()
   await vlm.fill('https://api.openai.com/v1')
+  await page.getByRole('textbox', { name: 'Model' }).first().fill('gpt-4o-mini')
   const badge = page.getByTestId('locality-badge').first()
   await expect(badge).toHaveAttribute('data-state', /remote|refused/)
   await expect(badge).not.toContainText('Local')
   await page.getByRole('switch', { name: 'Runs on this machine or our own network' }).first().click({ force: true })
   await expect(badge).toHaveAttribute('data-state', /remote|refused/)
   await snapAll(page, '08-model-adapters-egress', { only: 'desktop' })
-  await page.getByRole('button', { name: 'Save' }).first().click()
+  await page.getByRole('button', { name: 'Save model settings' }).click()
   await expect(page.getByTestId('egress-confirm')).toContainText('api.openai.com')
+  await page.waitForTimeout(400)
   await snap(page, '08-model-adapters-confirm--desktop-dark')
   await page.getByRole('button', { name: 'Cancel' }).click()
   await vlm.fill('http://127.0.0.1:8080/v1')
   await expect(badge).toHaveAttribute('data-state', 'local')
+  await page.getByRole('button', { name: 'Discard changes' }).click()
   await page.goto('/settings/tokens')
   await snapAll(page, '08-api-tokens', { only: 'desktop' })
 })
@@ -456,7 +459,10 @@ test('12 narrow screens, forced colours and match strength', async ({ page }) =>
   await waitForResults(page)
   const field = await page.locator('#mc-search').boundingBox()
   expect(field!.width).toBeGreaterThan(150)
-  for (const route of ['/search?q=street', '/library', '/collections', '/ingest', '/rights', '/settings/appearance']) {
+  const someone = (await (await page.request.get('/api/people?limit=1')).json()).people[0]
+  const routes = ['/search?q=street', '/library', '/collections', '/ingest', '/rights', '/settings/appearance', '/people', '/settings/adapters', '/settings/privacy']
+  if (someone) routes.push(`/people/${someone.id}`)
+  for (const route of routes) {
     await page.goto(route)
     await page.waitForTimeout(800)
     const overflow = await page.evaluate(() => {

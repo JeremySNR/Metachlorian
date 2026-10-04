@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { Undo2 } from 'lucide-react'
 import { ApiError } from '../../api/client'
-import { useAssets, useCorrections, useRevertCorrection, useVocabularies } from '../../api/queries'
+import { useCorrections, useRevertCorrection, useVocabularies } from '../../api/queries'
 import type { Correction } from '../../api/types'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { formatTimecode } from '../../lib/timecode'
@@ -13,6 +13,7 @@ import { Segmented } from '../../components/Segmented'
 import { toast } from '../../components/Toast'
 import { formatDateTime, formatRelative, humanise } from '../../lib/format'
 import { FIELD_META, VOCAB_FIELDS } from '../../lib/signals'
+import { usePrefs } from '../../lib/store'
 import { LibraryTabs } from '../library/LibraryPage'
 import l from '../library/Library.module.css'
 import s from './Corrections.module.css'
@@ -26,8 +27,7 @@ export function CorrectionsPage() {
   const { label } = useVocabularies()
   const [filter, setFilter] = useState<'active' | 'all'>('active')
   const rows = (q.data?.corrections ?? []).filter((c) => filter === 'all' || c.active)
-  const assets = useAssets()
-  const fpsOf = new Map((assets.data?.assets ?? []).map((a) => [a.uid, a.fps]))
+  const tcFormat = usePrefs((p) => p.timecodeFormat)
   useDocumentTitle('Corrections', 'Library')
 
   const valueText = (field: string, v: unknown): string => {
@@ -63,15 +63,16 @@ export function CorrectionsPage() {
     )
   }
 
+  /** "› Shot 9 · 00:00:16:28": the core sends the shot's timecode and frame rate with each row. */
   const where = (c: Correction) => {
-    const start = c.shot?.start ?? c.anchor_start
-    const num = c.shot?.number ?? (c.shot?.idx !== undefined ? c.shot.idx + 1 : null)
     if (!c.shot_uid) return null
+    const sh = c.shot
+    const tc = sh ? (tcFormat === 'smpte' && sh.timecode ? sh.timecode : formatTimecode(sh.start, sh.fps, tcFormat)) : null
     return (
       <>
         {' › '}
-        {num ? `Shot ${num}` : 'Shot'}
-        {start !== null && start !== undefined && <span className={s.tc}> · {formatTimecode(start, fpsOf.get(c.asset_uid) ?? null)}</span>}
+        {sh ? `Shot ${sh.number}` : 'Shot'}
+        {tc && <span className={s.tc}> · {tc}</span>}
       </>
     )
   }

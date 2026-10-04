@@ -9,6 +9,8 @@ export type Uid = string
 // ---------------------------------------------------------------- health / me
 export interface EgressAdapter {
   adapter: string
+  /** custom | openai | openrouter | codex (see ProviderId). */
+  provider?: ProviderId
   base_url: string
   model: string
   active: boolean
@@ -166,7 +168,8 @@ export interface Moment {
   data?: Record<string, unknown>
 }
 
-export interface SearchResult extends ShotSummary {
+/** A search hit. `people` here is the recognised identities (the core replaces the summary's people count). */
+export interface SearchResult extends Omit<ShotSummary, 'people'> {
   score: number
   why: WhyItem[]
   in: number | null
@@ -176,6 +179,8 @@ export interface SearchResult extends ShotSummary {
   rights?: { verdict: Verdict; reasons: string[] }
   /** Absolute match strength 0..1, comparable across queries (null when nothing was scored). */
   strength?: number | null
+  /** Recognised people in the shot (face identity), largest face first. */
+  people?: PersonRef[]
   /** At or above the strictness threshold; strong results come first. */
   strong?: boolean
 }
@@ -369,6 +374,8 @@ export interface ShotDoc {
   media: { proxy: string; sprites: string; poster: string | null; thumb: string | null }
   neighbours: { previous?: Uid; next?: Uid }
   summary: ShotSummary
+  /** Recognised people in the shot (face identity), largest face first. */
+  people_identities?: PersonRef[]
 }
 
 // ---------------------------------------------------------------- assets
@@ -539,7 +546,7 @@ export interface Correction {
   active: number
   filename?: string
   /** The shot the correction applies to (number is 1-based). */
-  shot?: { idx: number; number: number; start: number; end: number } | null
+  shot?: { idx: number; number: number; start: number; end: number; fps: number | null; timecode: string } | null
   /** What the model said before the correction. */
   model_value?: { value: unknown; source: string; confidence: number | null } | null
 }
@@ -651,8 +658,8 @@ export interface ProcessingAsset {
   done: number
   failed: number
   unavailable: number
-  /** Analysers queued or running for this file, when the core reports them. */
-  pending?: string[]
+  /** Analysers queued or running for this file, in queue order. */
+  pending: string[]
 }
 
 export interface AnalyserInfo {
@@ -720,6 +727,7 @@ export interface AuditEntry {
 }
 
 export interface ModelEndpoint {
+  provider: ProviderId
   base_url: string
   model: string
   api_key_env: string
@@ -728,6 +736,120 @@ export interface ModelEndpoint {
   max_images: number
   temperature: number
   extra_body: Record<string, unknown>
+  /** Parallel requests; 0 = the provider's default. */
+  concurrency: number
+  /** Shots per request; 0 = the provider's default. */
+  batch: number
+  /** Requests per UTC day (Codex); 0 = the provider's default. */
+  daily_limit: number
+  codex_path: string
+}
+
+// ---------------------------------------------------------------- model providers
+export type ProviderId = 'custom' | 'openai' | 'openrouter' | 'codex'
+
+export interface ProviderKey {
+  name: 'openai_api_key' | 'openrouter_api_key'
+  present: boolean
+  /** "sk-…abcd"; the key itself is never returned. */
+  masked: string
+  from: 'stored' | 'environment' | ''
+}
+
+export interface CodexStatus {
+  ok: boolean
+  installed: boolean
+  path?: string
+  reason?: string | null
+}
+
+export interface Provider {
+  id: ProviderId
+  label: string
+  hosted: boolean
+  base_url: string
+  default_models: { vlm: string; llm: string }
+  concurrency: number
+  batch: number
+  key?: ProviderKey
+  status?: CodexStatus
+  daily_limit?: number
+  remaining_today?: number | null
+}
+
+export interface ProvidersResponse {
+  providers: Provider[]
+  active: { vlm: ProviderId; llm: ProviderId }
+  allow_remote: boolean
+  egress: Egress
+}
+
+export interface ProviderTest {
+  ok: boolean
+  status?: number
+  reason?: string | null
+  limit_remaining?: number | null
+  free_tier?: boolean | null
+  installed?: boolean
+  path?: string
+}
+
+export interface OpenRouterModel {
+  id: string
+  name: string
+  vision: boolean
+  context: number | null
+  /** US dollars per million tokens. */
+  input_per_m: number | null
+  output_per_m: number | null
+  structured: boolean
+}
+
+// ---------------------------------------------------------------- people (face identity)
+export interface PersonRef {
+  id: number
+  name: string | null
+  /** The name, or "Person 12" when unnamed. */
+  label: string
+}
+
+export interface PersonSummary extends PersonRef {
+  named: boolean
+  faces: number
+  shots: number
+  files: number
+  /** /media/… face crop. */
+  cover: string | null
+}
+
+export interface PeopleList {
+  total: number
+  people: PersonSummary[]
+  /** The face-identity analyser is switched on (Settings → Privacy and analysis). */
+  enabled: boolean
+}
+
+export interface Face {
+  id: number
+  /** Seconds into the file. */
+  t: number
+  /** Normalised [x0, y0, x1, y1]. */
+  box: [number, number, number, number]
+  score: number
+  size_px: number
+  thumb: string
+  /** A person put it here (named, merged or moved); automatic assignment leaves it alone. */
+  confirmed: boolean
+  shot_uid: Uid
+  shot_number: number
+  asset_uid: Uid
+  filename: string
+}
+
+export interface PersonDetail extends PersonRef {
+  named_by: string
+  faces: Face[]
+  shot_uids: Uid[]
 }
 
 export interface ModelInfo {
@@ -762,6 +884,17 @@ export interface AdminSettings {
   }
   egress: Egress
   models: ModelInfo[]
-  vlm_health: Record<string, unknown> | null
-  llm_health: Record<string, unknown> | null
+  vlm_health: EndpointHealth | null
+  llm_health: EndpointHealth | null
+}
+
+/** Health of a configured endpoint (no model request is spent). */
+export interface EndpointHealth {
+  ok: boolean
+  status?: number
+  reason?: string | null
+  installed?: boolean
+  path?: string
+  limit_remaining?: number | null
+  free_tier?: boolean | null
 }

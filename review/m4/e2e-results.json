@@ -97,12 +97,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 9169,
+                  "duration": 9886,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-04T05:29:39.157Z",
+                  "startTime": "2026-10-04T06:11:03.879Z",
                   "annotations": [],
                   "attachments": [
                     {
@@ -137,12 +137,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 14338,
+                  "duration": 15510,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-04T05:29:48.430Z",
+                  "startTime": "2026-10-04T06:11:13.870Z",
                   "annotations": [],
                   "attachments": [
                     {
@@ -177,12 +177,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 9347,
+                  "duration": 9644,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-04T05:30:02.783Z",
+                  "startTime": "2026-10-04T06:11:29.393Z",
                   "annotations": [],
                   "attachments": [
                     {
@@ -217,12 +217,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 7498,
+                  "duration": 7896,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-04T05:30:12.143Z",
+                  "startTime": "2026-10-04T06:11:39.052Z",
                   "annotations": [],
                   "attachments": [
                     {
@@ -257,12 +257,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 18537,
+                  "duration": 20225,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-04T05:30:19.654Z",
+                  "startTime": "2026-10-04T06:11:46.960Z",
                   "annotations": [],
                   "attachments": [
                     {
@@ -297,12 +297,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 19455,
+                  "duration": 20130,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-04T05:30:38.202Z",
+                  "startTime": "2026-10-04T06:12:07.197Z",
                   "annotations": [],
                   "attachments": [
                     {
@@ -337,12 +337,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 9955,
+                  "duration": 10280,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-04T05:30:57.669Z",
+                  "startTime": "2026-10-04T06:12:27.341Z",
                   "annotations": [],
                   "attachments": [
                     {
@@ -377,12 +377,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 11055,
+                  "duration": 11729,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-04T05:31:07.635Z",
+                  "startTime": "2026-10-04T06:12:37.633Z",
                   "annotations": [],
                   "attachments": [
                     {
@@ -417,12 +417,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 8889,
+                  "duration": 10012,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-04T05:31:18.702Z",
+                  "startTime": "2026-10-04T06:12:49.374Z",
                   "annotations": [],
                   "attachments": [
                     {
@@ -438,7 +438,7 @@
           ],
           "id": "aa09586c1d16412a1f00-3e0ee6cb4812a57d8ca1",
           "file": "journeys.spec.ts",
-          "line": 362,
+          "line": 365,
           "column": 1
         },
         {
@@ -457,16 +457,16 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 7293,
+                  "duration": 7975,
                   "errors": [],
                   "stdout": [
                     {
-                      "text": "grid scroll {\"idleFrameMs\":16.7,\"firstPass\":{\"p50\":19.2,\"p95\":54.5,\"max\":81},\"secondPass\":{\"p50\":17.9,\"p95\":29.2,\"max\":35},\"cardsInDom\":28,\"total\":\"68\"}\n"
+                      "text": "grid scroll {\"idleFrameMs\":16.6,\"firstPass\":{\"p50\":21.6,\"p95\":52.2,\"max\":99},\"secondPass\":{\"p50\":18.3,\"p95\":32.5,\"max\":44},\"cardsInDom\":28,\"total\":\"68\"}\n"
                     }
                   ],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-04T05:31:27.602Z",
+                  "startTime": "2026-10-04T06:12:59.398Z",
                   "annotations": [],
                   "attachments": [
                     {
@@ -482,7 +482,7 @@
           ],
           "id": "aa09586c1d16412a1f00-76a68c5b44311d255bdd",
           "file": "journeys.spec.ts",
-          "line": 408,
+          "line": 411,
           "column": 1
         },
         {
@@ -501,12 +501,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 12597,
+                  "duration": 16886,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-04T05:31:34.906Z",
+                  "startTime": "2026-10-04T06:13:07.389Z",
                   "annotations": [],
                   "attachments": [
                     {
@@ -522,7 +522,95 @@
           ],
           "id": "aa09586c1d16412a1f00-33c3c31f39e08104054b",
           "file": "journeys.spec.ts",
-          "line": 452,
+          "line": 455,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "providers-people.spec.ts",
+      "file": "providers-people.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "13 hosted model providers: what each unlocks and costs, what leaves, write-only keys",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 180000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "review",
+              "projectName": "review",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 9653,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T06:13:24.317Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "video",
+                      "contentType": "video/webm",
+                      "path": "/home/user/Metachlorian/app/test-results/providers-people-13-hosted-ad4e3-what-leaves-write-only-keys-review/video.webm"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e9659b4384af2de602b3-59ae6cdcacb5d901efa5",
+          "file": "providers-people.spec.ts",
+          "line": 11,
+          "column": 1
+        },
+        {
+          "title": "14 people: name someone, search by name, merge, not this person, restore",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 180000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "review",
+              "projectName": "review",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 24546,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-04T06:13:33.989Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "video",
+                      "contentType": "video/webm",
+                      "path": "/home/user/Metachlorian/app/test-results/providers-people-14-people-bfc1c-rge-not-this-person-restore-review/video.webm"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "e9659b4384af2de602b3-06a909cd663d9aad2b98",
+          "file": "providers-people.spec.ts",
+          "line": 116,
           "column": 1
         }
       ]
@@ -549,16 +637,16 @@
                   "workerIndex": 1,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 19547,
+                  "duration": 20260,
                   "errors": [],
                   "stdout": [
                     {
-                      "text": "preview start (Electron): {\"samples\":[70,54,36,128,37,78,112,69,91,14,29,55],\"median\":69,\"p90\":112,\"max\":128,\"videoElements\":5}\n"
+                      "text": "preview start (Electron): {\"samples\":[64,50,95,96,37,91,123,51,69,29,29,38],\"median\":64,\"p90\":96,\"max\":123,\"videoElements\":5}\n"
                     }
                   ],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-10-04T05:31:48.628Z",
+                  "startTime": "2026-10-04T06:13:59.881Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -576,9 +664,9 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-10-04T05:29:38.325Z",
-    "duration": 149896.797,
-    "expected": 12,
+    "startTime": "2026-10-04T06:11:02.449Z",
+    "duration": 197748.73,
+    "expected": 14,
     "skipped": 0,
     "unexpected": 0,
     "flaky": 0

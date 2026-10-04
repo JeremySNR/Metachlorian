@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import { useQueries, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { DropZone, FileTrigger } from 'react-aria-components'
 import { Check, ChevronRight, CircleAlert, CircleCheck, CircleDashed, CircleX, Cloud, Cpu, FolderOpen, HardDrive, LoaderCircle, RefreshCw, Trash2, Upload } from 'lucide-react'
 import type { QueueJob } from '../../api/types'
 import { api, ApiError, upload } from '../../api/client'
-import { assetQuery, useAsset, useHealth, useProcessing, useSources } from '../../api/queries'
+import { useAsset, useHealth, useProcessing, useSources } from '../../api/queries'
 import { Button } from '../../components/Button'
 import { Bar, EmptyState, StatusText } from '../../components/EmptyState'
 import { Checkbox, TextField } from '../../components/Field'
@@ -36,12 +36,7 @@ export function IngestPage() {
   const [announce, setAnnounce] = useState('')
   const lastAnnounce = useRef(0)
   const d = proc.data
-  // /api/processing counts queued jobs per file but doesn't name them; for files being updated,
-  // read the names from the file's job list (first 12 such files) so the row can say what is refreshing.
-  const updatingUids = (d?.assets ?? []).filter((a) => a.status === 'updating' && !a.pending).slice(0, 12).map((a) => a.uid)
-  const jobDocs = useQueries({ queries: updatingUids.map((uid) => ({ ...assetQuery(uid), refetchInterval: 4000, staleTime: 2000 })) })
-  const pendingOf = new Map(jobDocs.map((q, i) => [updatingUids[i], (q.data?.jobs ?? []).filter((j) => j.status === 'queued' || j.status === 'running').map((j) => j.analyser)]))
-  const assets = (d?.assets ?? []).map((a) => (a.pending || !pendingOf.has(a.uid) ? a : { ...a, pending: pendingOf.get(a.uid) }))
+  const assets = d?.assets ?? []
   const ready = assets.filter((a) => a.status === 'ready' || a.status === 'updating').length
   const processing = assets.filter((a) => a.status === 'processing').length
   const updating = assets.filter((a) => a.status === 'updating').length
@@ -301,7 +296,7 @@ export function IngestPage() {
                               <StatusText tone="cleared" icon={CircleCheck}>Ready</StatusText>
                             </Link>
                           ) : isUpdating ? (
-                            <StatusText tone="info" icon={RefreshCw}>{updatingText(a, d?.queue.running ?? [])}</StatusText>
+                            <StatusText tone="info" icon={RefreshCw}>{updatingText(a)}</StatusText>
                           ) : (
                             <StatusText tone="info" icon={LoaderCircle}>{a.running ? 'Analysing' : 'Queued'}</StatusText>
                           )}

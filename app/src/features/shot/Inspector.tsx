@@ -14,6 +14,7 @@ import { Player, type PlayerHandle } from './Player'
 import { SignalTable } from './SignalTable'
 import { AddToCollectionButton, BlockedNote, ExportMenu, InCollections, RightsBlock, Section, shotRightsState, WhyMatched } from './ShotPanels'
 import { techSummary } from './techSummary'
+import { ShotPeople } from '../people/ShotPeople'
 import t from '../../styles/type.module.css'
 import s from './Shot.module.css'
 
@@ -122,6 +123,11 @@ export function Inspector({ uid, result, intended, query, onClose, onCollapse, e
             <Section title="Rights" id="rights">
               <RightsBlock shot={d} vocabs={vocabs} intended={intended} />
             </Section>
+            {(d.people_identities || Array.isArray(result?.people)) && (
+              <Section title="People" id="people">
+                <ShotPeople people={d.people_identities ?? result?.people} />
+              </Section>
+            )}
             {result && (
               <Section title="Why it matched" id="why">
                 <WhyMatched why={result.why} label={label} query={query} />

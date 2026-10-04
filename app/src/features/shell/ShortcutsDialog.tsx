@@ -14,7 +14,7 @@ export const SHORTCUTS: { surface: string; rows: [string[], string][] }[] = [
     rows: [
       [['Mod+K'], 'Command menu'],
       [['/', 'Mod+F'], 'Focus search'],
-      [['Mod+1…5'], 'Search · Library · Collections · Ingest · Rights'],
+      [['Mod+1…6'], 'Search · Library · Collections · Ingest · Rights · People'],
       [['Mod+,'], 'Settings'],
       [['Mod+\\'], 'Toggle filter rail'],
       [['Mod+I'], 'Toggle inspector'],

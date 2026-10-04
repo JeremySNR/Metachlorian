@@ -56,6 +56,19 @@ export const rightsRoute = createRoute({
   component: lazyRouteComponent(() => import('../features/rights/RightsPage'), 'RightsPage'),
 })
 
+const peopleComponent = lazyRouteComponent(() => import('../features/people/PeoplePage'), 'PeoplePage')
+export const peopleRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/people',
+  validateSearch: (raw: Record<string, unknown>): { q?: string } => (typeof raw.q === 'string' && raw.q.trim() ? { q: raw.q } : {}),
+  component: peopleComponent,
+})
+export const personRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/people/$personId',
+  component: lazyRouteComponent(() => import('../features/people/PersonPage'), 'PersonPage'),
+})
+
 export const ingestRoute = createRoute({ getParentRoute: () => rootRoute, path: '/ingest', component: lazyRouteComponent(() => import('../features/ingest/IngestPage'), 'IngestPage') })
 
 const settingsIndex = createRoute({
@@ -72,7 +85,7 @@ export const settingsRoute = createRoute({
 })
 
 const routeTree = rootRoute.addChildren([
-  indexRoute, searchRoute, shotRoute, fileRoute, collectionsRoute, collectionRoute, libraryRoute, correctionsRoute, rightsRoute, ingestRoute, settingsIndex, settingsRoute,
+  indexRoute, searchRoute, shotRoute, fileRoute, collectionsRoute, collectionRoute, libraryRoute, correctionsRoute, rightsRoute, peopleRoute, personRoute, ingestRoute, settingsIndex, settingsRoute,
 ])
 
 export const router = createRouter({ routeTree, defaultPreload: 'intent', scrollRestoration: false })

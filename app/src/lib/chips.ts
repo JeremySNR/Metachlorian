@@ -11,7 +11,7 @@
 import type { IntendedUse, SearchFilters, SearchResponse, TermMap, WhyItem } from '../api/types'
 import { humanise } from './format'
 
-export type ChipKind = 'prefer' | 'require' | 'exclude' | 'filter' | 'use' | 'place'
+export type ChipKind = 'prefer' | 'require' | 'exclude' | 'filter' | 'use' | 'place' | 'person'
 export type FilterGroup =
   | 'duration'
   | 'fps'
@@ -72,6 +72,7 @@ export const VOCAB_SLATE: Record<string, string> = {
   look: 'LOOK',
   resolution: 'RESOLUTION',
   orientation: 'ORIENTATION',
+  person: 'PERSON',
 }
 
 export const FILTER_SLATE: Record<FilterGroup, string> = {
@@ -410,6 +411,11 @@ export function chipsFromQuery(query: SearchResponse['query'], state: SearchStat
   const words = (vocab: string, term: string) => locateTerm(q, index, vocab, term)?.text
   for (const [vocab, terms] of Object.entries(query.require ?? {})) {
     for (const term of terms) {
+      if (vocab === 'person') {
+        // A recognised person (face identity): from a known name in the words, or an explicit filter. Always hard.
+        chips.push({ key: `person:${term}`, kind: 'person', vocab, term, slate: 'PERSON', label: label(vocab, term), inferred: !listHas(state.require, vocab, term), words: words(vocab, term) })
+        continue
+      }
       chips.push({ key: `require:${vocab}:${term}`, kind: 'require', vocab, term, slate: VOCAB_SLATE[vocab] ?? vocab.toUpperCase(), label: label(vocab, term), inferred: !listHas(state.require, vocab, term), words: words(vocab, term) })
     }
   }
@@ -501,6 +507,16 @@ export function removeChip(state: SearchState, chip: QueryChip, index: PhraseEnt
       next.q = q
       return next
     }
+    case 'person': {
+      // Drop the explicit filter and the name in the words; the core re-reads names from the text.
+      const term = chip.term as string
+      const explicit = listHas(state.require, 'person', term)
+      next.require = without(state.require, 'person', term)
+      const q = removeTermWords(state.q, index, 'person', term, false)
+      if (q !== null) next.q = q
+      else if (!explicit) return null
+      return next
+    }
     case 'filter': {
       const group = chip.filter as FilterGroup
       let changed = false
@@ -543,19 +559,19 @@ function findPhraseExact(q: string, text: string): Span | null {
 
 /** Promote a preference to a hard requirement (the words stay). */
 export function promoteChip(state: SearchState, chip: QueryChip): SearchState {
-  if (!chip.vocab || !chip.term) return state
+  if (!chip.vocab || !chip.term || chip.kind === 'person') return state
   return { ...state, require: withTerm(state.require, chip.vocab, chip.term) }
 }
 
 /** Demote a requirement back to a preference (only meaningful when the words remain). */
 export function demoteChip(state: SearchState, chip: QueryChip): SearchState {
-  if (!chip.vocab || !chip.term) return state
+  if (!chip.vocab || !chip.term || chip.kind === 'person') return state
   return { ...state, require: without(state.require, chip.vocab, chip.term) }
 }
 
 /** Alt+click / Alt+Enter: a preference or requirement becomes an exclusion, and back. */
 export function toggleExcludeChip(state: SearchState, chip: QueryChip, index: PhraseEntry[]): SearchState | null {
-  if (!chip.vocab || !chip.term) return null
+  if (!chip.vocab || !chip.term || chip.kind === 'person') return null
   const vocab = chip.vocab
   const term = chip.term
   if (chip.kind === 'exclude') {

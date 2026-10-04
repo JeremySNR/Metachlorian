@@ -4,6 +4,7 @@ import {
   activeFilterCount, buildPhraseIndex, chipsFromQuery, filterLabel, locateFilter, locateTerm, norm, promoteChip,
   preferenceMatch, removeChip, tidy, toggleExcludeChip, whyFilterLabels, type SearchState,
 } from './chips'
+import { personLabel, personPhrases } from './people'
 
 const vocabs = {
   shot_size: { terms: [{ id: 'close_up', label: 'Close-up (CU)', synonyms: ['closeup', 'tight shot'] }, { id: 'long_shot', label: 'Long shot (LS)', synonyms: ['wide shot'] }] },
@@ -146,5 +147,33 @@ describe('why it matched', () => {
       { signal: 'setting', detail: 'Street', term: 'street' },
     ]
     expect(whyFilterLabels(why)).toEqual(['2s – 10s', '25 fps or more', '1080p or higher', 'Horizontal', 'Not log'])
+  })
+})
+
+describe('person chips (face identity)', () => {
+  const pindex = [...index, ...personPhrases([{ id: 12, name: 'Alex Rivera', label: 'Alex Rivera' }])].sort((a, b) => b.phrase.length - a.phrase.length)
+  const plabel = (v: string, t: string) => (v === 'person' ? personLabel(t, [{ id: 12, name: 'Alex Rivera', label: 'Alex Rivera' }]) : label(v, t))
+  const pq = 'alex rivera at night'
+  const pstate: SearchState = { q: pq, require: {}, exclude: {}, filters: {} }
+  const pquery = query({ text: pq, require: { person: ['12'] }, prefer: { time_of_day: ['night'] } })
+
+  it('shows a known name the core filtered by as a PERSON chip, from the words', () => {
+    const c = chipsFromQuery(pquery, pstate, plabel, pindex).find((x) => x.kind === 'person')
+    expect(c).toMatchObject({ key: 'person:12', slate: 'PERSON', label: 'Alex Rivera', inferred: true, words: 'alex rivera' })
+  })
+  it('removing it removes the name from the words', () => {
+    const c = chipsFromQuery(pquery, pstate, plabel, pindex).find((x) => x.kind === 'person')!
+    expect(removeChip(pstate, c, pindex)?.q).toBe('at night')
+  })
+  it('removes an explicit identity filter (an unnamed person)', () => {
+    const st: SearchState = { q: '', require: { person: ['40'] }, exclude: {}, filters: {} }
+    const c = chipsFromQuery(query({ text: '', require: { person: ['40'] }, prefer: {} }), st, plabel, pindex).find((x) => x.kind === 'person')!
+    expect(c).toMatchObject({ label: 'Person 40', inferred: false })
+    expect(removeChip(st, c, pindex)?.require).toEqual({})
+  })
+  it('is never demoted to a preference or excluded', () => {
+    const c = chipsFromQuery(pquery, pstate, plabel, pindex).find((x) => x.kind === 'person')!
+    expect(promoteChip(pstate, c)).toBe(pstate)
+    expect(toggleExcludeChip(pstate, c, pindex)).toBeNull()
   })
 })

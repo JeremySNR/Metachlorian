@@ -7,8 +7,9 @@ import { useCallback, useMemo } from 'react'
 import { api, qs } from './client'
 import type {
   AdminSettings, AssetDoc, AssetList, AuditEntry, Collection, CollectionSummary, CorrectionsResponse, ExportClipResult, ExportMode,
-  Health, IntendedUse, LibraryStats, Me, PackageResult, PackageTarget, Processing, RightsCheck, RightsRecord, SearchRequest,
-  SearchResponse, ShotDoc, Source, Sprites, TokensResponse, User, Verdict, Vocabulary,
+  Health, IntendedUse, LibraryStats, Me, OpenRouterModel, PackageResult, PackageTarget, PeopleList, PersonDetail, Processing, ProviderId,
+  ProviderKey, ProvidersResponse, ProviderTest, RightsCheck, RightsRecord, SearchRequest, SearchResponse, ShotDoc, Source, Sprites,
+  TokensResponse, User, Verdict, Vocabulary,
 } from './types'
 import { humanise, shortLabel } from '../lib/format'
 import type { Locality } from '../lib/egress'
@@ -320,3 +321,95 @@ export const useTokens = () => useQuery({ queryKey: ['admin', 'tokens'], queryFn
 export const useUsers = () => useQuery({ queryKey: ['admin', 'users'], queryFn: () => api.get<{ users: User[] }>('/api/admin/users').then((r) => r.users), retry: false })
 export const useAudit = (agentsOnly: boolean, limit = 200) =>
   useQuery({ queryKey: ['admin', 'audit', agentsOnly, limit], queryFn: () => api.get<{ entries: AuditEntry[] }>(`/api/admin/audit${qs({ agents_only: agentsOnly || undefined, limit })}`).then((r) => r.entries), retry: false })
+
+// ---------------------------------------------------------------- model providers (admin)
+export const useProviders = () =>
+  useQuery({ queryKey: ['admin', 'providers'], queryFn: () => api.get<ProvidersResponse>('/api/admin/providers'), retry: false, staleTime: 10_000 })
+
+/** OpenRouter's catalogue; the core answers 502 when it can't reach it (the form falls back to a free-text model). */
+export const useOpenRouterModels = (enabled: boolean, vision: boolean) =>
+  useQuery({
+    queryKey: ['admin', 'openrouter-models', vision],
+    queryFn: () => api.get<{ models: OpenRouterModel[] }>(`/api/admin/providers/openrouter/models${qs({ vision: vision || undefined })}`).then((r) => r.models),
+    enabled,
+    retry: false,
+    staleTime: 10 * 60_000,
+  })
+
+/** Store or clear (empty value) a provider key. Keys are write-only: only the masked form comes back. */
+export function useSetProviderKey() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ name, value }: { name: ProviderKey['name']; value: string }) => api.put<Omit<ProviderKey, 'name'>>(`/api/admin/keys/${name}`, { value }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'providers'] })
+      qc.invalidateQueries({ queryKey: ['admin', 'settings'] })
+    },
+  })
+}
+
+/** Key check, model list or `codex login status`: no model request is spent. */
+export const testProvider = (body: { provider: ProviderId; model?: string; base_url?: string; codex_path?: string }) =>
+  api.post<ProviderTest>('/api/admin/providers/test', { ...body })
+
+// ---------------------------------------------------------------- people (face identity)
+export interface PeopleParams {
+  q?: string
+  named?: boolean
+  limit?: number
+  offset?: number
+}
+
+export const usePeople = (params: PeopleParams = {}, opts: { enabled?: boolean } = {}) =>
+  useQuery({
+    queryKey: ['people', 'list', params],
+    queryFn: () => api.get<PeopleList>(`/api/people${qs({ q: params.q, named: params.named, limit: params.limit ?? 200, offset: params.offset })}`),
+    placeholderData: keepPreviousData,
+    enabled: opts.enabled ?? true,
+    staleTime: 30_000,
+  })
+
+/** Every named person (for name chips, suggestions and covers); small in practice. */
+export const useNamedPeople = (enabled = true) => usePeople({ named: true, limit: 500 }, { enabled })
+
+export const usePerson = (id: number | null | undefined) =>
+  useQuery({ queryKey: ['people', 'one', id], queryFn: () => api.get<PersonDetail>(`/api/people/${id}${qs({ limit: 500 })}`), enabled: id !== null && id !== undefined, retry: false })
+
+/** Anything that changes who is in a shot: people lists, shot records and search results. */
+function invalidatePeople(qc: QueryClient) {
+  for (const k of ['people', 'shot', 'search', 'search-count']) qc.invalidateQueries({ queryKey: [k] })
+}
+
+export function useRenamePerson() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, name }: { id: number; name: string }) => api.patch<PersonDetail>(`/api/people/${id}`, { name }),
+    onSuccess: () => invalidatePeople(qc),
+  })
+}
+
+export function useMergePeople() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ from, into }: { from: number; into: number }) => api.post<PersonDetail>(`/api/people/${from}/merge`, { into }),
+    onSuccess: () => invalidatePeople(qc),
+  })
+}
+
+/** Move a face to a person, or (`identityId: null`) "not this person": the face becomes a new person. */
+export function useAssignFace() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ faceId, identityId }: { faceId: number; identityId: number | null }) =>
+      api.post<{ face_id: number; identity_id: number }>(`/api/faces/${faceId}/assign`, { identity_id: identityId }),
+    onSuccess: () => invalidatePeople(qc),
+  })
+}
+
+export function useForgetPerson() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => api.del<{ forgotten: number; faces_deleted: number }>(`/api/people/${id}`),
+    onSuccess: () => invalidatePeople(qc),
+  })
+}

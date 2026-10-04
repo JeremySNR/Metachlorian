@@ -4,7 +4,7 @@
 - Build: `app/` (React 19.3, TypeScript 6.0, Vite 8, React Aria Components 1.21, TanStack Query/Router/Virtual, Zustand, Lucide)
 - Served by: the demo core on `http://127.0.0.1:8770` (63 files, ~293 shots), reading `app/dist`
 - Regenerate: `cd app && npm run build && npm run review:capture` (Playwright 1.56.1 with `/opt/pw-browsers`, under `xvfb-run`)
-- Results: `e2e-results.json` (12/12 passed), `capture.log`, `perf-web.json`, `perf-electron.json`
+- Results: `e2e-results.json` (14/14 passed), `capture.log`, `perf-web.json`, `perf-electron.json`
 - Findings and known gaps: [`findings.md`](findings.md); the independent review is [`fresh-review.md`](fresh-review.md) and its resolutions [`fresh-review-fixes.md`](fresh-review-fixes.md). Captures were re-taken after those fixes.
 
 Screenshot names are `<journey>-<view>--<viewport>-<theme>.jpg`. Viewports: **desktop** 1440×900, **laptop**
@@ -26,7 +26,9 @@ reduced motion, so no transition is mid-flight.
 | `08-processing-status-is-visible.webm` | Re-analysis queued (rollup on the shortest file, the embedder on six short files) → Ingest: those files stay *Searchable* and read *Updating: embed* (summary, sources, drop zone, queue steps, analysers incl. "no vision-language model configured, CPU tier") → Model adapters: a public endpoint typed, classified by the core as remote, save asks first (cancelled, then a loopback endpoint reads *Local*; nothing saved) → API tokens |
 | `09-keyboard-only-search-to-inspector-to-shot-detail.webm` | `/`, type, `Ctrl+Enter` focuses the first result, arrows, `Space` preview, `X` select, `Esc`, `Ctrl+K` command menu, `?` shortcuts, `Enter` → Shot detail with the player focused, `L`/`K`, `I`, frame steps, `O` |
 | `10-grid-scroll-smoothness.webm` | Browse all shots at size S and scroll the virtualised grid end to end twice (frame timings in `perf-web.json`) |
-| `12-narrow-screens-forced-colours-and-match-strength.webm` | 320×640: no sideways scroll on six routes, search on its own row, sections menu; forced colours with two selected cards; a nonsense query at *Strict* shows *No strong matches*; strictness in the URL |
+| `13-hosted-model-providers-what-each-unlocks-and-costs-what-leaves-write-only-keys.webm` | Settings → Model adapters: status (captions, summaries, queue), provider chooser (Local / OpenAI / OpenRouter / ChatGPT via Codex) with what each unlocks, speed and cost; OpenAI shows *Leaves this machine* with what is sent and never sent; a fake key saved (password field, shown only as `sk-te…abcd` · stored in this library, never echoed by the page or the API); *Save model settings* asks first (§3.20), **cancelled**, nothing hosted saved and the top bar still reads *Local*; *Remove key*; OpenRouter (catalogue offline here → free-text model fallback); Codex setup (not installed, the two commands, daily cap); different provider for summaries; discarded; 320 px |
+| `14-people-name-someone-search-by-name-merge-not-this-person-restore.webm` | People: unnamed person named inline (“Jonah Fielding”) → appears under Named → search for the name: `PERSON` chip, the core's hard filter, the inspector's People row → Shot detail People row (unnamed people offer *Name…*) → person page → renamed back to unnamed. Drag one tile onto another (opens merge, cancelled), then select two clusters of the same man in `head-pose-face-detection-female-and-male.mp4` and *Merge 2 people* (larger kept) → on the merged person, *Not this person* on the merged face moves it out again to a new person → *Forget this person* dialog (cancelled; nobody forgotten) → Privacy and analysis settings → 320 px |
+| `12-narrow-screens-forced-colours-and-match-strength.webm` | 320×640: no sideways scroll on ten routes (now including People, a person, Model adapters and Privacy), search on its own row, sections menu; forced colours with two selected cards; a nonsense query at *Strict* shows *No strong matches*; strictness in the URL |
 | `11-electron-preview-latency.webm` | The same web UI inside Electron 39 (H.264 decode): `Space` previews on eight cards and dwell previews on three; start times in `perf-electron.json` |
 
 ## Screenshots (`screens/`)
@@ -74,9 +76,30 @@ reduced motion, so no transition is mid-flight.
 ### 08 Processing and admin
 - `08-ingest-processing--*.jpg`: ingest summary (searchable / not yet searchable), watched folders, add folder / S3, drop zone, queue with step glyphs (Probe · Proxies · Shots · Vision · Audio · Index) and progress in `--fg-2` (Key only for the current row), the re-analysed file shown as *Searchable · Updating: …* instead of a percentage, analyser availability.
 - `08-ingest-updating--desktop-dark.jpg`: a re-analysed file mid-refresh: *Searchable · 1 step left*, *Updating: visual tags*, only the refreshing step spinning.
-- `08-model-adapters-egress--desktop-*.jpg`: *Local* / *Leaves this machine* status, CPU-tier explanation, VLM and LLM endpoint forms, bundled models. `https://api.openai.com/v1` typed (not saved): the badge is the core's classification of the host (*Hosted, refused* / *Leaves this machine*), even with the self-declared switch on.
+- `08-model-adapters-egress--desktop-*.jpg`: *Local* with your own server: `https://api.openai.com/v1` typed (not saved); the badge is the core's classification of the host (*Leaves this machine*), even with the self-declared switch on.
 - `08-model-adapters-confirm--desktop-dark.jpg`: saving a remote endpoint asks first (§3.20), naming the host. Cancelled.
 - `08-api-tokens--desktop-*.jpg`: tokens table and copy-paste MCP config (stdio `metachlorian --data … mcp` and HTTP `/mcp` with a bearer).
+
+### 13 Model providers (Settings → Model adapters)
+- `13-model-providers--{desktop,laptop,tablet}-{dark,light}.jpg`: *Status* (captions and summaries: provider · model · health; files waiting for captions from `/api/processing` `pending`; the caption analyser's reason when it is unavailable; *Local* / *Leaves this machine*), the provider chooser for captions with what each costs and the *Local* / *Leaves this machine* chip on every option, *Unlocks / Speed / Cost* for the selected one, the custom endpoint form, summaries following the captions provider, bundled models.
+- `13-provider-openai-key--desktop-{dark,light}.jpg`: OpenAI selected: key saved and shown only as `sk-te…abcd · stored in this library`, password field empty, *Remove key*, *Test*; *Sent* / *Never sent* lists.
+- `13-provider-confirm--desktop-dark.jpg`: the §3.20 confirmation: “Frames and text from your footage will be sent to OpenAI (api.openai.com)”, per role what is sent, never sent, *Turn on and send frames* (cancelled).
+- `13-provider-openrouter--desktop-dark.jpg`: OpenRouter with the catalogue unreachable (core 502): free-text model with the suggested default. With a connection the picker lists models with a *Reads images* filter, $/M input and output, context and JSON support.
+- `13-provider-codex--desktop-{dark,light}.jpg`: ChatGPT via Codex: setup state (CLI not found here), `npm i -g @openai/codex`, `codex login`, “never reads your login tokens”, CLI path, requests-per-day cap and the plan cost line.
+- `13-provider-separate-summaries--desktop-dark.jpg`: *Use a different provider for summaries* with its own chooser.
+- `13-model-providers--320-dark.jpg`: 320 px, chooser stacked.
+
+### 14 People (face identity)
+- `14-people--{desktop,laptop,tablet}-{dark,light}.jpg`: privacy line (matched here, never sent, can be forgotten, link to settings), *Named*, *Unnamed: help name them* (largest first) with face crops, counts and *Name this person*.
+- `14-people-naming--desktop-dark.jpg`, `14-people-named--desktop-dark.jpg`: inline naming; the person moves to *Named*.
+- `14-search-person--desktop-{dark,light}.jpg`: a search for the name: `PERSON · Jonah Fielding` chip (Enter opens the person), a name-only query treated as a filter (no strong/weak split), the inspector's *People* row.
+- `14-shot-people--*.jpg`: Shot detail *People* row: face chips linking to each person; unnamed ones offer *Name…*.
+- `14-person-named--desktop-dark.jpg`, `14-person--*.jpg`: a person: actions (*Find shots with this person*, *Name/Rename*, *Merge into…*, *Forget this person*), faces grouped by file with shot number and timecode, *Confirmed* marks, *Not this person*.
+- `14-people-selection--desktop-{dark,light}.jpg`, `14-merge-dialog--desktop-dark.jpg`: two selected (Key ring and check), selection bar, merge dialog choosing who to keep.
+- `14-not-this-person--desktop-dark.jpg`: the face moved to a new person, toast with *Undo*.
+- `14-forget-confirm--desktop-dark.jpg`: forget confirmation naming what is deleted (cancelled).
+- `14-privacy-settings--desktop-{dark,light}.jpg`: Settings → Privacy and analysis: face recognition switch and the facts about face data; where analysis runs.
+- `14-people--320-dark.jpg`: 320 px.
 
 ### 09 Keyboard
 - `09-keyboard-grid-focus--desktop-*.jpg`: focus ring outside the Key selection ring on a focused, selected card.

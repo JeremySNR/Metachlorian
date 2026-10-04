@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, Outlet, useNavigate } from '@tanstack/react-router'
 import { TooltipTrigger, Focusable } from 'react-aria-components'
-import { CircleHelp, HardDrive, Layers, Library, Menu as MenuIcon, Search, Settings, ShieldCheck, type LucideIcon } from 'lucide-react'
+import { CircleHelp, HardDrive, Layers, Library, Menu as MenuIcon, ScanFace, Search, Settings, ShieldCheck, type LucideIcon } from 'lucide-react'
 import { IconButton } from '../../components/Button'
 import { Menu, MenuItem, MenuPopover, MenuSeparator, MenuTrigger } from '../../components/Menu'
 import { useMediaQuery } from '../../hooks/useMediaQuery'
@@ -20,12 +20,16 @@ import { ShortcutsDialog } from './ShortcutsDialog'
 import { GlobalDialogs } from './GlobalDialogs'
 import s from './AppShell.module.css'
 
-const NAV: { to: '/library' | '/collections' | '/ingest' | '/rights'; label: string; icon: LucideIcon; key: string }[] = [
+const NAV: { to: '/library' | '/collections' | '/ingest' | '/rights' | '/people'; label: string; icon: LucideIcon; key: string }[] = [
   { to: '/library', label: 'Library', icon: Library, key: '2' },
   { to: '/collections', label: 'Collections', icon: Layers, key: '3' },
   { to: '/ingest', label: 'Ingest', icon: HardDrive, key: '4' },
   { to: '/rights', label: 'Rights', icon: ShieldCheck, key: '5' },
+  { to: '/people', label: 'People', icon: ScanFace, key: '6' },
 ]
+
+/** ⌘1…⌘6, in top-bar order (system.md §5.1). */
+export const SECTION_KEYS = ['/search', '/library', '/collections', '/ingest', '/rights', '/people'] as const
 
 const SHOT_MIME = 'application/x-metachlorian-shots'
 
@@ -78,9 +82,9 @@ export function AppShell() {
       window.dispatchEvent(new Event('mc:focus-search'))
       return
     }
-    if (isMod(e) && !e.shiftKey && !e.altKey && /^[1-5]$/.test(e.key)) {
+    if (isMod(e) && !e.shiftKey && !e.altKey && /^[1-6]$/.test(e.key)) {
       e.preventDefault()
-      const to = ['/search', '/library', '/collections', '/ingest', '/rights'][Number(e.key) - 1] as '/search'
+      const to = SECTION_KEYS[Number(e.key) - 1] as '/search'
       navigate({ to })
       return
     }
