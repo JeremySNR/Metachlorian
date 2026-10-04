@@ -122,6 +122,8 @@ interface UiState {
   addToDialog: string[] | null
   /** Command menu: "Search in folder…" / "Search in collection…". */
   scopeDialog: 'folder' | 'collection' | null
+  /** Command menu: "Import from links…" (a timestamp; Ingest focuses the links field when it is recent). */
+  importLinksFocus: number
   setSelection: (s: Set<string>) => void
   toggleSelected: (uid: string) => void
   clearSelection: () => void
@@ -148,6 +150,7 @@ export const useUi = create<UiState>()((set, get) => ({
   rightsDialog: null,
   addToDialog: null,
   scopeDialog: null,
+  importLinksFocus: 0,
   setSelection: (s) => set({ selection: s }),
   toggleSelected: (uid) => {
     const s = new Set(get().selection)

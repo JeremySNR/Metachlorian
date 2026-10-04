@@ -16,6 +16,7 @@ import { StatusText } from '../../components/EmptyState'
 import { toast } from '../../components/Toast'
 import { Timecode } from '../../components/Timecode'
 import { Snippet } from '../search/ResultsGrid'
+import { CheckRightsNudge } from '../asset/Origin'
 import { formatDate, humanise, shortLabel } from '../../lib/format'
 import { stateFromBadge, stateFromVerdict, describeRights, COMMON_TERRITORIES, type RightsState } from '../../lib/rights'
 import { formatDuration, formatTimecode } from '../../lib/timecode'
@@ -163,6 +164,9 @@ export function RightsBlock({ shot, vocabs, intended }: { shot: ShotDoc; vocabs:
           </Button>
         }
       />
+      {shot.origin && r.status === 'unknown' && (
+        <CheckRightsNudge badge={false} onCheck={() => useUi.getState().set({ rightsDialog: { assetUids: [shot.asset_uid], title: shot.filename } })} />
+      )}
       <RightsCheck shot={shot} vocabs={vocabs} />
     </div>
   )

@@ -460,7 +460,7 @@ test('12 narrow screens, forced colours and match strength', async ({ page }) =>
   const field = await page.locator('#mc-search').boundingBox()
   expect(field!.width).toBeGreaterThan(150)
   const someone = (await (await page.request.get('/api/people?limit=1')).json()).people[0]
-  const routes = ['/search?q=street', '/library', '/collections', '/ingest', '/rights', '/settings/appearance', '/people', '/settings/adapters', '/settings/privacy']
+  const routes = ['/search?q=street', '/library', '/collections', '/ingest', '/rights', '/settings/appearance', '/people', '/settings/adapters', '/settings/privacy', '/settings/imports']
   if (someone) routes.push(`/people/${someone.id}`)
   for (const route of routes) {
     await page.goto(route)

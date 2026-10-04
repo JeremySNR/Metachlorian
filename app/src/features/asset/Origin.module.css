@@ -1,0 +1,100 @@
+/* Where an imported file came from, and the nudge to check its rights. */
+.kv {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  gap: var(--space-1) var(--space-3);
+  font-size: var(--text-sm);
+  margin: 0;
+}
+
+.kv dt {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+  font-weight: var(--weight-medium);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  color: var(--fg-3);
+  font-feature-settings: var(--font-mono-features);
+  padding-block-start: 3px;
+}
+
+.kv dd {
+  margin: 0;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.link {
+  display: inline;
+  overflow-wrap: anywhere;
+}
+
+.link svg {
+  display: inline;
+  vertical-align: -1px;
+  margin-inline-start: var(--space-1);
+}
+
+.url {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--fg-3);
+  overflow-wrap: anywhere;
+}
+
+.muted {
+  color: var(--fg-3);
+}
+
+.description {
+  font-size: var(--text-sm);
+}
+
+.description summary {
+  color: var(--fg-2);
+  cursor: default;
+  min-block-size: var(--target-min);
+  display: flex;
+  align-items: center;
+}
+
+.description summary:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
+.description p {
+  white-space: pre-line;
+  color: var(--fg-2);
+  max-inline-size: var(--measure-prose);
+  max-block-size: 240px;
+  overflow-y: auto;
+  padding-block: var(--space-1);
+}
+
+/* The nudge: a hairline-ruled note, not a card (system.md §0 rule 4). */
+.nudge {
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  gap: var(--space-1_5);
+  padding-block: var(--space-2);
+  padding-inline-start: var(--space-3);
+  border-inline-start: 2px solid var(--status-caution);
+}
+
+.nudge p {
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-2);
+  max-inline-size: var(--measure-prose);
+}
+
+@media (pointer: coarse) {
+  .description summary {
+    min-block-size: var(--target-coarse);
+  }
+}

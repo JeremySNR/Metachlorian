@@ -15,6 +15,7 @@ import { humanise } from '../../lib/format'
 import { rememberRecentShot, usePrefs, useUi } from '../../lib/store'
 import { Player, type PlayerHandle } from './Player'
 import { SignalTable } from './SignalTable'
+import { OriginDetails } from '../asset/Origin'
 import { AddToCollectionButton, BlockedNote, ExportMenu, InCollections, Moments, RightsBlock, Section, shotRightsState, SimilarStrip, Transcript, WhyMatched } from './ShotPanels'
 import { techSummary } from './techSummary'
 import { ShotPeople } from '../people/ShotPeople'
@@ -185,6 +186,11 @@ export function ShotPage() {
         <Section title="Rights" id="r2">
           <RightsBlock shot={d} vocabs={vocabs} />
         </Section>
+        {d.origin && (
+          <Section title="From the web" id="o2">
+            <OriginDetails origin={d.origin} />
+          </Section>
+        )}
         {d.people_identities && (
           <Section title="People" id="p2">
             <ShotPeople people={d.people_identities} />

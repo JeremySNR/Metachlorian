@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { Autocomplete, Input, Menu, MenuItem, MenuSection, Header, SearchField, type Key } from 'react-aria-components'
 import {
-  Clapperboard, Film, FolderSearch, FolderTree, HardDrive, Keyboard, Layers, Library, ListChecks, Moon, PanelLeft, PanelRight, ScanFace, Search, Settings, ShieldCheck, Sun, SunMoon, type LucideIcon,
+  Clapperboard, Film, FolderSearch, FolderTree, HardDrive, Keyboard, Layers, Library, Link2, ListChecks, Moon, PanelLeft, PanelRight, ScanFace, Search, Settings, ShieldCheck, Sun, SunMoon, type LucideIcon,
 } from 'lucide-react'
 import { useCollections } from '../../api/queries'
 import { Dialog } from '../../components/Dialog'
@@ -50,6 +50,15 @@ export function CommandMenu() {
       { id: 'focus-search', label: 'Search shots', icon: Search, meta: '/', run: () => window.setTimeout(() => window.dispatchEvent(new Event('mc:focus-search')), 30) },
       { id: 'scope-folder', label: 'Search in folder…', icon: FolderSearch, run: () => set({ scopeDialog: 'folder' }) },
       { id: 'scope-collection', label: 'Search in collection…', icon: Layers, run: () => set({ scopeDialog: 'collection' }) },
+      {
+        id: 'import-links',
+        label: 'Import from links…',
+        icon: Link2,
+        run: () => {
+          set({ importLinksFocus: Date.now() })
+          navigate({ to: '/ingest' })
+        },
+      },
       { id: 'toggle-rail', label: 'Toggle filter rail', icon: PanelLeft, meta: `${MOD}\\`, run: () => p.set({ railOpen: !usePrefs.getState().railOpen }) },
       { id: 'toggle-inspector', label: 'Toggle inspector', icon: PanelRight, meta: `${MOD}I`, run: () => p.set({ inspectorOpen: !usePrefs.getState().inspectorOpen }) },
       { id: 'theme-dark', label: 'Theme: dark', icon: Moon, run: () => p.set({ theme: 'dark' }) },
@@ -70,6 +79,7 @@ export function CommandMenu() {
       { id: 'go-tokens', label: 'Settings: API tokens for agents', icon: Settings, run: () => navigate({ to: '/settings/$section', params: { section: 'tokens' } }) },
       { id: 'go-adapters', label: 'Settings: model adapters', icon: Settings, run: () => navigate({ to: '/settings/$section', params: { section: 'adapters' } }) },
       { id: 'go-privacy', label: 'Settings: privacy and analysis (face recognition)', icon: Settings, run: () => navigate({ to: '/settings/$section', params: { section: 'privacy' } }) },
+      { id: 'go-imports', label: 'Settings: imports (yt-dlp, logins for private videos)', icon: Settings, run: () => navigate({ to: '/settings/$section', params: { section: 'imports' } }) },
     ]
     const cols: Cmd[] = (collections.data ?? []).map((c) => ({ id: `col-${c.uid}`, label: c.name, icon: Layers, meta: `${c.items} shots`, run: () => navigate({ to: '/collections/$collectionId', params: { collectionId: c.uid } }) }))
     const shots: Cmd[] = recent.slice(0, 6).map((uid) => {

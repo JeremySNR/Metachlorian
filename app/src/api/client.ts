@@ -64,7 +64,7 @@ async function request<T>(method: string, path: string, body?: Json | FormData, 
 export const api = {
   get: <T>(path: string, signal?: AbortSignal) => request<T>('GET', path, undefined, signal),
   post: <T>(path: string, body?: Json | FormData, signal?: AbortSignal) => request<T>('POST', path, body ?? {}, signal),
-  put: <T>(path: string, body: Json) => request<T>('PUT', path, body),
+  put: <T>(path: string, body: Json | FormData) => request<T>('PUT', path, body),
   patch: <T>(path: string, body: Json) => request<T>('PATCH', path, body),
   del: <T>(path: string) => request<T>('DELETE', path),
 }

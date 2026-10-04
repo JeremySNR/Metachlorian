@@ -125,3 +125,8 @@ export function aspectLabel(ratio: number | null | undefined): string | null {
 export function tidyNumbers(text: string): string {
   return text.replace(/\b(\d+\.\d{2,})\b/g, (m) => String(Math.round(Number(m) * 10) / 10))
 }
+
+/** First letter upper case: core messages ("not a web link: …") start lower case. */
+export function sentence(text: string): string {
+  return text ? text.charAt(0).toUpperCase() + text.slice(1) : text
+}

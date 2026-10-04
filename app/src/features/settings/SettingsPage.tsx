@@ -7,6 +7,7 @@ import { api, ApiError } from '../../api/client'
 import { useAdminSettings, useAudit, useHealth, useMe, usePeople, useTokens, useUsers } from '../../api/queries'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { ModelAdapters } from './ModelProviders'
+import { ImportSettings } from './ImportSettings'
 import { Button } from '../../components/Button'
 import { Dialog } from '../../components/Dialog'
 import { EmptyState, StatusText } from '../../components/EmptyState'
@@ -29,6 +30,7 @@ const SECTIONS: { id: string; label: string; admin?: boolean; desktop?: boolean 
   { id: 'tokens', label: 'API tokens for agents', admin: true },
   { id: 'adapters', label: 'Model adapters', admin: true },
   { id: 'privacy', label: 'Privacy and analysis', admin: true },
+  { id: 'imports', label: 'Imports' },
   { id: 'audit', label: 'Audit log', admin: true },
   { id: 'storage', label: 'Storage and proxies', admin: true },
   { id: 'about', label: 'About' },
@@ -69,6 +71,7 @@ export function SettingsPage() {
           {current?.id === 'tokens' && <Tokens />}
           {current?.id === 'adapters' && <ModelAdapters onAdminError={(e) => <AdminOnly error={e} />} />}
           {current?.id === 'privacy' && <PrivacySettings />}
+          {current?.id === 'imports' && <ImportSettings />}
           {current?.id === 'audit' && <Audit />}
           {current?.id === 'storage' && <Storage />}
           {current?.id === 'about' && <About />}

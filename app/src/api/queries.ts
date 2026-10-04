@@ -7,7 +7,7 @@ import { useCallback, useMemo } from 'react'
 import { api, qs } from './client'
 import type {
   AdminSettings, AssetDoc, AssetList, AuditEntry, Collection, CollectionSummary, CorrectionsResponse, ExportClipResult, ExportMode,
-  FolderList, Health, IntendedUse, LibraryStats, Me, OpenRouterModel, PackageResult, PackageTarget, PeopleList, PersonDetail, Processing, ProviderId,
+  FolderList, Health, ImportList, ImportTool, IntendedUse, LibraryStats, Me, OpenRouterModel, PackageResult, PackageTarget, PeopleList, PersonDetail, Processing, ProviderId,
   ProviderKey, ProvidersResponse, ProviderTest, RightsCheck, RightsRecord, SearchRequest, SearchResponse, ShotDoc, Source, Sprites,
   TokensResponse, User, Verdict, Vocabulary,
 } from './types'
@@ -325,6 +325,26 @@ export const useProcessing = (enabled = true) =>
     refetchIntervalInBackground: false,
     staleTime: 1000,
   })
+
+// ---------------------------------------------------------------- imports from web links
+const visible = () => typeof document === 'undefined' || document.visibilityState === 'visible'
+
+/** The import list: every 1.5 s while anything is waiting or downloading, every 15 s otherwise (imports started elsewhere). */
+export const useImports = (limit = 200) =>
+  useQuery({
+    queryKey: ['imports', limit],
+    queryFn: () => api.get<ImportList>(`/api/imports${qs({ limit })}`),
+    refetchInterval: (q) => {
+      if (!visible()) return false
+      const rows = q.state.data?.imports ?? []
+      return rows.some((r) => r.status === 'queued' || r.status === 'probing' || r.status === 'downloading') ? 1500 : 15_000
+    },
+    refetchIntervalInBackground: false,
+    staleTime: 1000,
+  })
+
+/** yt-dlp status and the login settings for imports (cookie contents are never returned). */
+export const useImportTool = () => useQuery({ queryKey: ['imports', 'tool'], queryFn: () => api.get<ImportTool>('/api/imports/tool'), staleTime: 30_000 })
 
 export const useSources = () => useQuery({ queryKey: ['sources'], queryFn: () => api.get<{ sources: Source[] }>('/api/sources').then((r) => r.sources) })
 

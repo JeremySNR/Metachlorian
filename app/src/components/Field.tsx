@@ -23,7 +23,7 @@ export function TextField({ label, description, slateLabel, className, placehold
   return (
     <RacTextField {...props} className={[s.field, className].filter(Boolean).join(' ')}>
       {lab(label, slateLabel)}
-      {multiline ? <RacTextArea className={s.textarea} placeholder={placeholder} /> : <Input className={[s.input, mono && s.mono].filter(Boolean).join(' ')} placeholder={placeholder} />}
+      {multiline ? <RacTextArea className={[s.textarea, mono && s.mono].filter(Boolean).join(' ')} placeholder={placeholder} /> : <Input className={[s.input, mono && s.mono].filter(Boolean).join(' ')} placeholder={placeholder} />}
       {description && <Text slot="description" className={s.description}>{description}</Text>}
       <FieldError className={s.error} />
     </RacTextField>
@@ -106,6 +106,7 @@ export function Select({ label, description, slateLabel, className, options, pla
         <Ic icon={ChevronDown} size={14} />
       </RacButton>
       {description && <Text slot="description" className={s.description}>{description}</Text>}
+      <FieldError className={s.error} />
       <Popover className={o.popover} offset={4}>
         <ListBox items={options} className={s.listbox}>
           {(item) => (
@@ -136,6 +137,7 @@ export function ComboBox({ label, description, slateLabel, className, options, p
         </RacButton>
       </div>
       {description && <Text slot="description" className={s.description}>{description}</Text>}
+      <FieldError className={s.error} />
       <Popover className={o.popover} offset={4}>
         <ListBox className={s.listbox}>
           {(item: Option) => (

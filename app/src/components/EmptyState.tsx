@@ -20,10 +20,10 @@ export function ProgressLine({ visible }: { visible: boolean }) {
   return <span className={s.progress} role="progressbar" aria-label="Loading" />
 }
 
-export function StatusText({ tone, icon, children, filled, className }: { tone: 'info' | 'cleared' | 'caution' | 'blocked' | 'neutral'; icon?: LucideIcon; children: ReactNode; filled?: boolean; className?: string }) {
+export function StatusText({ tone, icon, children, filled, className, spin }: { tone: 'info' | 'cleared' | 'caution' | 'blocked' | 'neutral'; icon?: LucideIcon; children: ReactNode; filled?: boolean; className?: string; spin?: boolean }) {
   return (
     <span className={[s.status, s[`s-${tone}`], filled && s.statusFilled, className].filter(Boolean).join(' ')}>
-      {icon && <Ic icon={icon} size={14} />}
+      {icon && <Ic icon={icon} size={14} className={spin ? 'mc-spin' : undefined} />}
       {children}
     </span>
   )

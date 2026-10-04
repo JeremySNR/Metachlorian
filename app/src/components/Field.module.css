@@ -61,7 +61,8 @@
   outline-offset: 0;
 }
 
-.input[data-invalid] {
+.input[data-invalid],
+.textarea[data-invalid] {
   border-color: var(--status-blocked);
 }
 
@@ -82,6 +83,11 @@
   font-size: var(--text-md);
   line-height: var(--leading-md);
   resize: vertical;
+}
+
+.textarea.mono {
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
 }
 
 .group {

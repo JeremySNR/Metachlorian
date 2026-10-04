@@ -19,6 +19,7 @@ import s from './Ingest.module.css'
 import { STEPS, stepStates, updatingText } from '../../lib/processing'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { searchFolder } from '../library/FoldersPage'
+import { AddFromLinks, ImportsList } from './Imports'
 
 const STEP_ICON = { done: Check, active: LoaderCircle, waiting: CircleDashed, failed: CircleX }
 
@@ -241,6 +242,16 @@ export function IngestPage() {
             )}
           </DropZone>
         </section>
+
+        <section className={l.section} aria-labelledby="links-h">
+          <div className={l.sectionHead}>
+            <h2 id="links-h">Add from links</h2>
+            <Link to="/settings/$section" params={{ section: 'imports' }}>Import settings</Link>
+          </div>
+          <AddFromLinks />
+        </section>
+
+        <ImportsList />
 
         <section className={l.section} aria-labelledby="q-h">
           <div className={l.sectionHead}>

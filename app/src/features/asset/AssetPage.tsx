@@ -20,6 +20,7 @@ import { useUi } from '../../lib/store'
 import { Player, type PlayerHandle } from '../shot/Player'
 import { Transcript } from '../shot/ShotPanels'
 import { Filmstrip, type FilmstripHandle } from './Filmstrip'
+import { CheckRightsNudge, OriginDetails } from './Origin'
 import s from './Asset.module.css'
 
 const STAGE_ORDER = ['raw', 'selects', 'finished']
@@ -200,6 +201,13 @@ export function AssetPage() {
             <span className={s.blockHead}>Summary</span>
             <p>{tidyNumbers(st.summary?.story || st.summary?.text || 'No summary yet.')}</p>
           </div>
+          {a.origin && (
+            <section className={s.block} aria-labelledby="origin-h">
+              <h2 className={s.blockHead} id="origin-h">From the web</h2>
+              <OriginDetails origin={a.origin} />
+              {a.rights.status === 'unknown' && <CheckRightsNudge onCheck={() => useUi.getState().set({ rightsDialog: { assetUids: [a.uid], title: a.filename } })} />}
+            </section>
+          )}
           <dl className={s.kv}>
             <dt>Path</dt>
             <dd className={s.mono}>{a.path}</dd>

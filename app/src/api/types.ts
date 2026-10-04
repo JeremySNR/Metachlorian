@@ -384,6 +384,8 @@ export interface ShotDoc {
   people_identities?: PersonRef[]
   /** Every folder the file was found in (a duplicate lives in several). */
   folders?: string[]
+  /** Imported from a web link: where it came from (null otherwise). */
+  origin?: Omit<Origin, 'description'> | null
 }
 
 // ---------------------------------------------------------------- assets
@@ -482,6 +484,8 @@ export interface AssetDoc {
   media: { proxy: string | null; poster: string | null; sprites: Sprites | null }
   transcript: TranscriptSegment[]
   paths: string[]
+  /** Imported from a web link: where it came from (null otherwise). */
+  origin?: Origin | null
 }
 
 export interface AssetListItem {
@@ -914,6 +918,12 @@ export interface AdminSettings {
     llm: ModelEndpoint
     allow_remote: boolean
     face_identity: boolean
+    /** Imports: borrow this browser's login ("" = none). */
+    import_cookies_browser?: string
+    /** Imports: default quality cap (height in pixels). */
+    import_max_height?: number
+    /** Imports: yt-dlp program to use ("" = PATH, else the copy Metachlorian downloads). */
+    ytdlp_path?: string
     require_auth: boolean
     cors_origins: string[]
   }
@@ -932,4 +942,67 @@ export interface EndpointHealth {
   path?: string
   limit_remaining?: number | null
   free_tier?: boolean | null
+}
+
+// ---------------------------------------------------------------- imports from web links (yt-dlp)
+export type ImportStatus = 'queued' | 'probing' | 'downloading' | 'done' | 'duplicate' | 'failed' | 'cancelled' | 'expanded'
+
+/** Where an imported file came from (GET /api/assets/{uid}; shot docs omit `description`). */
+export interface Origin {
+  url: string
+  title: string | null
+  site: string | null
+  uploader: string | null
+  upload_date: string | null
+  license: string | null
+  tags: string[]
+  description?: string
+  imported_at: number
+}
+
+/** One row of GET /api/imports: a video, or a playlist (`expanded`) whose videos are rows with its `parent_id`. */
+export interface ImportRow {
+  id: number
+  url: string
+  parent_id: number | null
+  status: ImportStatus
+  /** 0..1, or -1 while it can't be measured (e.g. downloading yt-dlp). */
+  progress: number
+  message: string
+  error: string | null
+  /** Under imports/ in the library; empty = the site's name. */
+  folder: string
+  playlist: boolean
+  max_height: number
+  origin_key: string | null
+  title: string | null
+  site: string | null
+  uploader: string | null
+  duration: number | null
+  info: Record<string, unknown>
+  /** The file, once imported. */
+  path: string | null
+  asset_uid: string | null
+  actor: string
+  created_at: number
+  updated_at: number
+  children?: ImportRow[]
+}
+
+export interface ImportList {
+  imports: ImportRow[]
+  counts: Partial<Record<ImportStatus, number>>
+}
+
+export interface ImportTool {
+  installed: boolean
+  path: string | null
+  version: string | null
+  /** Downloaded by Metachlorian into <library>/bin (rather than a system copy). */
+  managed: boolean
+  cookies_browser: string | null
+  /** A cookies.txt is stored (its contents are never returned). */
+  cookies_file: boolean
+  max_height: number
+  browsers: string[]
 }
