@@ -1,0 +1,492 @@
+{
+ "labeller": "build agent (visual inspection), held-out: labelled after zero-shot tuning on gold.json",
+ "date": "2026-10-04",
+ "shots": [
+  {
+   "filename": "cremad_10speakers_concat.mp4",
+   "mid": 13.8,
+   "start": 12.55,
+   "end": 15.05,
+   "shot_size": "medium_close_up",
+   "interior": true,
+   "settings": [
+    "interior",
+    "green_screen",
+    "studio"
+   ],
+   "time_of_day": null,
+   "people": "1",
+   "aerial": false,
+   "text": false,
+   "blank": false
+  },
+  {
+   "filename": "goldeneye.mp4",
+   "mid": 44.92,
+   "start": 44.0,
+   "end": 45.84,
+   "shot_size": "close_up",
+   "interior": true,
+   "settings": [
+    "interior"
+   ],
+   "time_of_day": null,
+   "people": "0",
+   "aerial": false,
+   "text": true,
+   "blank": false
+  },
+  {
+   "filename": "head-pose-face-detection-female-and-male.mp4",
+   "mid": 92.75,
+   "start": 85.25,
+   "end": 100.25,
+   "shot_size": "medium_shot",
+   "interior": true,
+   "settings": [
+    "interior"
+   ],
+   "time_of_day": null,
+   "people": "2-5",
+   "aerial": false,
+   "text": false,
+   "blank": false
+  },
+  {
+   "filename": "netflix_chimera_rollercoaster.mp4",
+   "mid": 12.8,
+   "start": 10.64,
+   "end": 14.95,
+   "shot_size": "medium_long_shot",
+   "interior": false,
+   "settings": [
+    "exterior",
+    "venue"
+   ],
+   "time_of_day": "day",
+   "people": "6+",
+   "aerial": false,
+   "text": false,
+   "blank": false
+  },
+  {
+   "filename": "netflix_meridian_0000-0200_1080p60.mp4",
+   "mid": 51.8,
+   "start": 48.63,
+   "end": 54.97,
+   "shot_size": "close_up",
+   "interior": true,
+   "settings": [
+    "interior",
+    "office"
+   ],
+   "time_of_day": null,
+   "people": "0",
+   "aerial": false,
+   "text": true,
+   "blank": false
+  },
+  {
+   "filename": "netflix_sparks_0000-0200_1080p60.mp4",
+   "mid": 53.43,
+   "start": 51.07,
+   "end": 55.8,
+   "shot_size": null,
+   "interior": false,
+   "settings": [
+    "exterior",
+    "industrial_exterior"
+   ],
+   "time_of_day": "day",
+   "people": "1",
+   "aerial": false,
+   "text": false,
+   "blank": false
+  },
+  {
+   "filename": "netflix_sparks_4k60_excerpt.mp4",
+   "mid": 12.98,
+   "start": 10.9,
+   "end": 15.07,
+   "shot_size": "medium_shot",
+   "interior": false,
+   "settings": [
+    "exterior",
+    "industrial_exterior"
+   ],
+   "time_of_day": "day",
+   "people": "1",
+   "aerial": false,
+   "text": false,
+   "blank": false
+  },
+  {
+   "filename": "people-detection.mp4",
+   "mid": 20.17,
+   "start": 13.58,
+   "end": 26.75,
+   "shot_size": "long_shot",
+   "interior": true,
+   "settings": [
+    "interior"
+   ],
+   "time_of_day": null,
+   "people": "2-5",
+   "aerial": false,
+   "text": false,
+   "blank": false
+  },
+  {
+   "filename": "person-bicycle-car-detection.mp4",
+   "mid": 21.75,
+   "start": 13.25,
+   "end": 30.25,
+   "shot_size": "extreme_wide_shot",
+   "interior": false,
+   "settings": [
+    "exterior",
+    "road",
+    "urban"
+   ],
+   "time_of_day": "day",
+   "people": "0",
+   "aerial": true,
+   "text": false,
+   "blank": false
+  },
+  {
+   "filename": "pexels_via_cerebrum_science-35.mp4",
+   "mid": 12.19,
+   "start": 10.38,
+   "end": 14.0,
+   "shot_size": "extreme_wide_shot",
+   "interior": false,
+   "settings": [
+    "exterior",
+    "sky",
+    "nature"
+   ],
+   "time_of_day": "night",
+   "people": "0",
+   "aerial": false,
+   "text": false,
+   "blank": false
+  },
+  {
+   "filename": "store-aisle-detection.mp4",
+   "mid": 59.68,
+   "start": 53.97,
+   "end": 65.4,
+   "shot_size": "long_shot",
+   "interior": true,
+   "settings": [
+    "interior",
+    "retail"
+   ],
+   "time_of_day": null,
+   "people": "6+",
+   "aerial": false,
+   "text": false,
+   "blank": false
+  },
+  {
+   "filename": "tears_of_steel_0000-0200_512x292.mp4",
+   "mid": 67.23,
+   "start": 64.5,
+   "end": 69.96,
+   "shot_size": null,
+   "interior": null,
+   "settings": [
+    "animation_graphics"
+   ],
+   "time_of_day": null,
+   "people": "0",
+   "aerial": false,
+   "text": true,
+   "blank": false
+  },
+  {
+   "filename": "testvideo.mp4",
+   "mid": 15.3,
+   "start": 12.58,
+   "end": 18.02,
+   "shot_size": "close_up",
+   "interior": false,
+   "settings": [
+    "exterior",
+    "nature"
+   ],
+   "time_of_day": "day",
+   "people": "0",
+   "aerial": false,
+   "text": true,
+   "blank": false
+  },
+  {
+   "filename": "tos_clip_10s.mov",
+   "mid": 8.9,
+   "start": 7.71,
+   "end": 10.08,
+   "shot_size": "close_up",
+   "interior": false,
+   "settings": [
+    "exterior",
+    "urban",
+    "street"
+   ],
+   "time_of_day": "day",
+   "people": "1",
+   "aerial": false,
+   "text": false,
+   "blank": false
+  },
+  {
+   "filename": "ugc_HDR_2160P-40ab_hlg_flat_snowy_river_town_4k.mp4",
+   "mid": 6.95,
+   "start": 3.83,
+   "end": 10.07,
+   "shot_size": "long_shot",
+   "interior": false,
+   "settings": [
+    "exterior",
+    "freshwater",
+    "nature",
+    "urban"
+   ],
+   "time_of_day": "day",
+   "people": "0",
+   "aerial": false,
+   "text": false,
+   "blank": false
+  },
+  {
+   "filename": "ugc_HDR_2160P-664d_lowlight_lobby_interior_4k.mp4",
+   "mid": 9.6,
+   "start": 8.73,
+   "end": 10.47,
+   "shot_size": "medium_close_up",
+   "interior": true,
+   "settings": [
+    "interior",
+    "hospitality",
+    "venue"
+   ],
+   "time_of_day": null,
+   "people": null,
+   "aerial": false,
+   "text": false,
+   "blank": false
+  },
+  {
+   "filename": "ugc_HowTo_360P-55e9_food_closeup_frying.mp4",
+   "mid": 7.28,
+   "start": 5.63,
+   "end": 8.93,
+   "shot_size": "close_up",
+   "interior": true,
+   "settings": [
+    "interior",
+    "home"
+   ],
+   "time_of_day": null,
+   "people": "0",
+   "aerial": false,
+   "text": false,
+   "blank": false
+  },
+  {
+   "filename": "ugc_MusicVideo_1080P-0706_musicvideo_cuts_drone_highway.mp4",
+   "mid": 6.73,
+   "start": 5.47,
+   "end": 8.0,
+   "shot_size": "extreme_wide_shot",
+   "interior": false,
+   "settings": [
+    "exterior",
+    "road"
+   ],
+   "time_of_day": "day",
+   "people": "0",
+   "aerial": true,
+   "text": false,
+   "blank": false
+  },
+  {
+   "filename": "ugc_MusicVideo_1080P-2b2b_musicvideo_bw_concert_cuts.mp4",
+   "mid": 15.62,
+   "start": 14.4,
+   "end": 16.83,
+   "shot_size": null,
+   "interior": true,
+   "settings": [
+    "interior",
+    "venue"
+   ],
+   "time_of_day": null,
+   "people": null,
+   "aerial": false,
+   "text": false,
+   "blank": false
+  },
+  {
+   "filename": "ugc_NewsClip_1080P-06df_news_anchor_street_broll.mp4",
+   "mid": 13.17,
+   "start": 12.07,
+   "end": 14.27,
+   "shot_size": "long_shot",
+   "interior": false,
+   "settings": [
+    "exterior",
+    "street",
+    "urban",
+    "retail"
+   ],
+   "time_of_day": "day",
+   "people": "6+",
+   "aerial": false,
+   "text": true,
+   "blank": false
+  },
+  {
+   "filename": "ugc_Sports_1080P-679d_volleyball_interviews_lowerthirds.mp4",
+   "mid": 16.1,
+   "start": 14.87,
+   "end": 17.33,
+   "shot_size": "long_shot",
+   "interior": true,
+   "settings": [
+    "interior",
+    "sports_ground",
+    "venue"
+   ],
+   "time_of_day": null,
+   "people": "6+",
+   "aerial": false,
+   "text": false,
+   "blank": false
+  },
+  {
+   "filename": "ugc_VerticalVideo_1080P-1ac1_vertical_supermarket_walk.mp4",
+   "mid": 17.78,
+   "start": 15.57,
+   "end": 20.0,
+   "shot_size": null,
+   "interior": true,
+   "settings": [
+    "interior",
+    "retail"
+   ],
+   "time_of_day": null,
+   "people": "0",
+   "aerial": false,
+   "text": false,
+   "blank": false
+  },
+  {
+   "filename": "ugc_Vlog_1080P-21f5_wildlife_warthogs_safari.mp4",
+   "mid": 16.88,
+   "start": 13.77,
+   "end": 20.0,
+   "shot_size": "long_shot",
+   "interior": false,
+   "settings": [
+    "exterior",
+    "nature"
+   ],
+   "time_of_day": "day",
+   "people": "0",
+   "aerial": false,
+   "text": false,
+   "blank": false
+  },
+  {
+   "filename": "ugc_Vlog_1080P-64b6_fisheye_motorbike_pov.mp4",
+   "mid": 11.58,
+   "start": 10.17,
+   "end": 13.0,
+   "shot_size": null,
+   "interior": false,
+   "settings": [
+    "exterior",
+    "road",
+    "mountain"
+   ],
+   "time_of_day": "day",
+   "people": "0",
+   "aerial": false,
+   "text": true,
+   "blank": false
+  },
+  {
+   "filename": "ugc_Vlog_1080P-7e8c_wildlife_hippos_water.mp4",
+   "mid": 5.62,
+   "start": 4.53,
+   "end": 6.7,
+   "shot_size": "long_shot",
+   "interior": false,
+   "settings": [
+    "exterior",
+    "freshwater",
+    "nature"
+   ],
+   "time_of_day": null,
+   "people": "0",
+   "aerial": false,
+   "text": false,
+   "blank": false
+  },
+  {
+   "filename": "ugc_Vlog_2160P-0577_drone_aerial_suburb_4k.mp4",
+   "mid": 17.98,
+   "start": 15.97,
+   "end": 20.0,
+   "shot_size": "extreme_wide_shot",
+   "interior": false,
+   "settings": [
+    "exterior",
+    "suburban",
+    "urban"
+   ],
+   "time_of_day": "day",
+   "people": "0",
+   "aerial": true,
+   "text": false,
+   "blank": false
+  },
+  {
+   "filename": "ugc_Vlog_2160P-2b2d_hiking_pov_coast_sunset_4k.mp4",
+   "mid": 7.6,
+   "start": 6.43,
+   "end": 8.77,
+   "shot_size": null,
+   "interior": false,
+   "settings": [
+    "exterior",
+    "coast",
+    "mountain"
+   ],
+   "time_of_day": "day",
+   "people": null,
+   "aerial": false,
+   "text": false,
+   "blank": false
+  },
+  {
+   "filename": "ugc_Vlog_2160P-5874_fashionweek_vlog_street_4k.mp4",
+   "mid": 18.25,
+   "start": 17.4,
+   "end": 19.1,
+   "shot_size": "long_shot",
+   "interior": true,
+   "settings": [
+    "interior",
+    "venue"
+   ],
+   "time_of_day": null,
+   "people": "6+",
+   "aerial": false,
+   "text": true,
+   "blank": false
+  }
+ ]
+}

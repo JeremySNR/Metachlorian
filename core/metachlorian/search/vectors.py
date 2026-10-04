@@ -44,7 +44,7 @@ class VectorIndex:
     def _new(self, dim: int):
         from usearch.index import Index
 
-        return Index(ndim=dim, metric="cos", dtype=self.dtype, connectivity=16, expansion_add=128, expansion_search=96)
+        return Index(ndim=dim, metric="cos", dtype=self.dtype, connectivity=16, expansion_add=64, expansion_search=96)
 
     # ------------------------------------------------------------------ persistence
     def _paths(self):
@@ -125,7 +125,7 @@ class VectorIndex:
                     self.index = self._new(self.dim)
                 keys = np.array([r["id"] for r in rows], dtype=np.uint64)
                 vecs = np.stack([np.frombuffer(r["vec"], dtype=np.float16).astype(np.float32) for r in rows])
-                self.index.add(keys, vecs)
+                self.index.add(keys, vecs, threads=os.cpu_count() or 1)
                 unit = vecs / (np.linalg.norm(vecs, axis=1, keepdims=True) + 1e-9)
                 base = sum(len(c) for c in self._chunks)
                 self._chunks.append(np.clip(np.rint(unit * 127), -127, 127).astype(np.int8))

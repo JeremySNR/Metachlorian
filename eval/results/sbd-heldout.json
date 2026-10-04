@@ -1,0 +1,66 @@
+{
+ "ours": {
+  "precision": 0.8,
+  "recall": 0.952,
+  "f1": 0.87,
+  "tp": 20,
+  "fp": 5,
+  "fn": 1,
+  "flash_false_positives": 0,
+  "recall_by_type": {
+   "cut": "12/12",
+   "dissolve": "2/3",
+   "fade_black": "5/5",
+   "fade_white": "1/1"
+  },
+  "fps_processed": 756.6
+ },
+ "adaptive": {
+  "precision": 0.65,
+  "recall": 0.619,
+  "f1": 0.634,
+  "tp": 13,
+  "fp": 7,
+  "fn": 8,
+  "flash_false_positives": 2,
+  "recall_by_type": {
+   "cut": "12/12",
+   "dissolve": "0/3",
+   "fade_black": "1/5",
+   "fade_white": "0/1"
+  },
+  "fps_processed": 505.4
+ },
+ "content": {
+  "precision": 0.7,
+  "recall": 0.667,
+  "f1": 0.683,
+  "tp": 14,
+  "fp": 6,
+  "fn": 7,
+  "flash_false_positives": 2,
+  "recall_by_type": {
+   "cut": "11/12",
+   "dissolve": "0/3",
+   "fade_black": "3/5",
+   "fade_white": "0/1"
+  },
+  "fps_processed": 668.2
+ },
+ "histogram": {
+  "precision": 0.5,
+  "recall": 0.952,
+  "f1": 0.656,
+  "tp": 20,
+  "fp": 20,
+  "fn": 1,
+  "flash_false_positives": 2,
+  "recall_by_type": {
+   "cut": "11/12",
+   "dissolve": "3/3",
+   "fade_black": "5/5",
+   "fade_white": "1/1"
+  },
+  "fps_processed": 664.9
+ }
+}

@@ -44,8 +44,21 @@ OVERRIDES: dict[tuple[str, str], list[str]] = {
     ("setting", "nature"): ["wild nature landscape", "plants and flowers in nature"],
     ("setting", "sports_ground"): ["a sports field or court where people play sport"],
     ("setting", "transport_hub"): ["a train station platform", "an airport terminal"],
-    ("setting", "animation_graphics"): ["a cartoon animation", "computer generated motion graphics"],
-    ("setting", "green_screen"): ["a person in front of a green screen"],
+    ("setting", "animation_graphics"): ["a cartoon animation with flat colours", "computer generated motion graphics and text on a plain background"],
+    ("setting", "green_screen"): ["a person standing in front of a bright green chroma key screen"],
+    ("setting", "park_garden"): ["a public park with lawns and footpaths", "a flower garden"],
+    ("setting", "suburban"): ["a suburban residential street with detached houses and gardens"],
+    ("setting", "hospitality"): ["a hotel lobby", "a restaurant or cafe interior with tables"],
+    ("setting", "underwater"): ["an underwater scene beneath the sea surface with fish"],
+    ("setting", "freshwater"): ["a river or a lake", "a stream flowing over rocks"],
+    ("setting", "healthcare"): ["a hospital ward with medical equipment"],
+    ("setting", "industrial"): ["a factory interior with machinery"],
+    ("setting", "industrial_exterior"): ["a construction site or industrial yard"],
+    ("setting", "sky"): ["only the sky with clouds filling the frame", "the night sky"],
+    ("setting", "forest"): ["a forest with tall trees"],
+    ("setting", "mountain"): ["mountains and hills landscape"],
+    ("setting", "road"): ["a road with cars driving", "a highway"],
+    ("setting", "urban"): ["a city with buildings", "an urban scene in town"],
     ("setting", "vehicle_interior"): ["inside a car", "the interior of a vehicle"],
     ("time_of_day", "night"): ["a photo taken at night", "a dark night scene with artificial lights", "a night sky with stars"],
     ("time_of_day", "golden_hour"): ["a photo taken at golden hour with warm low sunlight"],
@@ -123,7 +136,7 @@ def _prompt_matrix(enc, texts: list[str]) -> np.ndarray:
 
 class VisualTagAnalyser(Analyser):
     name = "visual_tags"
-    version = "1.2.0"
+    version = "1.3.0"
     requires = ("embed",)
     priority = 75
     description = "Zero-shot vocabulary labels (setting, time of day, weather, shot size, angle, concepts) from SigLIP similarity."

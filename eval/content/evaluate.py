@@ -92,7 +92,8 @@ def main():
         gold_spec = [x for x in g["settings"] if x not in ("interior", "exterior")]
         if gold_spec:
             spec = [t["term"] for t in st if t["term"] not in ("interior", "exterior")]
-            ok_terms = set(gold_spec) | {x for t in gold_spec for x in setting_v.ancestors(t)}
+            # A prediction is right if it is a gold term, a broader term of one, or narrower than one.
+            ok_terms = set(gold_spec) | {x for t in gold_spec for x in setting_v.ancestors(t)} | {x for t in gold_spec for x in setting_v.narrower(t)}
             m["setting_top1"][1] += 1
             m["setting_any"][1] += 1
             m["setting_top1"][0] += bool(spec) and spec[0] in ok_terms

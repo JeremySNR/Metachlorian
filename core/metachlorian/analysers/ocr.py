@@ -9,6 +9,9 @@ import re
 from functools import lru_cache
 from typing import Any
 
+import cv2
+import numpy as np
+
 from .base import AnalysisContext, Analyser, Moment
 from .embed import load_keyframe
 
@@ -49,10 +52,16 @@ class OcrAnalyser(Analyser):
             kfs = shot.keyframes
             if len(kfs) > 3:  # first, middle, last: enough for titles, lower thirds and captions
                 kfs = [kfs[0], kfs[len(kfs) // 2], kfs[-1]]
+            last_small, last_res = None, None
             for kf in kfs:
                 rgb = load_keyframe(ctx, kf)
                 H, W = rgb.shape[:2]
-                res, _ = eng(rgb, use_cls=False)
+                small = cv2.resize(cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY), (64, 36), interpolation=cv2.INTER_AREA).astype(np.float32) / 255
+                if last_small is not None and float(np.abs(small - last_small).mean()) < 0.015:
+                    res = last_res  # near-identical frame (static shot): same text
+                else:
+                    res, _ = eng(rgb, use_cls=False)
+                    last_small, last_res = small, res
                 for box, text, score in res or []:
                     text = _norm(text)
                     if score < 0.6 or len(text) < 2:
