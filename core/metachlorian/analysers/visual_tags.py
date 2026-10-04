@@ -32,13 +32,26 @@ OVERRIDES: dict[tuple[str, str], list[str]] = {
     ("setting", "exterior"): ["a photo of an outdoor scene", "outdoors"],
     ("setting", "coast"): ["a photo of a coastline with the sea", "a beach by the ocean"],
     ("setting", "open_water"): ["a photo of the open sea", "a boat on open water"],
-    ("setting", "screen_capture"): ["a screenshot of a computer screen", "a screen recording of software"],
+    ("setting", "screen_capture"): ["a full-screen screenshot of a software interface with menus and text"],
+    ("setting", "retail"): ["a market with stalls selling produce", "a shop interior with shelves of products"],
+    ("setting", "street"): ["people walking on a busy city street", "a street with shops and pedestrians"],
+    ("setting", "venue"): ["a concert stage with lights and a band", "a sports arena or event venue with an audience"],
+    ("setting", "home"): ["a home kitchen", "a living room in a house"],
+    ("setting", "office"): ["an office with desks and computers"],
+    ("setting", "education"): ["a classroom with desks and chairs"],
+    ("setting", "studio"): ["a television studio set", "a photo studio with lighting"],
+    ("setting", "rural"): ["farmland and countryside fields"],
+    ("setting", "nature"): ["wild nature landscape", "plants and flowers in nature"],
+    ("setting", "sports_ground"): ["a sports field or court where people play sport"],
+    ("setting", "transport_hub"): ["a train station platform", "an airport terminal"],
     ("setting", "animation_graphics"): ["a cartoon animation", "computer generated motion graphics"],
     ("setting", "green_screen"): ["a person in front of a green screen"],
     ("setting", "vehicle_interior"): ["inside a car", "the interior of a vehicle"],
-    ("time_of_day", "night"): ["a photo taken at night", "a dark night scene with artificial lights"],
+    ("time_of_day", "night"): ["a photo taken at night", "a dark night scene with artificial lights", "a night sky with stars"],
     ("time_of_day", "golden_hour"): ["a photo taken at golden hour with warm low sunlight"],
-    ("time_of_day", "day"): ["a photo taken in daylight"],
+    ("time_of_day", "day"): ["a photo taken in daylight", "an overcast grey day", "a sunny day with blue sky", "a bright indoor scene in daytime"],
+    ("time_of_day", "sunset"): ["the sun setting over the horizon", "a sunset sky"],
+    ("time_of_day", "blue_hour"): ["deep blue twilight sky after sunset"],
     ("shot_size", "extreme_close_up"): ["an extreme close-up of a detail", "a macro shot"],
     ("shot_size", "close_up"): ["a close-up of a face", "a close-up shot of an object"],
     ("shot_size", "medium_shot"): ["a medium shot of a person from the waist up"],
@@ -50,6 +63,7 @@ OVERRIDES: dict[tuple[str, str], list[str]] = {
 }
 # Concepts outside the vocabularies that are useful for search and fusion.
 CONCEPTS: dict[str, list[str]] = {
+    "aerial": ["an aerial view looking down from a drone", "a high altitude aerial shot of the landscape"],
     "people": ["a photo of people", "a person"],
     "crowd": ["a large crowd of people"],
     "no_people": ["an empty scene with no people"],
@@ -69,8 +83,12 @@ CONCEPTS: dict[str, list[str]] = {
 }
 SINGLE = {"time_of_day", "shot_size", "season"}
 # Abstract terms an image-text model cannot judge from pixels; left to the VLM and people.
-SKIP_TERMS = {("setting", "synthetic"), ("weather", "windy"), ("time_of_day", "morning"), ("time_of_day", "afternoon"),
-              ("time_of_day", "midday"), ("season", "wet_season"), ("season", "dry_season")}
+SKIP_TERMS = {("setting", "synthetic"), ("setting", "interior"), ("setting", "exterior"), ("weather", "windy"),
+              ("time_of_day", "morning"), ("time_of_day", "afternoon"), ("time_of_day", "midday"), ("time_of_day", "dawn"),
+              ("time_of_day", "dusk"), ("time_of_day", "sunrise"), ("season", "wet_season"), ("season", "dry_season")}
+# Binary decisions made separately (a 2-way choice is far more reliable than one term among 30).
+BINARY = {"interior_exterior": {"interior": ["a photo taken indoors, inside a room or building", "an indoor scene"],
+                                "exterior": ["a photo taken outdoors in the open air", "an outdoor scene"]}}
 
 
 def prompt_sets() -> dict[str, dict[str, list[str]]]:
@@ -85,12 +103,27 @@ def prompt_sets() -> dict[str, dict[str, list[str]]]:
             prompts = OVERRIDES.get((vocab, t.id)) or [x.format(l=t.label.lower().split(" / ")[0]) for x in tmpl]
             out[vocab][t.id] = prompts
     out["concept"] = CONCEPTS
+    out.update(BINARY)
     return out
+
+
+_PROMPT_CACHE: dict[str, np.ndarray] = {}
+
+
+def _prompt_matrix(enc, texts: list[str]) -> np.ndarray:
+    """Prompt embeddings are identical for every file: encode once per process."""
+    import hashlib
+
+    key = hashlib.sha1("\x00".join(texts).encode()).hexdigest() + str(id(enc))
+    if key not in _PROMPT_CACHE:
+        _PROMPT_CACHE.clear()
+        _PROMPT_CACHE[key] = enc.encode_texts(texts)
+    return _PROMPT_CACHE[key]
 
 
 class VisualTagAnalyser(Analyser):
     name = "visual_tags"
-    version = "1.1.0"
+    version = "1.2.0"
     requires = ("embed",)
     priority = 75
     description = "Zero-shot vocabulary labels (setting, time of day, weather, shot size, angle, concepts) from SigLIP similarity."
@@ -113,7 +146,7 @@ class VisualTagAnalyser(Analyser):
                 for pr in prompts:
                     flat.append((vocab, tid))
                     texts.append(pr)
-        T = enc.encode_texts(texts)
+        T = _prompt_matrix(enc, texts)
         rows = ctx.db.q("SELECT shot_id, vec FROM vectors WHERE asset_id=? AND space='visual_kf' ORDER BY id", (ctx.asset["id"],))
         by_shot: dict[int, list[np.ndarray]] = {}
         for r in rows:
@@ -136,6 +169,10 @@ class VisualTagAnalyser(Analyser):
                 soft = np.exp((sims - sims.max()) * enc.scale)
                 soft /= soft.sum()
                 ranked = sorted(zip(keys, soft, [agg_p[k] for k in keys]), key=lambda x: -x[1])
+                if vocab in BINARY:
+                    (k, conf, p) = ranked[0]
+                    result["setting"] = [{"term": k[1], "confidence": round(float(conf), 3), "p": round(p, 4)}] + result.get("setting", [])
+                    continue
                 if vocab in SINGLE:
                     (k, conf, p) = ranked[0]
                     result[vocab] = [{"term": k[1], "confidence": round(float(conf), 3), "p": round(p, 4)}]
@@ -143,6 +180,9 @@ class VisualTagAnalyser(Analyser):
                     keep = [{"term": k[1], "confidence": round(float(c), 3), "p": round(p, 4)} for k, c, p in ranked[:4]
                             if c >= 0.15 or p >= 0.05]
                     result[vocab] = keep
+            if "setting" in result:
+                # Keep the in/out decision first, then the specific settings.
+                result["setting"] = sorted(result["setting"], key=lambda x: 0 if x["term"] in ("interior", "exterior") else 1)
             for vocab, items in result.items():
                 if items:
                     name = "zs.concepts" if vocab == "concept" else f"zs.{vocab}"

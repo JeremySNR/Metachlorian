@@ -52,6 +52,13 @@ def _watch(settings: Settings, stop: threading.Event) -> None:
                 log.exception("scan of source %s failed", s["id"])
 
     rescan()
+    # Analyser upgrades since the last run: enqueue whatever is stale.
+    from .pipeline import plan_all
+
+    try:
+        plan_all(db, settings)
+    except Exception:
+        log.exception("planning failed")
     last_full = time.time()
     try:
         from watchfiles import watch

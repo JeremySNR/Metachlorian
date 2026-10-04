@@ -146,3 +146,18 @@ qdrant-fastembed GCS bucket (403).
 - Text: pull the GGUF from Docker Hub `ai/qwen3-embedding:0.6b-q8_0`. The blob URLs come from
   `https://registry-1.docker.io/v2/ai/qwen3-embedding/manifests/0.6b-q8_0` (anonymous token from
   `auth.docker.io`). Serve it with `llama-server -m Qwen3-Embedding-0.6B-Q8_0.gguf --embeddings --pooling last`.
+
+## Outcome (as built, 2026-10-04)
+
+- **Image-text: SigLIP (v1) base patch16-256 *multilingual*** (Apache-2.0, 768-d), exported to ONNX by
+  `scripts/export_siglip.py` (vision fp32; text tower with its 250k-token embedding table quantised to 8 bits, cosine to fp32
+  ≥ 0.998 on test prompts; tokenizer re-implemented with sentencepiece and checked token-for-token against Hugging Face).
+  Chosen over SigLIP 2 for v1 because its weights were obtainable and convertible in the build environment
+  (via the Apache-2.0 Weaviate `multi2vec-clip` image on Docker Hub), it is multilingual (Portuguese, Spanish… queries work),
+  and it shares one text tower between visual search and transcript/caption semantics. SigLIP 2 B/16 is the planned upgrade:
+  swapping it is an `embed` analyser version bump that re-embeds without re-running anything else.
+- Shot vector = mean of keyframe vectors (1 per ~3 s, max 5), keyframe vectors kept (`visual_kf`) for zero-shot labels.
+- **Text**: v1 reuses the SigLIP text tower for transcript + caption + OCR vectors (`text_embed` analyser, `text` space) rather
+  than a separate Qwen3-Embedding service; this keeps CPU installs to one model. Revisit if transcript-semantic search
+  quality is the bottleneck in evaluation (eval/README.md).
+- **Audio**: CED 527-d posterior per shot stored in the `audio` space for "sounds like this" (`find_similar` modality audio).

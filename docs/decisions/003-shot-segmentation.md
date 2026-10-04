@@ -122,3 +122,32 @@ segmenter must therefore be testable without Hugging Face.
   (`xfade=transition=fade|dissolve|wipeleft`) to measure transition recall locally.
 - Do not use the AutoShot or OmniShotCut weights in the default path: their hosts (Baidu / Google
   Drive / HF) are unreachable here.
+
+## Outcome (as built, 2026-10-04) — supersedes the Decision above where they differ
+
+We benchmarked before committing, as the process requires, and the result changed the default.
+
+**Gold set** (`eval/sbd/make_gold.py`): real CC-BY footage segments joined with exactly known transitions — hard cuts,
+dissolves (10–30 frames), fades through black and white, wipes — with single-frame camera-flash decoys inserted inside shots.
+8 tuning sequences (81 transitions) and a held-out set with a different seed (21 transitions).
+
+| Detector | Tuning F1 | Held-out F1 | Held-out precision | Held-out recall | Dissolves found (tuning) | Flash false positives |
+|---|---|---|---|---|---|---|
+| **Metachlorian detector** (`media/shots.py`) | **0.921** | **0.870** | 0.80 | 0.95 | 15/19 | 1 |
+| PySceneDetect AdaptiveDetector | 0.707 | 0.634 | 0.65 | 0.62 | 1/19 | 6 |
+| PySceneDetect ContentDetector | 0.716 | 0.683 | 0.70 | 0.67 | 2/19 | 8 |
+| PySceneDetect HistogramDetector | 0.689 | 0.656 | 0.50 | 0.95 | 17/19 | 8 |
+
+(`python eval/sbd/evaluate.py <gold_dir>`; results in `eval/results/`.) All four process 550–850 fps at 96×54 on the
+build machine's CPU.
+
+**Decision as built:** the default is our own deterministic detector, which combines an adaptive ratio test on a
+colour-histogram + pixel-difference score (hard cuts), a blend test over a ±0.4 s window (dissolves and wipes), dark/bright
+run detection with ramps (fades), and flash rejection when the content after a spike matches the content before it.
+PySceneDetect stays as the benchmark baseline. Long takes are split by content drift from the segment start, with a
+configurable cap (20 s) snapped to the calmest frame. TransNetV2/OmniShotCut remain the optional accurate tier for a GPU
+build (not yet integrated).
+
+**Known weaknesses seen on real footage**: very fast-cut black-and-white music video with heavy smoke and strobing
+(`ugc_MusicVideo_1080P-2b2b`) where some cuts between similar-looking frames are missed; source footage with intrinsic fades
+is (correctly) segmented at those fades. Revisit with TransNetV2 when a GPU tier is available.

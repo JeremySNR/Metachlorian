@@ -85,7 +85,7 @@ def pace_label(duration: float, motion: float | None, change: float | None, audi
 
 class FusionAnalyser(Analyser):
     name = "fusion"
-    version = "1.0.0"
+    version = "1.1.0"
     requires = ("shots", "keyframes", "motion", "quality", "audio", "speech", "people", "ocr", "visual_tags", "caption", "embed")
     priority = 10
     description = "Rule-based evidence fusion into the shot record, refined by a local language model when configured."
@@ -141,6 +141,8 @@ class FusionAnalyser(Analyser):
                 aerial_ev.append(z["confidence"] * 0.8)
         if "drone_footage" in concepts and concepts["drone_footage"]["p"] > 0.02:
             aerial_ev.append(min(0.8, 0.4 + concepts["drone_footage"]["p"] * 5))
+        if "aerial" in concepts and (concepts["aerial"]["p"] > 0.03 or concepts["aerial"]["confidence"] > 0.3):
+            aerial_ev.append(min(0.8, 0.45 + concepts["aerial"]["p"] * 4))
         if aerial_ev:
             c = 1 - float(np.prod([1 - a for a in aerial_ev]))
             if c >= 0.45:
@@ -202,6 +204,11 @@ class FusionAnalyser(Analyser):
                 rec["people.count"] = {"value": int(pc), "confidence": 0.75, "sources": ["people"]}
             else:
                 rec["people.count"] = {"value": int(vpc), "confidence": 0.55, "sources": ["vlm"]}
+        # Detectors miss small people in crowds: a confident crowd concept lifts the count to "many".
+        crowd = concepts.get("crowd")
+        if rec.get("people.count") and crowd and (crowd["confidence"] >= 0.25 or crowd.get("p", 0) > 0.05) and rec["people.count"]["value"] >= 2:
+            rec["people.count"] = {"value": max(rec["people.count"]["value"], 6), "confidence": 0.5, "sources": ["people", "visual_tags"],
+                                   "detected": rec["people.count"]["value"]}
         speech_ratio = _get(sig, "audio.speech_ratio", sid) or 0.0
         centred = bool(_get(sig, "people.centred_face", sid))
         talking = centred and speech_ratio > 0.35

@@ -162,3 +162,17 @@ There is no permissively licensed, general-purpose logo detector of good quality
 - D-FINE alternative: `https://github.com/Peterande/storage/releases/download/dfinev1.0/dfine_n_coco.pth`.
 - MediaPipe models, if ever needed: `https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite2/float32/latest/efficientdet_lite2.tflite`,
   `https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/latest/blaze_face_short_range.tflite`.
+
+## Outcome (as built, 2026-10-04)
+
+- **OCR**: RapidOCR (onnxruntime package 1.4.x, bundled PP-OCR models, Apache-2.0) on up to 3 keyframes per shot (first,
+  middle, last), angle classifier off for speed; strings de-duplicated per shot, classified as title / lower third /
+  burned-in captions by position and change across frames. Upgrade path: rapidocr 3.9 with PP-OCRv6 (same API family).
+- **Faces**: YuNet 2023mar (MIT) via `cv2.FaceDetectorYN`, as recommended. On the classroom sample it found 4 of 5 small faces
+  where MediaPipe BlazeFace short-range found none.
+- **Objects / people count**: MediaPipe EfficientDet-Lite2 (Apache-2.0) run on **LiteRT** (`ai-edge-litert`), not the MediaPipe
+  wheel, so there is no EGL/GL dependency (the MediaPipe 1.0 wheel failed on this headless machine with a missing
+  `libEGL.so.1`, confirming the research). Anchor decoding implemented in `media/detect.py` and verified visually. This is a
+  deliberate v1 shortcut: RF-DETR-N/S (better accuracy) needs a PyTorch→ONNX export step; it is the next detector upgrade
+  and drops in as a `people` analyser version bump.
+- No identity: faces are counted, sized and positioned only (OPEN_QUESTIONS Q7).
