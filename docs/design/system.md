@@ -99,7 +99,7 @@ qualify.
 | `--status-info` / `-bg` | `#6cb6ff` / `#142233` | `#1a52a6` / `#dde8f8` | Processing, informational |
 | `--focus-ring` | `#f5f5f5` | `#141414` | Focus indicator |
 | `--scrim` | `rgb(0 0 0 / 0.72)` | same | Behind any text or icon drawn over footage |
-| `--viz-0` … `--viz-5` | `#262626 #3d3d3d #5c5c5c #858585 #b4b4b4 #ececec` | `#e0e0e0 #c4c4c4 #9e9e9e #737373 #4a4a4a #1f1f1f` | Neutral sequential ramp (coverage heatmap). Gaps (0) are also hatched. |
+| `--viz-0` … `--viz-5` | `#262626 #3d3d3d #5c5c5c #858585 #b4b4b4 #ececec` | `#e0e0e0 #c4c4c4 #9e9e9e #6b6b6b #4a4a4a #1f1f1f` | Neutral sequential ramp (coverage heatmap). Gaps (0) are also hatched. |
 
 #### Verified contrast (WCAG 2.x relative luminance)
 
