@@ -11,7 +11,7 @@ import tomllib
 from pathlib import Path
 from typing import Any, Callable
 
-from .config import ModelEndpoint, Settings, load_settings
+from .config import PROVIDERS, ModelEndpoint, Settings, load_settings
 from .db import Database
 
 log = logging.getLogger(__name__)
@@ -24,7 +24,14 @@ def _worker_main(data_dir: str, resources: tuple[str, ...], stop_evt) -> None:
     settings = load_settings(data_dir)
     db = Database(settings.db_path)
     w = Worker(db, settings, resources)
+    cfg = Path(data_dir) / "config.toml"
+    seen = cfg.stat().st_mtime if cfg.exists() else 0.0
     while not stop_evt.is_set():
+        # Pick up settings saved by the admin (e.g. a new model provider) without a restart.
+        mtime = cfg.stat().st_mtime if cfg.exists() else 0.0
+        if mtime != seen:
+            seen = mtime
+            w.settings = load_settings(data_dir)
         try:
             if w.run_once() is None:
                 stop_evt.wait(1.0)
@@ -74,6 +81,12 @@ def _watch(settings: Settings, stop: threading.Event) -> None:
                     rescan(touched)
                 if time.time() - last_full > 600:
                     rescan()
+                    # Re-plan everything: analysers that became available (a model was installed, a provider
+                    # was configured, a daily request budget reset) pick up where they left off.
+                    try:
+                        plan_all(db, settings)
+                    except Exception:
+                        log.exception("planning failed")
                     last_full = time.time()
                 new_folders = {r["uri"] for r in db.q("SELECT uri FROM sources WHERE watch=1 AND kind='folder'")}
                 if new_folders != set(folders):
@@ -82,6 +95,10 @@ def _watch(settings: Settings, stop: threading.Event) -> None:
             stop.wait(30)
             if time.time() - last_full > 600:
                 rescan()
+                try:
+                    plan_all(db, settings)
+                except Exception:
+                    log.exception("planning failed")
                 last_full = time.time()
 
 
@@ -121,7 +138,10 @@ def save_settings(settings: Settings, changes: dict[str, Any]) -> None:
         if k in ("vlm", "llm"):
             ep: ModelEndpoint = getattr(settings, k)
             for f, fv in (v or {}).items():
-                if f in ("base_url", "model", "api_key_env", "local", "timeout_s", "max_images", "temperature", "extra_body"):
+                if f in ("provider", "base_url", "model", "api_key_env", "local", "timeout_s", "max_images", "temperature", "extra_body",
+                         "concurrency", "batch", "daily_limit", "codex_path"):
+                    if f == "provider" and fv not in PROVIDERS:
+                        raise ValueError(f"unknown provider '{fv}'; choose one of {sorted(PROVIDERS)}")
                     setattr(ep, f, fv)
         else:
             setattr(settings, k, v)

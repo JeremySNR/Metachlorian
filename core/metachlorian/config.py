@@ -54,6 +54,20 @@ def classify_endpoint(url: str) -> tuple[bool, str]:
     return False, "resolves to a public address"
 
 
+# Hosted and subscription providers. Models are defaults the admin can change; any OpenAI-compatible
+# server (llama.cpp, Ollama, LM Studio, vLLM, Azure, Groq...) is the "custom" provider.
+PROVIDERS: dict[str, dict[str, Any]] = {
+    "custom": {"label": "Local or custom server (OpenAI-compatible)", "base_url": "", "hosted": False, "key": None,
+               "vlm_model": "", "llm_model": "", "concurrency": 1, "batch": 1},
+    "openai": {"label": "OpenAI API key", "base_url": "https://api.openai.com/v1", "hosted": True, "key": "openai_api_key",
+               "vlm_model": "gpt-5.4-mini", "llm_model": "gpt-5.4-mini", "concurrency": 4, "batch": 1},
+    "openrouter": {"label": "OpenRouter", "base_url": "https://openrouter.ai/api/v1", "hosted": True, "key": "openrouter_api_key",
+                   "vlm_model": "openai/gpt-5.4-mini", "llm_model": "openai/gpt-5.4-mini", "concurrency": 4, "batch": 1},
+    "codex": {"label": "ChatGPT subscription via Codex CLI", "base_url": "", "hosted": True, "key": None,
+              "vlm_model": "gpt-5.6-luna", "llm_model": "gpt-5.6-luna", "concurrency": 1, "batch": 6, "daily_limit": 200},
+}
+
+
 @dataclass
 class ModelEndpoint:
     """An OpenAI-compatible chat endpoint used for VLM captioning or text fusion.
@@ -64,6 +78,7 @@ class ModelEndpoint:
     machine, so they are refused unless ``allow_remote`` is set.
     """
 
+    provider: str = "custom"  # custom | openai | openrouter | codex (see PROVIDERS)
     base_url: str = ""
     model: str = ""
     api_key_env: str = ""  # name of the env var holding the key, never the key itself
@@ -74,14 +89,46 @@ class ModelEndpoint:
     # Extra JSON merged into every request, e.g. {"chat_template_kwargs": {"enable_thinking": false}}
     # for reasoning models served by llama.cpp/vLLM.
     extra_body: dict = field(default_factory=dict)
+    concurrency: int = 0      # parallel requests; 0 = the provider's default
+    batch: int = 0            # shots per request; 0 = the provider's default
+    daily_limit: int = 0      # requests per UTC day (Codex); 0 = the provider's default
+    codex_path: str = "codex"
+
+    @property
+    def preset(self) -> dict[str, Any]:
+        return PROVIDERS.get(self.provider, PROVIDERS["custom"])
+
+    @property
+    def url(self) -> str:
+        return (self.base_url or self.preset["base_url"]).rstrip("/")
 
     @property
     def enabled(self) -> bool:
-        return bool(self.base_url and self.model)
+        if self.provider == "codex":
+            return bool(self.model)
+        return bool(self.url and self.model)
+
+    @property
+    def hosted(self) -> bool:
+        return bool(self.preset["hosted"])
 
     @property
     def is_local(self) -> bool:
-        return self.local and classify_endpoint(self.base_url)[0]
+        if self.hosted:
+            return False
+        return self.local and classify_endpoint(self.url)[0]
+
+    @property
+    def effective_concurrency(self) -> int:
+        return max(1, self.concurrency or self.preset.get("concurrency", 1))
+
+    @property
+    def effective_batch(self) -> int:
+        return max(1, min(8, self.batch or self.preset.get("batch", 1)))
+
+    @property
+    def effective_daily_limit(self) -> int:
+        return self.daily_limit or self.preset.get("daily_limit", 0)
 
 
 @dataclass
@@ -153,7 +200,8 @@ class Settings:
             if ep.enabled and not ep.is_local:
                 items.append({
                     "adapter": name,
-                    "base_url": ep.base_url,
+                    "provider": ep.provider,
+                    "base_url": ep.url if ep.provider != "codex" else "codex exec (ChatGPT)",
                     "model": ep.model,
                     "active": self.allow_remote,
                     "sends": "sampled keyframes and analyser text" if name == "vlm" else "analyser text and queries",
@@ -196,7 +244,7 @@ def _env_overrides() -> dict[str, Any]:
                 out[key] = v
     for ep in ("VLM", "LLM"):
         d = {}
-        for f in ("BASE_URL", "MODEL", "API_KEY_ENV"):
+        for f in ("PROVIDER", "BASE_URL", "MODEL", "API_KEY_ENV"):
             if (v := os.environ.get(f"{p}{ep}_{f}")) is not None:
                 d[f.lower()] = v
         if (v := os.environ.get(f"{p}{ep}_LOCAL")) is not None:

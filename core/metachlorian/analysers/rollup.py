@@ -10,7 +10,7 @@ from typing import Any
 import numpy as np
 
 from ..db import loads
-from ..llm import ChatClient, LLMError, ValidationFailed
+from ..llm import make_client, LLMError, ValidationFailed
 from ..vocab import registry
 from .base import AnalysisContext, Analyser
 from .fusion import PACE_ORDER
@@ -180,7 +180,7 @@ class RollupAnalyser(Analyser):
                                              f"Transcript excerpt: {(loads(transcript['value']) if transcript else '')[:1500]}\n"
                                              "Write a 2-3 sentence story summary of what this file shows and its main topics as JSON.")}]
         try:
-            obj, _ = ChatClient(ctx.settings.llm, ctx.settings).structured(msgs, schema, retries=1, max_tokens=500)
+            obj, _ = make_client(ctx.settings.llm, ctx.settings).structured(msgs, schema, retries=1, max_tokens=500)
             return {"text": text, "story": obj["story"], "topics": obj["topics"], "source": "llm", "confidence": 0.6}
         except (LLMError, ValidationFailed) as e:
             return {**out, "llm_error": str(e)[:200]}

@@ -17,7 +17,7 @@ from typing import Any
 
 import numpy as np
 
-from ..llm import ChatClient, LLMError, ValidationFailed
+from ..llm import make_client, LLMError, ValidationFailed
 from ..vocab import registry
 from .base import AnalysisContext, Analyser, ShotRow
 
@@ -335,7 +335,7 @@ class FusionAnalyser(Analyser):
     # ------------------------------------------------------------------ language model
     def _llm_refine(self, ctx: AnalysisContext, shots, records, sig) -> dict[str, Any]:
         reg = registry()
-        client = ChatClient(ctx.settings.llm, ctx.settings)
+        client = make_client(ctx.settings.llm, ctx.settings)
         item = {
             "type": "object", "additionalProperties": False,
             "required": ["index", "summary", "role", "pace", "mood", "topics", "suggested_uses"],
@@ -353,8 +353,8 @@ class FusionAnalyser(Analyser):
                   "properties": {"shots": {"type": "array", "items": item}}}
         used = flagged = 0
         batch = 6
-        for b in range(0, len(shots), batch):
-            chunk = shots[b:b + batch]
+
+        def ask(chunk):
             evidence = []
             for k, s in enumerate(chunk):
                 r = records[s.id]
@@ -381,14 +381,23 @@ class FusionAnalyser(Analyser):
                 return [] if idx == list(range(len(chunk))) else [f"expected indexes 0..{len(chunk) - 1}, got {idx}"]
 
             try:
-                obj, _ = client.structured(msgs, schema, retries=1, extra_check=check, max_tokens=1600)
-            except ValidationFailed as e:
+                return chunk, client.structured(msgs, schema, retries=1, extra_check=check, max_tokens=1600)[0], None
+            except (ValidationFailed, LLMError) as e:
+                return chunk, None, e
+
+        from concurrent.futures import ThreadPoolExecutor
+
+        chunks = [shots[b:b + batch] for b in range(0, len(shots), batch)]
+        with ThreadPoolExecutor(max_workers=ctx.settings.llm.effective_concurrency) as pool:
+            answers = list(pool.map(ask, chunks))
+        for chunk, obj, err in answers:
+            if isinstance(err, ValidationFailed):
                 flagged += len(chunk)
                 for s in chunk:
-                    records[s.id]["fusion.flag"] = {"value": f"LLM output rejected: {str(e)[:200]}", "confidence": 1.0, "sources": ["fusion"]}
+                    records[s.id]["fusion.flag"] = {"value": f"LLM output rejected: {str(err)[:200]}", "confidence": 1.0, "sources": ["fusion"]}
                 continue
-            except LLMError as e:
-                return {"used": False, "error": str(e)[:300]}
+            if err is not None:
+                return {"used": False, "error": str(err)[:300]}
             for x in obj["shots"]:
                 s = chunk[x["index"]]
                 r = records[s.id]

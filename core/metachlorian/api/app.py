@@ -452,8 +452,66 @@ def create_app(settings: Settings, db: Database | None = None, start_workers: bo
         from ..llm import health as llm_health
 
         return {"settings": settings.public_dict(), "egress": settings.egress_summary(), "models": models.status(settings.resolved_models_dir),
-                "vlm_health": llm_health(settings.vlm) if settings.vlm.enabled else None,
-                "llm_health": llm_health(settings.llm) if settings.llm.enabled else None}
+                "vlm_health": llm_health(settings.vlm, settings=settings) if settings.vlm.enabled else None,
+                "llm_health": llm_health(settings.llm, settings=settings) if settings.llm.enabled else None}
+
+    @app.get("/api/admin/providers")
+    def providers(p: Principal = Depends(principal)):
+        A.require(p, "admin")
+        from .. import apikeys
+        from ..config import PROVIDERS
+        from ..llm import codex_remaining, codex_status
+
+        out = []
+        keys = apikeys.status(settings)
+        for pid, pr in PROVIDERS.items():
+            item = {"id": pid, "label": pr["label"], "hosted": pr["hosted"], "base_url": pr["base_url"], "default_models": {
+                "vlm": pr["vlm_model"], "llm": pr["llm_model"]}, "concurrency": pr["concurrency"], "batch": pr["batch"]}
+            if pr.get("key"):
+                item["key"] = {"name": pr["key"], **keys[pr["key"]]}
+            if pid == "codex":
+                item["status"] = codex_status(settings.vlm if settings.vlm.provider == "codex" else settings.llm)
+                ep = settings.vlm if settings.vlm.provider == "codex" else settings.llm
+                item["daily_limit"] = ep.effective_daily_limit if ep.provider == "codex" else pr["daily_limit"]
+                item["remaining_today"] = codex_remaining(settings, ep) if ep.provider == "codex" else None
+            out.append(item)
+        return {"providers": out, "active": {"vlm": settings.vlm.provider, "llm": settings.llm.provider},
+                "allow_remote": settings.allow_remote, "egress": settings.egress_summary()}
+
+    @app.put("/api/admin/keys/{name}")
+    def put_key(name: str, body: dict = Body(...), p: Principal = Depends(principal)):
+        """Store (or clear, with an empty value) a provider API key. The key is never returned."""
+        A.require(p, "admin")
+        from .. import apikeys
+
+        apikeys.put(settings, name, str(body.get("value") or ""))
+        A.audit(db, p, "set_api_key", name, {"cleared": not body.get("value")})
+        return apikeys.status(settings)[name]
+
+    @app.post("/api/admin/providers/test")
+    def test_provider(body: dict = Body(...), p: Principal = Depends(principal)):
+        """Check a provider without spending a model request: key check, model list or Codex login."""
+        A.require(p, "admin")
+        from ..config import PROVIDERS, ModelEndpoint
+        from ..llm import health
+
+        pid = body.get("provider", "custom")
+        if pid not in PROVIDERS:
+            raise HTTPException(400, f"unknown provider '{pid}'")
+        ep = ModelEndpoint(provider=pid, base_url=body.get("base_url", ""), model=body.get("model") or PROVIDERS[pid]["vlm_model"] or "x",
+                           codex_path=body.get("codex_path") or "codex")
+        return health(ep, timeout=12.0, settings=settings)
+
+    @app.get("/api/admin/providers/openrouter/models")
+    def openrouter_catalogue(vision: bool = False, p: Principal = Depends(principal)):
+        A.require(p, "admin")
+        from ..llm import openrouter_models
+
+        try:
+            models_ = openrouter_models()
+        except Exception as e:  # network or upstream error: the UI falls back to the suggested defaults
+            raise HTTPException(502, f"could not load the OpenRouter catalogue: {e}") from e
+        return {"models": [m for m in models_ if m["vision"] or not vision]}
 
     @app.get("/api/admin/endpoint-locality")
     def endpoint_locality(url: str, p: Principal = Depends(principal)):
@@ -470,6 +528,10 @@ def create_app(settings: Settings, db: Database | None = None, start_workers: bo
 
         save_settings(settings, body)
         A.audit(db, p, "update_settings", "", {k: v for k, v in body.items() if "key" not in k})
+        # Newly enabled or changed analysers (e.g. a model provider) are queued now, not at the next periodic re-plan.
+        from ..pipeline import plan_all
+
+        threading.Thread(target=lambda: plan_all(Database(settings.db_path), settings), daemon=True).start()
         return {"settings": settings.public_dict(), "egress": settings.egress_summary()}
 
     # ------------------------------------------------------------------ media
