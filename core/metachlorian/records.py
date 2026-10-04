@@ -155,8 +155,15 @@ def build_asset_doc(db: Database, asset_id: int) -> dict[str, Any]:
         "created_at": a["created_at"], "updated_at": a["updated_at"], "technical": tech, "structure": summary,
         "edit_type": edit, "fields": fields,
         "title": scalar(fields["title"]["value"]) if "title" in fields else None,
-        "location": scalar(fields["content.location"]["value"]) if "content.location" in fields else None,
+        "location": scalar(fields["content.location"]["value"]) if "content.location" in fields else
+                    (_place_name(fields["content.place"]["value"]) if "content.place" in fields else None),
     }
+
+
+def _place_name(p) -> str | None:
+    if not isinstance(p, dict):
+        return None
+    return ", ".join(x for x in (p.get("city"), p.get("region"), p.get("country")) if x)
 
 
 def build_shot_docs(db: Database, asset_id: int) -> list[dict[str, Any]]:
@@ -201,6 +208,7 @@ def shot_doc(asset: dict[str, Any], s: dict[str, Any], fields: dict[str, dict[st
                                                "bit_depth", "hdr", "hdr_format", "color_transfer", "camera_make", "camera_model", "lens",
                                                "capture_date", "gps", "audio_channels")},
         "edit_type": asset.get("edit_type"),
+        "location": asset.get("location"),
         "fields": fields,
         "moments": [{"kind": m["kind"], "start": m["start_s"], "end": m["end_s"], "text": m["text"], "confidence": m["confidence"],
                      "source": m["source"], "data": {k: v for k, v in (loads(m["data"], {}) or {}).items() if k != "words"}} for m in moments],
