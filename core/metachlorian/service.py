@@ -7,6 +7,7 @@ import posixpath
 import shutil
 import threading
 from collections import Counter
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -46,6 +47,7 @@ class Library:
         self.db = db
         self.settings = settings
         self.engine = SearchEngine(db, settings)
+        self._media_cache: dict[tuple[int, bool], tuple[Any, str]] = {}
         self._lock = threading.Lock()
         registry().load_custom(db)
 
@@ -83,11 +85,33 @@ class Library:
         if not a:
             raise NotFound(f"no asset {asset_uid}")  # never fall through to the file system (case-insensitive disks)
         still = Path(path).suffix.lower() in STILL_SUFFIXES
-        for uid, v in R.range_gate(self.db, a["id"], 0.0, float("inf"), principal=p, mode="media"):
+        # A page of thumbnails is many requests for one file: cache the decision until rights, shots or the day change.
+        fp = (tuple(self.db.q1("SELECT COUNT(*), MAX(updated_at) FROM rights WHERE asset_id=?", (a["id"],))),
+              tuple(self.db.q1("SELECT COUNT(*), MAX(id), SUM(start_s) FROM shots WHERE asset_id=? AND active=1", (a["id"],))),
+              str(date.today()))
+        key = (a["id"], still)
+        hit = self._media_cache.get(key)
+        if hit is None or hit[0] != fp:
+            hit = (fp, self._media_refusal(p, a["id"], asset_uid, still))
+            if len(self._media_cache) > 4096:
+                self._media_cache.clear()
+            self._media_cache[key] = hit
+        if hit[1]:
+            raise Forbidden(hit[1])
+
+    def _media_refusal(self, p: Principal, asset_id: int, asset_uid: str, still: bool) -> str:
+        # The file's own rights and every override always count, even before shots exist (the proxy is made
+        # first) or for overrides left on superseded shots; then every active shot.
+        rows = [{"shot_id": None}, *self.db.q("SELECT shot_id FROM rights WHERE asset_id=? AND shot_id IS NOT NULL", (asset_id,))]
+        verdicts = [(f"file {asset_uid}" if r["shot_id"] is None else f"#{r['shot_id']}",
+                     R.gate(R.get_rights(self.db, asset_id, r["shot_id"]), principal=p, mode="media")) for r in rows]
+        verdicts += R.range_gate(self.db, asset_id, 0.0, float("inf"), principal=p, mode="media")
+        for uid, v in verdicts:
             if v.blocked:
-                raise Forbidden("this file holds blocked footage (not cleared or rights expired); agents cannot fetch its media")
+                return "this file holds blocked footage (not cleared or rights expired); agents cannot fetch its media"
             if not still and not v.permitted:
-                raise Forbidden(f"agents can fetch a file's video only when every shot is cleared as recorded; shot {uid}: {v.refusal}")
+                return f"agents can fetch a file's video only when every shot is cleared as recorded; shot {uid}: {v.refusal}"
+        return ""
 
     # ------------------------------------------------------------------ export records
     # Every exported file or package gets a record of the time ranges it holds, so a download re-checks
@@ -103,8 +127,9 @@ class Library:
         f.write_text(dumps({"owner": p.username, "mode": mode, "intended": intended or {}, "allow_restricted": allow_restricted,
                             "ranges": [[a, round(x, 4), round(y, 4)] for a, x, y in ranges]}))
 
-    def export_access(self, p: Principal, rel: str) -> None:
-        """May ``p`` download this file from the export folder (a clip, a package, a file inside one, or its zip)?"""
+    def export_access(self, p: Principal, rel: str, is_dir: bool = False) -> None:
+        """May ``p`` download this file from the export folder (a clip, a package, a file inside one, or its zip)?
+        A folder is only downloadable (as a zip) when it is a package with a record."""
         require(p, "media:export")
         parts = Path(rel).parts
         if any(x.startswith(".") for x in parts):
@@ -113,6 +138,8 @@ class Library:
         if rel.endswith(".zip"):
             candidates.insert(1, rel[:-4])
         rec = next((loads(f.read_text()) for c in candidates if (f := self._record_dir() / f"{c}.json").is_file()), None)
+        if rec is None and (is_dir or (rel.endswith(".zip") and (self.settings.export_dir / rel[:-4]).is_dir())):
+            raise Forbidden("only packages can be downloaded as a folder")  # or as the zip of one
         if rec is None:
             if p.is_agent:
                 raise Forbidden("agents can download only exports with a rights record (made by this version)")

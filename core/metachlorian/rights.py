@@ -270,8 +270,8 @@ def range_gate(db: Database, asset_id: int, start: float, end: float, **kw: Any)
     """``gate`` for every active shot of a file that the time range [start, end] overlaps, in order. Media cut
     from a range (a clip with its own in/out, package handles) carries every shot it covers, not only the one
     it was asked for."""
-    eps = 1e-3
+    # Exact comparisons: a range that ends a hair past a boundary holds the next shot's first frame.
     rows = db.q("SELECT s.id, s.uid, si.people_count FROM shots s LEFT JOIN shot_index si ON si.shot_id=s.id"
                 " WHERE s.asset_id=? AND s.active=1 AND s.start_s < ? AND s.end_s > ? ORDER BY s.start_s",
-                (asset_id, end - eps, start + eps))
+                (asset_id, end, start))
     return [(r["uid"], gate(get_rights(db, asset_id, r["id"]), people_visible=(r["people_count"] or 0) > 0, **kw)) for r in rows]

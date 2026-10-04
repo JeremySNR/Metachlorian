@@ -219,7 +219,8 @@ def test_export_clip_in_out_cannot_reach_a_blocked_neighbour(m, principals, who)
     shot0 = m["by_state"]["cleared"][0]
     nxt = db.q1("SELECT start_s, end_s FROM shots WHERE uid=?", (m["override"],))
     before = _exports(m)
-    for a, b in ((nxt["start_s"], nxt["end_s"]), (0.0, nxt["end_s"]), (nxt["start_s"] - 0.2, nxt["start_s"] + 0.2)):
+    for a, b in ((nxt["start_s"], nxt["end_s"]), (0.0, nxt["end_s"]), (nxt["start_s"] - 0.2, nxt["start_s"] + 0.2),
+                 (0.0, nxt["start_s"] + 0.0009)):  # one frame past the boundary is the next shot's first frame
         for mode in MEDIA_MODES:
             with pytest.raises(Forbidden, match=m["override"]):
                 lib.export_clip(p, shot0, a, b, mode=mode, intended=USE)
@@ -423,6 +424,11 @@ def test_export_downloads_recheck_rights_and_agents_get_only_their_own(processed
         (s.export_dir / "legacy.txt").write_text("x")
         assert c.get("/api/exports/file?path=legacy.txt", headers=H(ed)).status_code == 200
         assert c.get("/api/exports/file?path=legacy.txt", headers=H(bot)).status_code == 403
+        # A folder that is not a package would bundle clips past their own records.
+        for path in ("clips", "clips/", "./clips", "clips/../clips"):
+            assert c.get(f"/api/exports/file?path={path}", headers=H(ed)).status_code == 403, path
+        (s.export_dir / "clips.zip").write_bytes(b"PK")  # cached by an older version
+        assert c.get("/api/exports/file?path=clips.zip", headers=H(ed)).status_code == 403
         # The records and staging folders are not downloadable.
         assert c.get("/api/exports/file?path=.rights", headers=H(ed)).status_code == 404
         assert c.get("/api/exports/file?path=../lib.sqlite", headers=H(ed)).status_code == 400
@@ -431,4 +437,26 @@ def test_export_downloads_recheck_rights_and_agents_get_only_their_own(processed
         for url in (clip, mine, pkg["download"], pkg["download"] + ".zip", pkg["download"] + "/media/it_01.mp4"):
             who = bot if url == mine else ed
             assert c.get(url, headers=H(who)).status_code == 403, url
+    s.require_auth = False
+
+
+def test_media_route_applies_file_rights_before_shots_exist(processed):
+    """The proxy is made before shot detection: a blocked file's media must not reach agents in that window."""
+    from metachlorian.api.app import create_app
+
+    s, db, a = processed
+    R.set_rights(db, a["id"], {"status": "not_cleared"}, "x")
+    db.x("UPDATE shots SET active=0 WHERE asset_id=?", (a["id"],))
+    bot = A.create_token(db, A.create_user(db, "bot", "agent"), "t")
+    s.require_auth = True
+    H = {"Authorization": f"Bearer {bot}"}
+    with TestClient(create_app(s, db, start_workers=False)) as c:
+        for path in ("poster.jpg", "proxy.mp4"):
+            assert c.get(f"/media/{a['uid']}/{path}", headers=H).status_code == 403
+        # Decisions are cached per file, and a rights or shot change is seen at once.
+        db.x("UPDATE shots SET active=1 WHERE asset_id=?", (a["id"],))
+        R.set_rights(db, a["id"], {"status": "cleared", "model_release": "not_applicable"}, "x")
+        assert c.get(f"/media/{a['uid']}/proxy.mp4", headers=H).status_code == 200
+        R.set_rights(db, a["id"], {"status": "not_cleared"}, "x")
+        assert c.get(f"/media/{a['uid']}/poster.jpg", headers=H).status_code == 403
     s.require_auth = False

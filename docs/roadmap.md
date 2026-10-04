@@ -105,8 +105,14 @@ that the "pure move" could not keep, so behaviour changed in these places:
 - **Clip in/out reaching past the shot**: `export_clip` checked only the named shot, so its in/out could cut a blocked
   neighbour. Every shot the range covers is now checked, and package handles stop at a neighbour that may not leave.
 - **Downloads re-check rights**: every export gets a record of the ranges it holds; `/api/exports/file` re-checks them
-  against the rights as they are now, and agents can download only their own exports.
+  against the rights as they are now, and agents can download only their own exports. Only packages download as a
+  folder, so a zip of `clips/` cannot bundle clips past their records. Exports made before this change have no record
+  and are served to people only.
 - **Media leaves today**: an intended-use `date` no longer releases a licence that has not started yet.
+
+Known gaps, small and left for later: a time range that spans a gap between shots checks only the shots it overlaps (the
+segmenter produces contiguous shots); `range_gate` ignores overrides left on superseded (inactive) shots after
+re-segmentation, as before this item.
 - **Search results carry `rights.verdict: blocked`** with reasons when blocked footage is shown (`hide_blocked=false`).
 - **A restricted licence past its expiry is `expired`** (the badge said `restricted`, so it was not treated as blocked).
 - **MCP failures are tool errors** (`isError: true`, text `"<Type>: <message>"`), as ADR 011 specified, instead of an

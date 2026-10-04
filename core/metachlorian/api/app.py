@@ -394,7 +394,7 @@ def create_app(settings: Settings, db: Database | None = None, start_workers: bo
         target = (base / path).resolve()
         if base not in target.parents:
             raise HTTPException(400, "bad path")
-        lib.export_access(p, target.relative_to(base).as_posix())  # rights as they are now, and agents only their own
+        lib.export_access(p, target.relative_to(base).as_posix(), target.is_dir())  # rights as they are now, and agents only their own
         if target.is_dir():
             z = target.with_suffix(".zip")
             if not z.exists():

@@ -107,7 +107,7 @@ media and the MCP tools cannot disagree. The rules, proved by `core/tests/test_r
 A shot-level override wins over the file's rights. In/out points are file seconds and may run past the shot named, so a
 clip is checked against every shot it covers; package handles stop at a neighbouring shot that may not leave. Media leaves
 today, so an intended-use `date` does not release a licence that has not started. A package is refused before anything
-is rendered, so nothing is left in the export folder. Refusals are written to the audit log.
+is rendered, so nothing is left in the export folder. Only packages download as a folder (zip); exports made before export records existed are served to people only. Refusals are written to the audit log.
 
 ## Errors
 
