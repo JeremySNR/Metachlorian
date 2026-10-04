@@ -121,3 +121,16 @@ def test_search_filters_rights_and_explanations(processed):
     r = eng.search(SearchRequest(q="", filters={"min_duration": 1.5}, limit=1))
     assert any(w["signal"] == "filter" for w in r["results"][0]["why"])
     assert json.dumps(r)  # JSON serialisable
+
+
+def test_fusion_merge_counts_each_source_once():
+    from metachlorian.analysers.fusion import merge_multi
+
+    votes = [([{"term": "open_water", "confidence": 0.8}], 0.75, "vlm")] * 3
+    one = merge_multi(votes[:1])[0]
+    many = merge_multi(votes)[0]
+    assert many["confidence"] == one["confidence"] and many["sources"] == ["vlm"]
+    both = merge_multi(votes + [([{"term": "open_water", "confidence": 0.5}], 0.55, "visual_tags")])[0]
+    assert both["confidence"] > one["confidence"] and both["sources"] == ["visual_tags", "vlm"]
+    # Low-confidence evidence is kept when the caller asks for it.
+    assert merge_multi([([{"term": "office", "confidence": 0.3}], 0.55, "visual_tags")], keep=0.12)

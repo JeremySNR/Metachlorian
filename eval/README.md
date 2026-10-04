@@ -44,8 +44,28 @@ different shots labelled *after* tuning (`gold-heldout.json`). CPU tier = zero-s
 
 Tuning was structural (a dedicated indoor/outdoor decision instead of one term among 30, coarse time-of-day classes,
 specific prompts for over-generic settings), not threshold fitting, and the held-out set confirms it generalises — but both
-sets come from the same 63-file library, so treat them as indicative. Fused-record accuracy (after fusion, with crowd and
-aerial evidence) is reported by `content/evaluate.py` in `results/content-fused.json`.
+sets come from the same 63-file library, so treat them as indicative.
+
+**Fused records** (what search and agents actually see, after fusion with measured signals) — `content/evaluate.py`,
+`results/content-fused*.json`:
+
+| Signal | Tuning set | Held-out |
+|---|---|---|
+| Interior / exterior | 88% | 81% |
+| Setting top-1 / any kept term | 69% / 79% | 76% / 80% |
+| Time of day | 93% | 93% |
+| People count bucket | 78% | 80% |
+| On-screen text present | 87% | 96% |
+| Shot size exact / within one step | 35% / 79% | 45% / 91% |
+| Aerial precision / recall | 0.63 / 0.63 | 0.75 / 1.00 |
+| Blank / unusable frames flagged | 3 / 3 | — |
+
+The first fused run scored setting top-1 at 59%, below the raw labels: fusion was dropping zero-shot terms below 0.55
+confidence and counting repeated votes from one source as independent evidence. Both were fixed (fusion 1.3.0, with a
+regression test), and the fused record now carries the full evidence with honest confidences.
+
+Shot size is the weakest signal on CPU (exact match 35–45%): it comes from face and person box sizes, which cannot tell a
+medium shot from a medium close-up reliably. The VLM tier is the intended fix (see below).
 
 ## Speech — `asr/`
 
@@ -60,7 +80,7 @@ Parakeet TDT 0.6B v3 (int8, CPU) against the human subtitles that ship with the 
 | **Overall (≈480 reference words)** | **15%** |
 
 Subtitle references paraphrase and omit lines (e.g. "We have main engine start…" is spoken but not subtitled), so film
-WER overstates errors. VAD settings were tuned on this set (19% → 15%). Language identification: 5/5 English files correct.
+WER overstates errors. VAD settings were tuned on this set (19% → 15%). Language identification: 4/4 files correct (all English).
 Diarisation counts are approximate (TitaNet-small on 2 s utterances under-clusters; films over-cluster) — known weakness.
 
 ## Search relevance — `search/`

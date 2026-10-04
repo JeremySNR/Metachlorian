@@ -1,56 +1,56 @@
 {
- "overall_wer": 0.21,
+ "overall_wer": 0.15,
  "files": {
   "shotstack_scott-ko.mp4": {
-   "wer": 0.025,
+   "wer": 0.013,
    "ref_words": 80,
-   "hyp_words": 79,
+   "hyp_words": 80,
    "speech_status": "done",
    "language": {
     "code": "en",
     "name": "English",
     "confidence": 1.0
    },
-   "hyp_excerpt": "My name's Scott Coy. As an entrepreneur, I cannot overstate how important it is these days to use video as a tool to reach your audience, your community, and yo",
+   "hyp_excerpt": "Hi, my name's Scott Coe. As an entrepreneur, I cannot overstate how important it is these days to use video as a tool to reach your audience, your community, an",
    "ref_excerpt": "hi my name's scott ko as an entrepreneur i cannot overstate how important it is these days to use video as a tool to reach"
   },
   "netflix_meridian_0000-0200_1080p60.mp4": {
-   "wer": 0.266,
+   "wer": 0.181,
    "ref_words": 259,
-   "hyp_words": 205,
+   "hyp_words": 227,
    "speech_status": "done",
    "language": {
     "code": "en",
     "name": "English",
     "confidence": 1.0
    },
-   "hyp_excerpt": "These guys just disappeared. Yeah, on that stretch of road right above El Matador. You know it? With the big rock. That's right. Mickey Cohen used to take his a",
+   "hyp_excerpt": "Thank you. These guys just disappeared. Yeah on that stretch of road right above El Matador. You know it? With the big rock. That's right. Yeah Mickey Cohen use",
    "ref_excerpt": "so these guys just disappeared yeah on that stretch of road right above el matador you know it with the big rock that's right yeah"
   },
   "tears_of_steel_0000-0200_512x292.mp4": {
-   "wer": 0.274,
+   "wer": 0.25,
    "ref_words": 84,
-   "hyp_words": 85,
+   "hyp_words": 83,
    "speech_status": "done",
    "language": {
     "code": "en",
     "name": "English",
-    "confidence": 1.0
+    "confidence": 0.802
    },
-   "hyp_excerpt": "We have main engine start. Four, three, two Jerk Tom! Look, Celia, we have to follow our passions. You have your robotics and I just want to be awesome in space",
+   "hyp_excerpt": "We have main engine start, four, three, two, one. Jerk Tom! Look, Celia, we have to follow our passions. You have your robotics and I just want to be awesome in",
    "ref_excerpt": "you're a jerk thom look celia we have to follow our passions you have your robotics and i just want to be awesome in space"
   },
   "cremad_10speakers_concat.mp4": {
-   "wer": 0.123,
+   "wer": 0.053,
    "ref_words": 57,
-   "hyp_words": 50,
+   "hyp_words": 54,
    "speech_status": "done",
    "language": {
     "code": "en",
     "name": "English",
     "confidence": 1.0
    },
-   "hyp_excerpt": "Don't forget a jacket. It's eleven o'clock. That is exactly what happened. I'm on my way to the meeting. This is about The airplane is almost full. Maybe tomorr",
+   "hyp_excerpt": "Don't forget a jacket. It's eleven o'clock. That is exactly what happened. I'm on my way to the meeting. This is about the airplane is almost full. Maybe tomorr",
    "ref_excerpt": "don't forget a jacket it's eleven o'clock that is exactly what happened i'm on my way to the meeting i wonder what this is about"
   }
  }

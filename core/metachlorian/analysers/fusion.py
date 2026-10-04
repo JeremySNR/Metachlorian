@@ -48,15 +48,22 @@ def pick_single(cands: list[tuple[str | None, float, str]]) -> dict[str, Any] | 
 
 
 def merge_multi(lists: list[tuple[list[dict[str, Any]], float, str]], keep: float = 0.3, limit: int = 6) -> list[dict[str, Any]]:
-    acc: dict[str, dict[str, Any]] = {}
+    # Repeated votes from one source are not independent evidence: keep the best per source,
+    # then combine sources with noisy-or.
+    per: dict[str, dict[str, float]] = {}
     for items, weight, src in lists:
         for it in items or []:
             t = it["term"] if isinstance(it, dict) else it
             c = (it.get("confidence", 0.7) if isinstance(it, dict) else 0.7) * weight
-            cur = acc.setdefault(t, {"term": t, "confidence": 0.0, "sources": []})
-            cur["confidence"] = 1 - (1 - cur["confidence"]) * (1 - c)  # noisy-or
-            cur["sources"].append(src)
-    out = sorted((v for v in acc.values() if v["confidence"] >= keep), key=lambda v: -v["confidence"])
+            by_src = per.setdefault(t, {})
+            by_src[src] = max(by_src.get(src, 0.0), c)
+    acc = []
+    for t, by_src in per.items():
+        conf = 0.0
+        for c in by_src.values():
+            conf = 1 - (1 - conf) * (1 - c)
+        acc.append({"term": t, "confidence": conf, "sources": sorted(by_src)})
+    out = sorted((v for v in acc if v["confidence"] >= keep), key=lambda v: -v["confidence"])
     for v in out:
         v["confidence"] = round(v["confidence"], 3)
     return out[:limit]
@@ -85,7 +92,7 @@ def pace_label(duration: float, motion: float | None, change: float | None, audi
 
 class FusionAnalyser(Analyser):
     name = "fusion"
-    version = "1.1.0"
+    version = "1.3.0"
     requires = ("shots", "keyframes", "motion", "quality", "audio", "speech", "people", "ocr", "visual_tags", "caption", "embed")
     priority = 10
     description = "Rule-based evidence fusion into the shot record, refined by a local language model when configured."
@@ -169,7 +176,9 @@ class FusionAnalyser(Analyser):
             rec["camera.angle"] = p
         # Content.
         rec["content.setting"] = merge_multi([([{"term": t, "confidence": 0.8} for t in vlm.get("setting", [])], W_VLM, "vlm"),
-                                              (zs["setting"], W_ZS, "visual_tags")])
+                                              (zs["setting"], W_ZS, "visual_tags")], keep=0.12, limit=5)
+        # Low-confidence terms stay (with their low confidence) so search can still rank on them;
+        # dropping them left many shots with no specific setting at all.
         for field, single in (("time_of_day", True), ("weather", False), ("season", True)):
             if single:
                 cands = []
