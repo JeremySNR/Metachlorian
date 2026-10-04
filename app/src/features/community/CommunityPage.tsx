@@ -30,7 +30,12 @@ export function CommunityPage() {
     <main id="main" className={s.page}>
       <header><p className={s.eyebrow}>Metachlorian Community</p><h1>Find a moment in public video.</h1>
         <p>Search the content people have analysed from public YouTube videos: descriptions, camera movement, spoken words and on-screen text.</p></header>
-      <form className={s.search} onSubmit={(e) => { e.preventDefault(); setSubmitted({ query: text.trim(), offset: 0 }) }}>
+      <form className={s.search} onSubmit={(e) => {
+        e.preventDefault()
+        const query = text.trim()
+        if (submitted?.query === query && submitted.offset === 0) void results.refetch()
+        else setSubmitted({ query, offset: 0 })
+      }}>
         <TextField label="Search community videos" placeholder="e.g. coastal drone sunset" value={text} onChange={setText} maxLength={300} />
         <Button type="submit" isDisabled={!status.data?.configured || results.isFetching}>{results.isFetching ? 'Searching…' : 'Search community'}</Button>
       </form>
@@ -48,7 +53,7 @@ export function CommunityPage() {
             <p>{r.snippet}</p><p className={s.note}>Community analysis · {r.license || 'Licence not provided by YouTube'}</p>
           </article>
         ))}</div>
-        {results.data?.next_offset != null && <Button variant="quiet" onPress={() => setSubmitted({ query: submitted?.query ?? '', offset: results.data?.next_offset ?? 0 })}>Next page</Button>}
+        {results.data?.next_offset != null && <Button variant="quiet" isDisabled={results.isFetching} onPress={() => setSubmitted({ query: submitted?.query ?? '', offset: results.data?.next_offset ?? 0 })}>Next page</Button>}
       </section>
     </main>
   )
