@@ -421,3 +421,35 @@
     flex-wrap: wrap;
   }
 }
+
+/* Damaged picture (docs/guides/formats.md): a hairline-ruled note, not a card. */
+.notice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-block: var(--space-1);
+  padding-inline-start: var(--space-3);
+  border-inline-start: 2px solid var(--status-caution);
+}
+
+.notice p {
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-2);
+  max-inline-size: var(--measure-prose);
+}
+
+.actionLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-block-size: var(--target-min);
+  font-size: var(--text-sm);
+  color: var(--fg-1);
+}
+
+@media (pointer: coarse) {
+  .actionLink {
+    min-block-size: var(--target-coarse);
+  }
+}

@@ -17,9 +17,11 @@ import { formatLength } from '../../lib/timecode'
 import l from '../library/Library.module.css'
 import s from './Ingest.module.css'
 import { STEPS, stepStates, updatingText } from '../../lib/processing'
+import { needsDecoder } from '../../lib/formats'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { searchFolder } from '../library/FoldersPage'
 import { AddFromLinks, ImportsList } from './Imports'
+import { DecoderLink } from './DecoderLink'
 
 const STEP_ICON = { done: Check, active: LoaderCircle, waiting: CircleDashed, failed: CircleX }
 
@@ -313,7 +315,10 @@ export function IngestPage() {
                         </td>
                         <td>
                           {fails.length ? (
-                            <StatusText tone="blocked" icon={CircleX}>Failed</StatusText>
+                            <span className={s.stateCell}>
+                              <StatusText tone="blocked" icon={CircleX}>Failed</StatusText>
+                              <DecoderLink error={fails.find((f) => needsDecoder(f.error))?.error} className={s.decoderLink} />
+                            </span>
                           ) : a.status === 'ready' ? (
                             <Link to="/file/$assetId" params={{ assetId: a.uid }}>
                               <StatusText tone="cleared" icon={CircleCheck}>Ready</StatusText>
@@ -382,7 +387,8 @@ function DetailRow({ uid, fails }: { uid: string; fails: QueueJob[] }) {
         </div>
         {fails.map((f) => (
           <p key={f.id} className={s.failure}>
-            {humanise(f.analyser)} failed: {f.error ?? 'no reason given'}.
+            {humanise(f.analyser)} failed: {f.error ?? 'no reason given'}{f.error && /[.!?]$/.test(f.error) ? '' : '.'}{' '}
+            <DecoderLink error={f.error} className={s.decoderLink} />
           </p>
         ))}
         <div style={{ display: 'flex', gap: 'var(--space-2)', paddingBlockEnd: 'var(--space-2)' }}>

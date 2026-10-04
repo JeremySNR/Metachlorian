@@ -8,6 +8,7 @@ import { useAdminSettings, useAudit, useHealth, useMe, usePeople, useTokens, use
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { ModelAdapters } from './ModelProviders'
 import { ImportSettings } from './ImportSettings'
+import { FormatsSettings } from './Formats'
 import { Button } from '../../components/Button'
 import { Dialog } from '../../components/Dialog'
 import { EmptyState, StatusText } from '../../components/EmptyState'
@@ -31,6 +32,7 @@ const SECTIONS: { id: string; label: string; admin?: boolean; desktop?: boolean 
   { id: 'adapters', label: 'Model adapters', admin: true },
   { id: 'privacy', label: 'Privacy and analysis', admin: true },
   { id: 'imports', label: 'Imports' },
+  { id: 'formats', label: 'Formats' },
   { id: 'audit', label: 'Audit log', admin: true },
   { id: 'storage', label: 'Storage and proxies', admin: true },
   { id: 'about', label: 'About' },
@@ -72,6 +74,7 @@ export function SettingsPage() {
           {current?.id === 'adapters' && <ModelAdapters onAdminError={(e) => <AdminOnly error={e} />} />}
           {current?.id === 'privacy' && <PrivacySettings />}
           {current?.id === 'imports' && <ImportSettings />}
+          {current?.id === 'formats' && <FormatsSettings />}
           {current?.id === 'audit' && <Audit />}
           {current?.id === 'storage' && <Storage />}
           {current?.id === 'about' && <About />}

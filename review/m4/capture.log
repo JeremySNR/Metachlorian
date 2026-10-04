@@ -3,26 +3,28 @@
 > PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers xvfb-run -a --server-args='-screen 0 1600x1000x24' playwright test --project=review --project=electron
 
 
-Running 16 tests using 1 worker
+Running 17 tests using 1 worker
 
-  ✓   1 [review] › e2e/folders-scope.spec.ts:59:1 › 15 search inside a folder or a collection (40.9s)
-  ✓   2 [review] › e2e/imports.spec.ts:41:1 › 16 import videos from web links: progress, origin, rights unknown, folder search, failure, cookies (49.9s)
-  ✓   3 [review] › e2e/journeys.spec.ts:19:1 › 01 search: natural language to shot results with previews (11.9s)
-  ✓   4 [review] › e2e/journeys.spec.ts:53:1 › 02 select a shot and find similar (17.8s)
-  ✓   5 [review] › e2e/journeys.spec.ts:92:1 › 03 filter by resolution, fps, orientation, log and duration (10.7s)
-  ✓   6 [review] › e2e/journeys.spec.ts:134:1 › 04 see whether a file is raw, selects or finished (8.9s)
-  ✓   7 [review] › e2e/journeys.spec.ts:148:1 › 05 rights, releases and expiry respected by intended-use search (22.5s)
-  ✓   8 [review] › e2e/journeys.spec.ts:207:1 › 06 build a Cutawan package from a collection (24.0s)
-  ✓   9 [review] › e2e/journeys.spec.ts:276:1 › 07 correct a wrong tag; it is marked human and survives reload (10.9s)
-  ✓  10 [review] › e2e/journeys.spec.ts:319:1 › 08 processing status is visible (13.3s)
-  ✓  11 [review] › e2e/journeys.spec.ts:365:1 › 09 keyboard only: search to inspector to shot detail (13.7s)
-grid scroll {"idleFrameMs":16.7,"firstPass":{"p50":30.3,"p95":110.7,"max":291},"secondPass":{"p50":23.5,"p95":49.4,"max":100},"cardsInDom":28,"total":"68"}
-  ✓  12 [review] › e2e/journeys.spec.ts:411:1 › 10 grid scroll smoothness (10.8s)
-  ✓  13 [review] › e2e/journeys.spec.ts:455:1 › 12 narrow screens, forced colours and match strength (20.6s)
-  ✓  14 [review] › e2e/providers-people.spec.ts:11:1 › 13 hosted model providers: what each unlocks and costs, what leaves, write-only keys (10.5s)
-  ✓  15 [review] › e2e/providers-people.spec.ts:116:1 › 14 people: name someone, search by name, merge, not this person, restore (28.5s)
-preview start (Electron): {"samples":[100,117,80,488,64,254,336,190,251,69,31,42],"median":117,"p90":336,"max":488,"videoElements":5}
-  ✓  16 [electron] › e2e/preview.electron.spec.ts:13:1 › 11 preview starts in under 300 ms (Electron, H.264) (21.8s)
+  ✓   1 [review] › e2e/folders-scope.spec.ts:59:1 › 15 search inside a folder or a collection (41.4s)
 
-  16 passed (5.3m)
+  ✓   2 [review] › e2e/formats.spec.ts:72:1 › 17 formats: camera raw decoders, unreadable and damaged files (22.5s)
+  ✓   3 [review] › e2e/imports.spec.ts:41:1 › 16 import videos from web links: progress, origin, rights unknown, folder search, failure, cookies (45.3s)
+  ✓   4 [review] › e2e/journeys.spec.ts:19:1 › 01 search: natural language to shot results with previews (9.5s)
+  ✓   5 [review] › e2e/journeys.spec.ts:53:1 › 02 select a shot and find similar (15.2s)
+  ✓   6 [review] › e2e/journeys.spec.ts:92:1 › 03 filter by resolution, fps, orientation, log and duration (9.9s)
+  ✓   7 [review] › e2e/journeys.spec.ts:134:1 › 04 see whether a file is raw, selects or finished (7.8s)
+  ✓   8 [review] › e2e/journeys.spec.ts:148:1 › 05 rights, releases and expiry respected by intended-use search (20.5s)
+  ✓   9 [review] › e2e/journeys.spec.ts:207:1 › 06 build a Cutawan package from a collection (22.0s)
+  ✓  10 [review] › e2e/journeys.spec.ts:276:1 › 07 correct a wrong tag; it is marked human and survives reload (10.6s)
+  ✓  11 [review] › e2e/journeys.spec.ts:319:1 › 08 processing status is visible (12.1s)
+  ✓  12 [review] › e2e/journeys.spec.ts:365:1 › 09 keyboard only: search to inspector to shot detail (10.3s)
+grid scroll {"idleFrameMs":16.7,"firstPass":{"p50":23.3,"p95":65.4,"max":85},"secondPass":{"p50":18.6,"p95":33.7,"max":43},"cardsInDom":32,"total":"69"}
+  ✓  13 [review] › e2e/journeys.spec.ts:411:1 › 10 grid scroll smoothness (8.2s)
+  ✓  14 [review] › e2e/journeys.spec.ts:455:1 › 12 narrow screens, forced colours and match strength (18.8s)
+  ✓  15 [review] › e2e/providers-people.spec.ts:11:1 › 13 hosted model providers: what each unlocks and costs, what leaves, write-only keys (9.6s)
+  ✓  16 [review] › e2e/providers-people.spec.ts:116:1 › 14 people: name someone, search by name, merge, not this person, restore (24.1s)
+preview start (Electron): {"samples":[116,96,44,45,60,99,99,147,30,29,32],"median":60,"p90":116,"max":147,"videoElements":5}
+  ✓  17 [electron] › e2e/preview.electron.spec.ts:13:1 › 11 preview starts in under 300 ms (Electron, H.264) (20.4s)
+
+  17 passed (5.2m)
 exit 0

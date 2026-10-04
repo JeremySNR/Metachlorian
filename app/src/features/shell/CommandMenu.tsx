@@ -79,6 +79,7 @@ export function CommandMenu() {
       { id: 'go-tokens', label: 'Settings: API tokens for agents', icon: Settings, run: () => navigate({ to: '/settings/$section', params: { section: 'tokens' } }) },
       { id: 'go-adapters', label: 'Settings: model adapters', icon: Settings, run: () => navigate({ to: '/settings/$section', params: { section: 'adapters' } }) },
       { id: 'go-privacy', label: 'Settings: privacy and analysis (face recognition)', icon: Settings, run: () => navigate({ to: '/settings/$section', params: { section: 'privacy' } }) },
+      { id: 'go-formats', label: 'Settings: formats and camera raw decoders', icon: Settings, run: () => navigate({ to: '/settings/$section', params: { section: 'formats' } }) },
       { id: 'go-imports', label: 'Settings: imports (yt-dlp, logins for private videos)', icon: Settings, run: () => navigate({ to: '/settings/$section', params: { section: 'imports' } }) },
     ]
     const cols: Cmd[] = (collections.data ?? []).map((c) => ({ id: `col-${c.uid}`, label: c.name, icon: Layers, meta: `${c.items} shots`, run: () => navigate({ to: '/collections/$collectionId', params: { collectionId: c.uid } }) }))

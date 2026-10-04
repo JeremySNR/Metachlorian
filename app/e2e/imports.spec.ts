@@ -2,8 +2,8 @@
  * Journey 16: import videos from web links (docs/guides/importing-from-the-web.md).
  * YouTube is not reachable from the review machine, so the happy path uses a local link
  * (python http.server on :8799) and the YouTube link exercises the failure state.
- * Afterwards: the import rows are removed and the cookies file deleted. The imported file stays in the
- * library (deleting a file isn't exposed by the API).
+ * Afterwards: the import rows are removed, the cookies file deleted and the imported file deleted from the library
+ * (DELETE /api/assets; the downloaded copy stays on disk under imports/Journey import).
  */
 import type { Page, Response } from '@playwright/test'
 import { expect, H, snap, snapAll, test, waitForResults } from './helpers'
@@ -41,6 +41,7 @@ async function noSidewaysScroll(page: Page) {
 test('16 import videos from web links: progress, origin, rights unknown, folder search, failure, cookies', async ({ page }) => {
   test.setTimeout(900_000)
   const created = new Set<number>()
+  const importedAssets = new Set<string>()
   page.on('response', async (r) => {
     if (isPost(r) && r.ok()) for (const i of (await r.json()).imports as Row[]) created.add(i.id)
   })
@@ -112,6 +113,7 @@ test('16 import videos from web links: progress, origin, rights unknown, folder 
     // Open file: where it came from, and rights unknown with the nudge to check them.
     const done = (await (await page.request.get(`/api/imports/${local.id}`)).json()) as Row
     expect(done.asset_uid).toBeTruthy()
+    importedAssets.add(done.asset_uid as string)
     await row.getByRole('link', { name: /Open file/ }).click()
     await expect(page).toHaveURL(new RegExp(`/file/${done.asset_uid}`))
     const origin = page.getByTestId('origin')
@@ -201,10 +203,7 @@ test('16 import videos from web links: progress, origin, rights unknown, folder 
     }
     // Let the imported file's analysis finish, so the journeys after this one run on a quiet machine.
     await expect
-      .poll(async () => {
-        const q = (await (await page.request.get('/api/processing')).json()).queue.by_status
-        return (q.queued ?? 0) + (q.running ?? 0)
-      }, { timeout: 600_000, intervals: [5000] })
+      .poll(async () => ((await (await page.request.get(`/api/assets/${done.asset_uid}`)).json()).jobs ?? []).length, { timeout: 600_000, intervals: [3000] })
       .toBe(0)
   } finally {
     for (const id of created) {
@@ -212,5 +211,7 @@ test('16 import videos from web links: progress, origin, rights unknown, folder 
       await page.request.delete(`/api/imports/${id}`, { headers: H })
     }
     await page.request.delete('/api/imports/cookies', { headers: H })
+    // The imported file itself (the API marks it deleted; the downloaded copy stays under imports/ on disk).
+    for (const uid of importedAssets) await page.request.delete(`/api/assets/${uid}`, { headers: H })
   }
 })

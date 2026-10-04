@@ -924,6 +924,8 @@ export interface AdminSettings {
     import_max_height?: number
     /** Imports: yt-dlp program to use ("" = PATH, else the copy Metachlorian downloads). */
     ytdlp_path?: string
+    /** Camera raw: extension → decoder command line. */
+    raw_decoders?: Record<string, string>
     require_auth: boolean
     cors_origins: string[]
   }
@@ -1005,4 +1007,32 @@ export interface ImportTool {
   cookies_file: boolean
   max_height: number
   browsers: string[]
+}
+
+// ---------------------------------------------------------------- formats (camera raw decoders)
+export interface FormatFile {
+  uid: Uid
+  filename: string
+  error: string | null
+}
+
+export interface RawFormat {
+  /** Without the dot: "r3d". */
+  extension: string
+  name: string
+  decoder_hint: string | null
+  /** The configured decoder command, or null. */
+  command: string | null
+  files: number
+  /** Files of this format that can't be read yet (no decoder, or it failed). */
+  waiting: FormatFile[]
+}
+
+export interface FormatsResponse {
+  raw: RawFormat[]
+  /** Every extension the scanner picks up. */
+  extensions: string[]
+  /** Files whose technical step failed, with the reason. */
+  undecodable: FormatFile[]
+  placeholders: string[]
 }

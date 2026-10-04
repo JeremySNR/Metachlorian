@@ -809,3 +809,164 @@
 .narrowField {
   max-inline-size: 320px;
 }
+
+/* ---------------------------------------------------------------- formats */
+.placeholders {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--fg-2);
+}
+
+.placeholders > div {
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
+}
+
+.placeholders dd {
+  margin: 0;
+}
+
+.placeholders code,
+.ext,
+.extList code {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--fg-1);
+  font-feature-settings: var(--font-mono-features);
+}
+
+.rawList,
+.fileList,
+.extList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.rawRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-block: var(--space-3);
+  border-block-end: var(--border-width) solid var(--border-subtle);
+}
+
+.rawHead {
+  display: grid;
+  grid-template-columns: minmax(150px, 1.2fr) 56px minmax(0, 2fr) 136px 112px;
+  gap: var(--space-1) var(--space-3);
+  align-items: baseline;
+  font-size: var(--text-sm);
+}
+
+.rawName {
+  font-weight: var(--weight-semibold);
+  color: var(--fg-1);
+}
+
+.rawHint {
+  color: var(--fg-2);
+}
+
+.rawFiles {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-2);
+  white-space: nowrap;
+}
+
+.rawState {
+  justify-self: end;
+}
+
+.commandInput {
+  flex: 1 1 320px;
+  max-inline-size: 640px;
+}
+
+.rawRow .keyActions {
+  padding-block-start: 0;
+}
+
+.fileList {
+  display: flex;
+  flex-direction: column;
+}
+
+.fileList > li {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-block: var(--space-2);
+  border-block-end: var(--border-width) solid var(--border-subtle);
+}
+
+.fileLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1_5);
+  align-self: flex-start;
+  min-block-size: var(--target-min);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+
+.fileLink svg {
+  flex: none;
+  color: var(--fg-3);
+}
+
+.fileError {
+  display: flex;
+  align-items: start;
+  gap: var(--space-1_5);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  color: var(--fg-2);
+  max-inline-size: var(--measure-prose);
+  overflow-wrap: anywhere;
+}
+
+.fileError svg {
+  flex: none;
+  margin-block-start: 1px;
+  color: var(--status-blocked);
+}
+
+.extList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+}
+
+.rawMark {
+  font-size: var(--text-2xs);
+  color: var(--fg-3);
+}
+
+@media (width < 1024px) {
+  .rawHead {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .rawHint {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .rawFiles {
+    grid-row: 3;
+  }
+  .rawState {
+    grid-row: 3;
+  }
+}
+
+@media (pointer: coarse) {
+  .fileLink {
+    min-block-size: var(--target-coarse);
+  }
+}

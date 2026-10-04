@@ -7,7 +7,7 @@ import { useCallback, useMemo } from 'react'
 import { api, qs } from './client'
 import type {
   AdminSettings, AssetDoc, AssetList, AuditEntry, Collection, CollectionSummary, CorrectionsResponse, ExportClipResult, ExportMode,
-  FolderList, Health, ImportList, ImportTool, IntendedUse, LibraryStats, Me, OpenRouterModel, PackageResult, PackageTarget, PeopleList, PersonDetail, Processing, ProviderId,
+  FolderList, FormatsResponse, Health, ImportList, ImportTool, IntendedUse, LibraryStats, Me, OpenRouterModel, PackageResult, PackageTarget, PeopleList, PersonDetail, Processing, ProviderId,
   ProviderKey, ProvidersResponse, ProviderTest, RightsCheck, RightsRecord, SearchRequest, SearchResponse, ShotDoc, Source, Sprites,
   TokensResponse, User, Verdict, Vocabulary,
 } from './types'
@@ -325,6 +325,11 @@ export const useProcessing = (enabled = true) =>
     refetchIntervalInBackground: false,
     staleTime: 1000,
   })
+
+// ---------------------------------------------------------------- formats
+/** Camera-raw decoders, files waiting for one, files that can't be read, and every scanned extension. */
+export const useFormats = (opts: { refetchInterval?: number | false } = {}) =>
+  useQuery({ queryKey: ['formats'], queryFn: () => api.get<FormatsResponse>('/api/formats'), staleTime: 2000, refetchInterval: opts.refetchInterval, refetchIntervalInBackground: false })
 
 // ---------------------------------------------------------------- imports from web links
 const visible = () => typeof document === 'undefined' || document.visibilityState === 'visible'

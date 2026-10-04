@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useRouter, useSearch } from '@tanstack/react-router'
-import { ArrowLeft, ChevronDown, LoaderCircle, RefreshCw, Search, ShieldCheck } from 'lucide-react'
+import { ArrowLeft, ChevronDown, CircleAlert, ImageOff, LoaderCircle, RefreshCw, Search, ShieldCheck } from 'lucide-react'
 import type { AssetDoc } from '../../api/types'
 import { ApiError, api, mediaUrl } from '../../api/client'
 import { queryClient, useAsset, useCorrect, useVocabularies } from '../../api/queries'
@@ -21,6 +21,8 @@ import { Player, type PlayerHandle } from '../shot/Player'
 import { Transcript } from '../shot/ShotPanels'
 import { Filmstrip, type FilmstripHandle } from './Filmstrip'
 import { CheckRightsNudge, OriginDetails } from './Origin'
+import { DecoderLink } from '../ingest/DecoderLink'
+import { colourFacts, decodedFromText, decodeErrors, needsDecoder } from '../../lib/formats'
 import s from './Asset.module.css'
 
 const STAGE_ORDER = ['raw', 'selects', 'finished']
@@ -70,6 +72,10 @@ export function AssetPage() {
   // Evidence as a share of the total, not raw rule scores.
   const scoreSum = Math.max(0.001, Object.values(scores).reduce((x, y) => x + y, 0))
   const failed = a.processing.filter((p) => p.status === 'failed')
+  const techFail = failed.find((p) => p.analyser === 'technical')
+  const colour = colourFacts(tech)
+  const decoded = decodedFromText(tech)
+  const damaged = decodeErrors(a.fields)
   const pendingJobs = a.jobs.filter((j) => j.status !== 'failed')
 
   const setStage = async (term: string) => {
@@ -164,6 +170,10 @@ export function AssetPage() {
             label={a.filename}
             testId="asset-player"
           />
+        ) : techFail ? (
+          <EmptyState inline icon={CircleAlert} title="Metachlorian can't read this file yet" role="alert" actions={<DecoderLink error={techFail.error} className={s.actionLink} />}>
+            {techFail.error}
+          </EmptyState>
         ) : (
           <EmptyState inline icon={LoaderCircle} title="Preparing a proxy">
             The proxy appears here as soon as it has been made. Analysis continues in the background.
@@ -208,6 +218,15 @@ export function AssetPage() {
               {a.rights.status === 'unknown' && <CheckRightsNudge onCheck={() => useUi.getState().set({ rightsDialog: { assetUids: [a.uid], title: a.filename } })} />}
             </section>
           )}
+          {damaged > 0 && (
+            <div className={s.notice} role="note" data-testid="damaged-picture">
+              <StatusText tone="caution" icon={ImageOff}>Damaged picture</StatusText>
+              <p>
+                Part of this file couldn't be decoded ({damaged} {damaged === 1 ? 'error' : 'errors'}), usually an interrupted recording or a bad card copy.
+                The preview shows what could be read; copy the file from the card again if you can.
+              </p>
+            </div>
+          )}
           <dl className={s.kv}>
             <dt>Path</dt>
             <dd className={s.mono}>{a.path}</dd>
@@ -215,6 +234,31 @@ export function AssetPage() {
             <dd className={s.mono}>
               <span title={fpsTitle(a.fps)}>{[a.width && a.height ? `${a.width}×${a.height}` : null, fpsLabel(a.fps), String(tech.video_codec ?? '').toUpperCase(), tech.bit_depth ? `${tech.bit_depth}-bit` : null, tech.hdr ? 'HDR' : 'SDR', tech.chroma].filter(Boolean).join(' · ')}</span>
             </dd>
+            {colour.colour && (
+              <>
+                <dt>Colour</dt>
+                <dd>{colour.colour}</dd>
+              </>
+            )}
+            {colour.hdr && (
+              <>
+                <dt>HDR</dt>
+                <dd>{colour.hdr}</dd>
+              </>
+            )}
+            {decoded && (
+              <>
+                <dt>Decoded</dt>
+                <dd data-testid="decoded-from">
+                  Decoded from {decoded.format}
+                  {decoded.decoder ? (
+                    <>
+                      {' '}with <code className={s.mono}>{decoded.decoder}</code>
+                    </>
+                  ) : null}
+                </dd>
+              </>
+            )}
             <dt>Audio</dt>
             <dd className={s.mono}>{tech.audio_codec ? `${String(tech.audio_codec).toUpperCase()} · ${tech.audio_channels ?? '?'} ch · ${tech.audio_sample_rate ?? '?'} Hz` : 'None'}</dd>
             <dt>Size</dt>
@@ -234,7 +278,9 @@ export function AssetPage() {
                   Searchable · updating {plural(pendingJobs.length, 'step')}
                 </StatusText>
               ) : failed.length ? (
-                <StatusText tone="blocked">{plural(failed.length, 'step')} failed</StatusText>
+                <>
+                  <StatusText tone="blocked">{plural(failed.length, 'step')} failed</StatusText> <DecoderLink error={techFail?.error} className={s.actionLink} />
+                </>
               ) : (
                 <StatusText tone="cleared">Analysed</StatusText>
               )}{' '}
@@ -363,7 +409,8 @@ export function AssetPage() {
           </div>
           {failed.map((f) => (
             <p key={f.analyser} style={{ color: 'var(--status-blocked)', fontSize: 'var(--text-sm)' }}>
-              <Ic icon={RefreshCw} size={14} /> {humanise(f.analyser)} failed: {f.error}
+              <Ic icon={RefreshCw} size={14} /> {humanise(f.analyser)} failed: {f.error}{' '}
+              {needsDecoder(f.error) && <DecoderLink error={f.error} className={s.actionLink} />}
             </p>
           ))}
           <p className={s.meta}>

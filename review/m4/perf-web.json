@@ -2,16 +2,16 @@
   "gridScroll": {
     "idleFrameMs": 16.7,
     "firstPass": {
-      "p50": 30.3,
-      "p95": 110.7,
-      "max": 291
+      "p50": 23.3,
+      "p95": 65.4,
+      "max": 85
     },
     "secondPass": {
-      "p50": 23.5,
-      "p95": 49.4,
-      "max": 100
+      "p50": 18.6,
+      "p95": 33.7,
+      "max": 43
     },
-    "cardsInDom": 28,
-    "total": "68"
+    "cardsInDom": 32,
+    "total": "69"
   }
 }
