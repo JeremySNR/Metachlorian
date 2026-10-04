@@ -78,6 +78,14 @@ def create_app(settings: Settings, db: Database | None = None, start_workers: bo
     app.state.lib = lib
     app.state.settings = settings
 
+    def _scope(folder: list[str] | None, collection: list[str] | None) -> dict[str, Any]:
+        out: dict[str, Any] = {}
+        if folder:
+            out["folder"] = folder
+        if collection:
+            out["collection"] = collection
+        return out
+
     def _intended(use, channel, territory, include) -> dict[str, Any] | None:
         if not (use or channel or territory):
             return None
@@ -197,15 +205,18 @@ def create_app(settings: Settings, db: Database | None = None, start_workers: bo
 
     @app.get("/api/shots/{uid}/similar")
     def similar(uid: str, limit: int = 24, modality: str = "visual", use: str | None = None, channel: str | None = None,
-                territory: str | None = None, include: str | None = None, hide_blocked: bool = True, p: Principal = Depends(principal)):
+                territory: str | None = None, include: str | None = None, hide_blocked: bool = True,
+                folder: list[str] | None = Query(None), collection: list[str] | None = Query(None), p: Principal = Depends(principal)):
         return lib.find_similar(p, shot_uid=uid, limit=limit, modality=modality, intended=_intended(use, channel, territory, include),
-                                hide_blocked=hide_blocked)
+                                hide_blocked=hide_blocked, filters=_scope(folder, collection))
 
     @app.post("/api/similar")
     async def similar_upload(file: UploadFile = File(...), limit: int = 24, use: str | None = None, channel: str | None = None,
                              territory: str | None = None, include: str | None = None, hide_blocked: bool = True,
+                             folder: list[str] | None = Query(None), collection: list[str] | None = Query(None),
                              p: Principal = Depends(principal)):
         intended = _intended(use, channel, territory, include)
+        scope = _scope(folder, collection)
         data = await file.read()
         if len(data) > 300 * 1024 * 1024:
             raise HTTPException(413, "file too large")
@@ -213,10 +224,10 @@ def create_app(settings: Settings, db: Database | None = None, start_workers: bo
             with tempfile.NamedTemporaryFile(suffix=Path(file.filename or "x.mp4").suffix, delete=False) as tf:
                 tf.write(data)
             try:
-                return lib.find_similar(p, clip=Path(tf.name), limit=limit, intended=intended, hide_blocked=hide_blocked)
+                return lib.find_similar(p, clip=Path(tf.name), limit=limit, intended=intended, hide_blocked=hide_blocked, filters=scope)
             finally:
                 os.unlink(tf.name)
-        return lib.find_similar(p, image=data, limit=limit, intended=intended, hide_blocked=hide_blocked)
+        return lib.find_similar(p, image=data, limit=limit, intended=intended, hide_blocked=hide_blocked, filters=scope)
 
     # ------------------------------------------------------------------ people (face identity)
     @app.get("/api/people")
