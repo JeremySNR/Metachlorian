@@ -71,6 +71,7 @@ def build_server(lib: Library) -> MCPServer:
     def search_shots(query: str = "", filters: dict[str, Any] | None = None, require: dict[str, list[str]] | None = None,
                      exclude: dict[str, list[str]] | None = None, intended_use: dict[str, Any] | None = None,
                      asset_ids: list[str] | None = None, strict: bool = False, limit: int = 20, cursor: str | None = None,
+                     folder: str | list[str] | None = None, collection: str | list[str] | None = None,
                      ctx: Context | None = None) -> dict[str, Any]:
         """Find shots (not whole files) matching a plain-language description and/or structured filters.
 
@@ -83,10 +84,20 @@ def build_server(lib: Library) -> MCPServer:
         intended_use: {use: usage term (e.g. marketing, editorial), channel: channel term (e.g. paid_social),
           territory: ISO 3166 alpha-2, date: YYYY-MM-DD, include: ["allowed"]}. When given, only shots cleared for it are returned.
         strict: treat vocabulary words in the query as hard filters instead of ranking preferences.
+        folder: only footage from this folder or its subfolders — a name ("Disney 2026"), a relative path
+          ("Holidays/Disney 2026") or an absolute path. See list_folders. A list means any of them.
+        collection: only shots in this collection (uid or exact name). See list_collections.
+          With folder or collection and an empty query you get every shot in it, best quality first.
+          (The query may also contain folder:"..." or collection:"...".)
         Returns results with uid (shot id), asset_uid, in/out seconds, caption, tags, why (which signals matched,
         with confidence), rights verdict when intended_use is given, and next_cursor for paging."""
         try:
-            return call(ctx, lib.search, SearchRequest(q=query, filters=filters or {}, require=require or {}, exclude=exclude or {},
+            filters = dict(filters or {})
+            if folder:
+                filters["folder"] = folder
+            if collection:
+                filters["collection"] = collection
+            return call(ctx, lib.search, SearchRequest(q=query, filters=filters, require=require or {}, exclude=exclude or {},
                                                        intended_use=intended_use, asset_uids=asset_ids, strict=strict,
                                                        limit=max(1, min(100, limit)), cursor=cursor))
         except (Forbidden, NotFound, ValueError, KeyError) as e:
@@ -123,12 +134,18 @@ def build_server(lib: Library) -> MCPServer:
     def find_similar(shot_id: str | None = None, image_base64: str | None = None, limit: int = 12,
                      modality: Literal["visual", "audio", "text"] = "visual",
                      intended_use: dict[str, Any] | None = None, filters: dict[str, Any] | None = None,
+                     folder: str | list[str] | None = None, collection: str | list[str] | None = None,
                      ctx: Context | None = None) -> dict[str, Any]:
         """Shots similar to a given shot (shot_id) or a still image (image_base64, JPEG or PNG).
         modality: visual (looks like), audio (sounds like) or text (what is said/described means the same).
-        Same result shape as search_shots. Optional intended_use and filters as in search_shots."""
+        Same result shape as search_shots. Optional intended_use, filters, folder and collection as in search_shots."""
         try:
             img = base64.b64decode(image_base64) if image_base64 else None
+            filters = dict(filters or {})
+            if folder:
+                filters["folder"] = folder
+            if collection:
+                filters["collection"] = collection
             return call(ctx, lib.find_similar, shot_id, img, None, max(1, min(100, limit)), intended_use, filters, modality)
         except (Forbidden, NotFound, ValueError, KeyError) as e:
             return _err(e)
@@ -187,6 +204,36 @@ def build_server(lib: Library) -> MCPServer:
         Use it to tell 'not in the library' from 'not indexed yet'."""
         try:
             return call(ctx, lib.library_stats)
+        except (Forbidden, NotFound, ValueError, KeyError) as e:
+            return _err(e)
+
+    @server.tool(annotations=RO)
+    def list_folders(query: str = "", parent: str | None = None, limit: int = 200, ctx: Context | None = None) -> dict[str, Any]:
+        """Folders the footage was added from, with files, shots, hours and the recording date range of each
+        (counts include subfolders). Use it to find "the holiday videos" and then pass the folder to search_shots or
+        list_files. query filters by name or path (case-insensitive); parent lists one folder's direct subfolders."""
+        try:
+            return call(ctx, lib.folders, query, parent, max(1, min(1000, limit)))
+        except (Forbidden, NotFound, ValueError, KeyError) as e:
+            return _err(e)
+
+    @server.tool(annotations=RO)
+    def list_files(folder: str | None = None, collection: str | None = None, query: str = "", limit: int = 100, offset: int = 0,
+                   ctx: Context | None = None) -> dict[str, Any]:
+        """Files (not shots) in a folder or collection, or whose name, path or summary contains query: uid, filename,
+        path, duration, recording date, raw/selects/finished, shot count, summary and rights badge. Use get_asset for
+        one file's shot list, or search_shots with the same folder to find moments."""
+        try:
+            return call(ctx, lib.list_assets, query, None, None, max(1, min(500, limit)), max(0, offset), folder, collection)
+        except (Forbidden, NotFound, ValueError, KeyError) as e:
+            return _err(e)
+
+    @server.tool(annotations=RO)
+    def get_collection(collection_id: str, ctx: Context | None = None) -> dict[str, Any]:
+        """One collection in order: each item's shot (caption, timecodes, tags), trim in/out, note and rights badge,
+        plus the brief. collection_id is the uid from list_collections."""
+        try:
+            return call(ctx, lib.collection, collection_id)
         except (Forbidden, NotFound, ValueError, KeyError) as e:
             return _err(e)
 

@@ -245,10 +245,14 @@ def create_app(settings: Settings, db: Database | None = None, start_workers: bo
         tid = body.get("identity_id")
         return lib.move_face(p, face_id, int(tid) if tid is not None else None)
 
+    @app.get("/api/folders")
+    def folders(q: str = "", parent: str | None = None, limit: int = 500, p: Principal = Depends(principal)):
+        return lib.folders(p, q, parent, limit)
+
     @app.get("/api/assets")
     def assets(q: str = "", edit_type: str | None = None, status: str | None = None, limit: int = 200, offset: int = 0,
-               p: Principal = Depends(principal)):
-        return lib.list_assets(p, q, edit_type, status, limit, offset)
+               folder: str | None = None, collection: str | None = None, p: Principal = Depends(principal)):
+        return lib.list_assets(p, q, edit_type, status, limit, offset, folder, collection)
 
     @app.get("/api/assets/{uid}")
     def asset(uid: str, p: Principal = Depends(principal)):

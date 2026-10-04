@@ -11,8 +11,10 @@ Execution adapts to filter selectivity:
 from __future__ import annotations
 
 import base64
+import dataclasses
 import json
 import math
+import posixpath
 import re
 import time
 from dataclasses import dataclass, field
@@ -113,6 +115,12 @@ def fts_all_query(words: list[str]) -> str:
     return "{transcript ocr place filename} : (" + " AND ".join(toks) + ")" if len(toks) >= 2 else ""
 
 
+def _as_list(v: Any) -> list[str]:
+    if v is None or v == "":
+        return []
+    return [str(x) for x in v] if isinstance(v, (list, tuple)) else [str(v)]
+
+
 class SearchEngine:
     def __init__(self, db: Database, settings: Settings, vectors: VectorStore | None = None):
         self.db = db
@@ -164,6 +172,16 @@ class SearchEngine:
         if asset_ids is not None:
             where.append(f"si.asset_id IN ({','.join('?' * len(asset_ids)) or 'NULL'})")
             args += asset_ids
+        if f.get("folder"):
+            from ..folders import asset_sql
+
+            sql, pats = asset_sql(_as_list(f["folder"]))
+            where.append(sql)
+            args += pats
+        if f.get("collection"):
+            ids = self._collection_ids(_as_list(f["collection"]))
+            where.append(f"si.shot_id IN (SELECT shot_id FROM collection_items WHERE collection_id IN ({','.join('?' * len(ids)) or 'NULL'}))")
+            args += ids
         for vocab, terms in require.items():
             if vocab == "person":
                 # Every named person must appear (AND), unlike vocabulary terms (any of).
@@ -189,6 +207,7 @@ class SearchEngine:
     def search(self, req: SearchRequest) -> dict[str, Any]:
         t0 = time.perf_counter()
         timings: dict[str, float] = {}
+        req = self._scope_from_text(req)
         parsed = parse(req.q) if (req.q and req.parse_query) else Parsed(text=req.q, semantic=req.q, keywords=req.q.split())
         filters = {**parsed.filters, **{k: v for k, v in req.filters.items() if v is not None}}
         prefer = {k: list(v) for k, v in parsed.prefer.items()}
@@ -230,7 +249,7 @@ class SearchEngine:
             if len(rows) <= SELECTIVE:
                 candidates = {r[0] for r in rows}
         timings["filter"] = time.perf_counter() - t0
-        notes = list(parsed.notes)
+        notes = list(parsed.notes) + self._scope_notes(filters)
         if people_named:
             notes.append("Only shots where " + " and ".join(n.title() for n in people_named) + " can be seen (recognised faces).")
         # Place: hard when anything matches it, otherwise a note.
@@ -518,6 +537,44 @@ class SearchEngine:
             out[sid] = st
         return out
 
+    def _scope_from_text(self, req: SearchRequest) -> SearchRequest:
+        """``folder:"Disney 2026"`` and ``collection:"Best bits"`` written in the query become filters."""
+        if not req.q or ":" not in req.q:
+            return req
+        found: dict[str, list[str]] = {}
+
+        def take(m: re.Match) -> str:
+            found.setdefault(m.group(1).lower(), []).append(m.group(2) if m.group(2) is not None else m.group(3))
+            return " "
+
+        q = re.sub(r"\b(folder|collection)\s*:\s*(?:\"([^\"]+)\"|(\S+))", take, req.q, flags=re.I)
+        if not found:
+            return req
+        filters = dict(req.filters)
+        for k, vals in found.items():
+            filters[k] = _as_list(filters.get(k)) + vals if filters.get(k) else vals
+        return dataclasses.replace(req, q=" ".join(q.split()), filters=filters)
+
+    def _collection_ids(self, refs: list[str]) -> list[int]:
+        ids: list[int] = []
+        for ref in refs:
+            ids += [r["id"] for r in self.db.q("SELECT id FROM collections WHERE uid=? OR lower(name)=lower(?)", (str(ref), str(ref)))]
+        return ids
+
+    def _scope_notes(self, filters: dict[str, Any]) -> list[str]:
+        """Say plainly when a folder or collection name matched nothing, with the closest names."""
+        notes = []
+        for name in _as_list(filters.get("folder")):
+            from ..folders import closest, like_pattern
+
+            if not self.db.q1("SELECT 1 FROM asset_paths WHERE replace(path, '\\', '/') LIKE ? ESCAPE '\\' LIMIT 1", (like_pattern(name),)):
+                near = closest(self.db, name)
+                notes.append(f"No folder called \"{name}\"." + (f" Closest: {', '.join(near)}." if near else ""))
+        for ref in _as_list(filters.get("collection")):
+            if not self._collection_ids([ref]):
+                notes.append(f"No collection called \"{ref}\".")
+        return notes
+
     def _person_names(self) -> dict[str, int]:
         now_t = time.time()
         if not hasattr(self, "_names_cache") or now_t - self._names_cache[1] > 30:
@@ -646,6 +703,7 @@ class SearchEngine:
         if verdict:
             out["rights"] = {"verdict": verdict["verdict"], "reasons": verdict["reasons"]}
         out["identities"] = doc.get("people_identities") or []
+        out["folder"] = posixpath.dirname(str(doc.get("path") or "").replace("\\", "/"))
         return out
 
     def _facets(self, pool: list[int] | None, where: str, args: list[Any], base_from: str) -> dict[str, list[dict[str, Any]]]:

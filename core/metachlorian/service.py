@@ -131,10 +131,27 @@ class Library:
         self._log(p, "get_asset", uid)
         return doc
 
+    def folders(self, p: Principal, q: str = "", parent: str | None = None, limit: int = 500) -> dict[str, Any]:
+        require(p, "library:read")
+        from .folders import list_folders
+
+        out = list_folders(self.db, q, parent, max(1, min(5000, limit)))
+        self._log(p, "list_folders", q)
+        return out
+
     def list_assets(self, p: Principal, q: str = "", edit_type: str | None = None, status: str | None = None, limit: int = 200,
-                    offset: int = 0) -> dict[str, Any]:
+                    offset: int = 0, folder: str | None = None, collection: str | None = None) -> dict[str, Any]:
         require(p, "library:read")
         where, args = ["deleted_at IS NULL"], []
+        if folder:
+            from .folders import like_pattern
+
+            where.append("id IN (SELECT asset_id FROM asset_paths WHERE replace(path, '\\', '/') LIKE ? ESCAPE '\\')")
+            args.append(like_pattern(folder))
+        if collection:
+            where.append("id IN (SELECT s.asset_id FROM collection_items i JOIN shots s ON s.id=i.shot_id JOIN collections c ON c.id=i.collection_id"
+                         " WHERE c.uid=? OR lower(c.name)=lower(?))")
+            args += [collection, collection]
         if q:
             where.append("(filename LIKE ? OR path LIKE ? OR summary LIKE ?)")
             args += [f"%{q}%"] * 3
@@ -150,7 +167,9 @@ class Library:
         for r in rows:
             s = loads(r["summary"], {}) or {}
             rr = R.get_rights(self.db, r["id"])
+            tech = loads(r["tech"], {}) or {}
             out.append({"uid": r["uid"], "filename": r["filename"], "path": r["path"], "status": r["status"], "duration": r["duration"],
+                        "captured": tech.get("capture_date"),
                         "width": r["width"], "height": r["height"], "fps": r["fps"], "size": r["size"], "created_at": r["created_at"],
                         "edit_type": s.get("edit_type"), "shot_count": s.get("shot_count"), "cuts_per_minute": s.get("cuts_per_minute"),
                         "summary": (s.get("summary") or {}).get("story") or (s.get("summary") or {}).get("text"),

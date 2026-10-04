@@ -54,11 +54,29 @@ Every agent call is written to the audit log (Settings → Audit log, filter "ag
 | `check_rights` | yes | Verdict (allowed / restricted / blocked / unknown) with reasons for a use, channel, territory and date |
 | `export_clip` | no | A clip as a reference, proxy file, trimmed original or one-clip OTIO/FCPXML/EDL |
 | `build_package` | no | A Cutawan / NLE hand-off package with manifest, media, transcript, timelines and rights summary |
+| `list_folders` | yes | Folders the footage came from, with files, shots, hours and recording dates; find "the Disney holiday" and pass it as `folder` |
+| `list_files` | yes | Files in a folder or collection (or matching a name), with duration, date, edit stage and summary |
+| `get_collection` | yes | One collection in order, with trims, notes and rights |
 | `list_people` | yes | People recognised by face and named in the app; put a name in `search_shots` to require that person. Agents cannot name, merge or forget people |
 | `library_stats` | yes | What exists, coverage and gaps; tells "not in the library" from "not indexed yet" |
 | `list_vocabularies` | yes | The controlled vocabularies (term ids for filters) |
 | `list_collections` | yes | Collections and selects |
 | `correct_tag` | no | Fix a tag with a note; survives re-processing |
+
+## Scoping to a folder or collection
+
+`search_shots` and `find_similar` take `folder` (a name like `"Disney 2026"`, a relative path like
+`"Holidays/Disney 2026"`, or an absolute path; subfolders included) and `collection` (uid or exact name). Both can be
+combined with everything else, and an empty query with a scope returns every shot in it, best quality first. People can
+type the same thing in the app's search box: `folder:"Disney 2026" kids on rides`. A name that matches nothing comes back
+with a note naming the closest folders, so an agent can correct itself.
+
+Example: "Use my Disney holiday videos and make a 60-second cut of the kids on rides."
+
+1. `list_folders(query="disney")` → `Videos/Holidays/Disney 2026` (41 files, 2.3 h, 3–14 Aug 2026)
+2. `search_shots(query="kids on a ride, smiling", folder="Disney 2026", filters={"min_duration": 2})`
+3. `find_similar(shot_id=<best one>, folder="Disney 2026")` for more like it
+4. `build_package(items=[...], name="Disney rides 60s", brief="...")` → a package any editor or tool can open
 
 ## A typical flow: brief → rough cut in Cutawan
 
