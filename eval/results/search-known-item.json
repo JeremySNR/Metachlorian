@@ -102,63 +102,8 @@
   ],
   [
    "text",
-   "009111 90 00 027",
-   34
-  ],
-  [
-   "text",
-   "ARETHEL MATADORHISSING ARETHES MATADOKMISSING",
-   188
-  ],
-  [
-   "text",
-   "2018 09 2211 49",
-   217
-  ],
-  [
-   "text",
-   "www bcastell com Copyright",
-   250
-  ],
-  [
-   "text",
-   "49 35 2018 09",
-   212
-  ],
-  [
-   "text",
-   "T45TCI TEC EASTCI CE45Y60",
-   178
-  ],
-  [
-   "text",
-   "DIVISION ATLANTA GEORGIA Better",
-   279
-  ],
-  [
-   "text",
-   "FARSOFSIF TEARSOFSTEEL TEARS OF",
-   38
-  ],
-  [
-   "text",
-   "42 2018 09 22",
-   216
-  ],
-  [
-   "text",
-   "PLINE ESSHGE BORHO TLI",
-   275
-  ],
-  [
-   "text",
-   "2013BrandonCastellano www bcastell com",
-   254
-  ],
-  [
-   "text",
-   "AFFITTASI UFFICI 028029214 0263799799",
-   97
+   "23 10 CAMP GYM",
+   52
   ],
   [
    "text",
@@ -167,18 +112,33 @@
   ],
   [
    "text",
-   "Send Spik PAErS BOAAD",
-   270
+   "lmissupportedby Netherlands Film Fund",
+   28
   ],
   [
    "text",
-   "Fluing the Ouere Hcneland",
-   54
+   "STREET HARVEY NIC STRET",
+   237
   ],
   [
    "text",
-   "Florentine GARDENS GRUEN ZANZIB",
-   183
+   "Castellano www bcastell com",
+   252
+  ],
+  [
+   "text",
+   "HOTEL JETC HETCL BRAKE",
+   180
+  ],
+  [
+   "text",
+   "2013 Brandon Castellano www",
+   253
+  ],
+  [
+   "text",
+   "2018 09 22 11",
+   217
   ],
   [
    "text",
@@ -187,29 +147,69 @@
   ],
   [
    "text",
-   "InitiateSearchProgram EnterPossword TLINE InitiateSearchProgrom",
-   273
+   "AN'S CA KESE AN'SCAINESE",
+   182
   ],
   [
    "text",
-   "Fund Netherlands Film Fund",
-   28
+   "NATALYA LUKE IER PAEFS",
+   270
   ],
   [
    "text",
-   "com Copyright 2013 Brandon",
-   253
+   "HeadCoach Kevin Ulmer STATE",
+   117
+  ],
+  [
+   "text",
+   "22 11 49 41",
+   214
+  ],
+  [
+   "text",
+   "23 102010 BAMPEOT AIM",
+   208
+  ],
+  [
+   "text",
+   "TESSO mietro QuaysNews mefro",
+   241
+  ],
+  [
+   "text",
+   "QuaysNews 10'minutes orbetterM BEAUTIEUL",
+   242
+  ],
+  [
+   "text",
+   "TOPMAN TOPI TOMAN EMEE",
+   239
+  ],
+  [
+   "text",
+   "LUKE AER PAEFS BOARD",
+   281
+  ],
+  [
+   "text",
+   "Mango Dpen Movie project",
+   23
+  ],
+  [
+   "text",
+   "GYM 23 10 10",
+   211
   ]
  ],
  "results": {
   "hybrid": {
    "speech": {
-    "mrr@10": 0.914,
+    "mrr@10": 0.917,
     "hit@10": 1.0,
     "n": 20
    },
    "text": {
-    "mrr@10": 0.975,
+    "mrr@10": 0.904,
     "hit@10": 1.0,
     "n": 20
    }
@@ -221,8 +221,8 @@
     "n": 20
    },
    "text": {
-    "mrr@10": 0.421,
-    "hit@10": 0.55,
+    "mrr@10": 0.305,
+    "hit@10": 0.5,
     "n": 20
    }
   },
@@ -233,7 +233,7 @@
     "n": 20
    },
    "text": {
-    "mrr@10": 0.967,
+    "mrr@10": 0.938,
     "hit@10": 1.0,
     "n": 20
    }

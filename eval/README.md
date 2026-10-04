@@ -94,7 +94,8 @@ or variant labels and graded 0/1/2 by a separate reviewer agent from one keyfram
 |---|---|---|---|---|
 | Hybrid as first built (text-space list, preferences at full weight) | 0.556 | 0.433 | — | — |
 | Hybrid, with the text-space list | 0.586 | 0.458 | 0.222 | 0.250 |
-| **Hybrid (shipped)** | **0.791** | **0.608** | **0.415** | **0.333** |
+| Hybrid, before strong-first ordering | 0.791 | 0.608 | 0.415 | 0.333 |
+| **Hybrid (shipped: strong matches first)** | **0.838** | **0.667** | **0.407** | **0.333** |
 | Visual vectors only | 0.890 | 0.733 | 0.443 | 0.367 |
 | Keywords only (BM25) | 0.529 | 0.408 | 0.292 | 0.250 |
 | Hybrid without vocabulary preferences | 0.777 | 0.567 | 0.436 | 0.367 |
@@ -104,7 +105,8 @@ deterministically from the library; the shot they came from is the target (`sear
 
 | Variant | Speech MRR@10 / hit@10 | On-screen text MRR@10 / hit@10 |
 |---|---|---|
-| **Hybrid (shipped)** | **0.91 / 1.00** | **0.98 / 1.00** |
+| **Hybrid (shipped)** | **0.92 / 1.00** | **0.90 / 1.00** |
+| Hybrid before strong-first ordering | 0.91 / 1.00 | 0.98 / 1.00 |
 | Hybrid before the exact-words list | 0.55 / 1.00 | 0.70 / 0.85 |
 | Visual vectors only | 0.03 / 0.15 | 0.46 / 0.65 |
 | Keywords only | 1.00 / 1.00 | 0.97 / 1.00 |
@@ -116,6 +118,21 @@ What changed, and why:
    whole query, and CPU-tier labels are ~70–90% accurate (0.73 → 0.79 tuning, 0.37 → 0.41 held-out).
 3. A new "exact words" list — every query word said, shown on screen, or in the place or file name — carries the
    strongest weight, so remembered lines and on-screen text rank first while descriptive queries are unaffected.
+
+4. **Absolute match strength** (after the fresh UI review): each result carries SigLIP's own sigmoid probability on a
+   log scale, raised by exact or partial word evidence from speech and on-screen text, so "strong" means the same thing
+   for every query. Strong matches come first (in fused order) for the chosen strictness. Precision of the strong set on
+   judged results (`results/search-strength.json`; ranking evaluated with rights hiding off):
+
+   | Strictness | Precision (grade ≥ 1) | Queries with no strong match (of 36) |
+   |---|---|---|
+   | Loose | 0.53 | 1 |
+   | Balanced (default) | 0.64 | 4 |
+   | Strict | 0.80 | 11 |
+
+   It improved the tuning set (0.79 → 0.84) and was neutral on held-out (0.415 → 0.407); on-screen text known-item MRR
+   fell from 0.98 to 0.90 because partial OCR matches can sit behind strong visual matches. The OCR phrases were also
+   re-sampled after the OCR change, so that comparison is approximate.
 
 Visual-only still scores higher on the description sets. Two reasons, and an honest caveat: judges saw the same single
 keyframe the visual embedding sees, which favours it; and it cannot find anything by what was said (MRR 0.03), which
@@ -129,7 +146,12 @@ queries ("dog", "boat on the water", "fireworks") have no relevant shot at all �
 the run that built the index. Filter-only browse 160 ms. Before the benchmark-driven fixes: 775 ms median and 135 s for
 a broad filter.
 
-**Analysis throughput** — measured with `throughput.sh` (fresh library, production server, 3 workers); result to follow.
+**Analysis throughput** (`throughput.sh`: fresh library, the production server, 3 workers, all 63 demo files — 26 min of
+mixed 292p–4K footage): **1.71 hours of footage per hour** on the 4-vCPU CPU-only box (15.3 min wall for 26.2 min of
+footage), every CPU-tier analyser enabled. Where the time goes (analyser seconds): proxy transcode 911, OCR 438, SigLIP
+embeddings 402, motion 199, keyframes 136, people 132, shots 98, speech 98, visual tags 57, audio 30, the rest < 25.
+OCR was 3,140 s before reading the middle keyframe first. A consumer GPU mainly speeds up embeddings and the optional VLM;
+proxy transcoding is the largest CPU cost and can use hardware encoders.
 
 ## VLM captions (optional GPU tier)
 

@@ -1,0 +1,20 @@
+{
+ "loose": {
+  "precision_judged": 0.533,
+  "strong_judged": 261,
+  "strong_unjudged": 95,
+  "queries_with_no_strong": 1
+ },
+ "balanced": {
+  "precision_judged": 0.637,
+  "strong_judged": 168,
+  "strong_unjudged": 34,
+  "queries_with_no_strong": 4
+ },
+ "strict": {
+  "precision_judged": 0.8,
+  "strong_judged": 90,
+  "strong_unjudged": 10,
+  "queries_with_no_strong": 11
+ }
+}
