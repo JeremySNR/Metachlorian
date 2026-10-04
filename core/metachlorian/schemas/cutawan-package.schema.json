@@ -1,0 +1,616 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://metachlorian.dev/schemas/package/1/manifest.schema.json",
+  "title": "Metachlorian handoff package manifest",
+  "description": "manifest.json at the root of a Metachlorian handoff package: selected shots, optional trimmed media, transcripts, timelines and a rights summary, for Cutawan or an NLE. All paths are relative to the package root and use '/' separators. Times are seconds from the start of the referenced media unless stated otherwise. Ranges are half-open [in, out).",
+  "type": "object",
+  "required": ["schema_version", "kind", "package_id", "name", "created_at", "generator", "vocab_versions", "assets", "items", "rights"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string", "format": "uri-reference" },
+    "schema_version": {
+      "description": "SemVer of this manifest format. Consumers must reject an unknown major version and ignore unknown properties only inside 'extensions'.",
+      "type": "string",
+      "pattern": "^1\\.[0-9]+\\.[0-9]+$"
+    },
+    "kind": { "const": "metachlorian.package" },
+    "package_id": { "type": "string", "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$|^[0-9a-f-]{36}$", "description": "ULID or UUID." },
+    "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "created_at": { "type": "string", "format": "date-time" },
+    "generator": {
+      "type": "object",
+      "required": ["name", "version"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "const": "metachlorian" },
+        "version": { "type": "string" },
+        "instance": { "type": "string", "format": "uri", "description": "Base URL of the Metachlorian instance that built the package, for links and later lookups." }
+      }
+    },
+    "brief": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "text": { "type": "string", "maxLength": 10000 },
+        "requested_by": { "$ref": "#/$defs/principal" },
+        "agent": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "oauth_client_id": { "type": "string" },
+            "name": { "type": "string" }
+          }
+        },
+        "search": {
+          "description": "The search that produced the selection, if any (echo of search_shots interpreted_as).",
+          "type": "object"
+        }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "consumer": { "enum": ["cutawan", "nle", "generic"] },
+        "aspect": { "enum": ["9:16", "1:1", "4:5", "16:9", "original"] },
+        "duration_sec": { "type": "number", "exclusiveMinimum": 0 },
+        "usage": { "type": "array", "items": { "$ref": "#/$defs/termId" }, "uniqueItems": true },
+        "channels": { "type": "array", "items": { "$ref": "#/$defs/termId" }, "uniqueItems": true },
+        "territories": { "type": "array", "items": { "$ref": "#/$defs/territory" }, "uniqueItems": true }
+      }
+    },
+    "vocab_versions": {
+      "description": "Vocabulary name -> version used for every tag in this package (local extensions carry +local.N).",
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/termId" },
+      "additionalProperties": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(\\+local\\.[0-9]+)?$" }
+    },
+    "media_policy": {
+      "description": "What media the package carries. 'none' = metadata and links only; 'proxies' = H.264 trims; 'trimmed_originals' = original codec trims; 'stringout' = one conformed file of all items in sequence order (plus per-item files if also requested).",
+      "enum": ["none", "proxies", "trimmed_originals", "stringout"]
+    },
+    "assets": {
+      "description": "Source assets the items come from.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/asset" }
+    },
+    "media": {
+      "description": "Every media file shipped inside the package.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/mediaFile" }
+    },
+    "items": {
+      "description": "Selected shots (the shot list). Order = selection order; sequences define edit order.",
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/item" }
+    },
+    "sequences": {
+      "description": "Assembled edits (rough cuts) built from items.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/sequence" }
+    },
+    "stringout": {
+      "description": "Single conformed file of a sequence, for single-source consumers such as Cutawan.",
+      "type": "object",
+      "required": ["sequence_id", "file", "map"],
+      "additionalProperties": false,
+      "properties": {
+        "sequence_id": { "type": "string" },
+        "file": { "$ref": "#/$defs/relPath" },
+        "scope": { "description": "Which tracks were rendered: all = the full picture/sound mix; a_roll = only A-roll track(s), B-roll delivered as inserts.", "enum": ["all", "a_roll"] },
+        "transcript": { "$ref": "#/$defs/relPath" },
+        "map": {
+          "description": "Where each item lands in the stringout file (stringout seconds).",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["item_id", "in", "out"],
+            "additionalProperties": false,
+            "properties": {
+              "item_id": { "type": "string" },
+              "in": { "type": "number", "minimum": 0 },
+              "out": { "type": "number", "minimum": 0 }
+            }
+          }
+        }
+      }
+    },
+    "transcripts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["file", "format", "time_base"],
+        "additionalProperties": false,
+        "properties": {
+          "file": { "$ref": "#/$defs/relPath" },
+          "format": { "description": "cutawan.transcript/1 = Cutawan's Transcript shape {language, durationSec, segments[{id,text,start,end,words[{text,start,end}]}], speech?}.", "enum": ["cutawan.transcript/1", "webvtt", "srt"] },
+          "language": { "$ref": "#/$defs/language" },
+          "time_base": { "description": "Which clock the times use: a media file in this package, or the original asset.", "enum": ["media", "asset"] },
+          "media_file": { "$ref": "#/$defs/relPath" },
+          "asset_id": { "type": "string" }
+        }
+      }
+    },
+    "timelines": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["format", "file", "sequence_id"],
+        "additionalProperties": false,
+        "properties": {
+          "format": { "enum": ["otio", "otioz", "fcpxml", "edl_cmx3600", "xmeml", "aaf"] },
+          "version": { "type": "string", "description": "Format version, e.g. OTIO schema 'Timeline.1', FCPXML '1.10'." },
+          "file": { "$ref": "#/$defs/relPath" },
+          "sequence_id": { "type": "string" },
+          "media_paths": { "enum": ["relative", "absolute", "missing"], "description": "How the timeline references media." }
+        }
+      }
+    },
+    "rights": { "$ref": "#/$defs/rightsSummary" },
+    "cutawan": { "$ref": "#/$defs/cutawanHints" },
+    "files": {
+      "description": "Optional integrity list of every file except manifest.json.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "sha256", "bytes"],
+        "additionalProperties": false,
+        "properties": {
+          "path": { "$ref": "#/$defs/relPath" },
+          "sha256": { "$ref": "#/$defs/sha256" },
+          "bytes": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "extensions": {
+      "description": "Namespaced vendor extensions, keyed by reverse-DNS or 'x-' names. Consumers ignore unknown keys.",
+      "type": "object"
+    }
+  },
+
+  "$defs": {
+    "termId": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "territory": {
+      "description": "ISO 3166-1 alpha-2 country, UN M49 3-digit region, or 'WORLD'.",
+      "type": "string",
+      "pattern": "^([A-Z]{2}|[0-9]{3}|WORLD)$"
+    },
+    "language": { "description": "BCP 47 tag, e.g. en, en-GB, pt-BR.", "type": "string", "pattern": "^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$" },
+    "relPath": {
+      "description": "Relative POSIX path inside the package. No absolute paths, no '..' segments, no backslashes.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^(?!/)(?!.*(^|/)\\.\\.(/|$))[^\\\\:*?\"<>|]+$"
+    },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "rational": {
+      "description": "Frame rate as 'num/den', e.g. '25/1', '30000/1001'.",
+      "type": "string",
+      "pattern": "^[1-9][0-9]*/[1-9][0-9]*$"
+    },
+    "time": {
+      "description": "A point in time. 'seconds' is authoritative; 'frames' at 'rate' and 'timecode' are conveniences that must agree with it.",
+      "type": "object",
+      "required": ["seconds"],
+      "additionalProperties": false,
+      "properties": {
+        "seconds": { "type": "number", "minimum": 0 },
+        "rate": { "$ref": "#/$defs/rational" },
+        "frames": { "type": "integer", "minimum": 0 },
+        "timecode": { "type": "string", "pattern": "^[0-9]{2}:[0-9]{2}:[0-9]{2}[:;][0-9]{2,3}$" }
+      }
+    },
+    "range": {
+      "type": "object",
+      "required": ["in", "out"],
+      "additionalProperties": false,
+      "properties": {
+        "in": { "$ref": "#/$defs/time" },
+        "out": { "$ref": "#/$defs/time" }
+      }
+    },
+    "principal": {
+      "type": "object",
+      "required": ["type", "id"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "enum": ["user", "service_account"] },
+        "id": { "type": "string" },
+        "name": { "type": "string" }
+      }
+    },
+    "tags": {
+      "description": "Vocabulary name -> term ids (ADR 010). Only terms at or above the package's confidence threshold are listed.",
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/termId" },
+      "additionalProperties": { "type": "array", "items": { "$ref": "#/$defs/termId" }, "uniqueItems": true }
+    },
+    "normRect": {
+      "type": "object",
+      "required": ["x", "y", "width", "height"],
+      "additionalProperties": false,
+      "properties": {
+        "x": { "type": "number", "minimum": 0, "maximum": 1 },
+        "y": { "type": "number", "minimum": 0, "maximum": 1 },
+        "width": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+        "height": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 }
+      }
+    },
+    "asset": {
+      "type": "object",
+      "required": ["asset_id", "name", "duration", "rate", "width", "height", "has_audio"],
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": { "type": "string" },
+        "name": { "type": "string" },
+        "original_filename": { "type": "string" },
+        "original_uri": {
+          "description": "Location of the original on the Metachlorian side (file:// or https://). Informative; may be omitted for privacy. Consumers must not rely on it being reachable.",
+          "type": "string",
+          "format": "uri"
+        },
+        "web_url": { "type": "string", "format": "uri", "description": "Link to the asset page in Metachlorian." },
+        "duration": { "type": "number", "exclusiveMinimum": 0 },
+        "rate": { "$ref": "#/$defs/rational" },
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 },
+        "start_timecode": { "type": "string", "pattern": "^[0-9]{2}:[0-9]{2}:[0-9]{2}[:;][0-9]{2,3}$" },
+        "reel": { "type": "string", "description": "Reel/tape name used in EDL exports (<=8 chars there)." },
+        "has_audio": { "type": "boolean" },
+        "language": { "$ref": "#/$defs/language" },
+        "edit_type": { "$ref": "#/$defs/termId" },
+        "source_type": { "$ref": "#/$defs/termId" },
+        "colour": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "grade_state": { "$ref": "#/$defs/termId" },
+            "transfer": { "type": "string", "description": "e.g. bt709, pq, hlg, slog3" },
+            "primaries": { "type": "string" }
+          }
+        },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "mediaFile": {
+      "type": "object",
+      "required": ["file", "kind", "duration"],
+      "additionalProperties": false,
+      "properties": {
+        "file": { "$ref": "#/$defs/relPath" },
+        "kind": { "enum": ["proxy", "trimmed_original", "stringout", "still", "audio", "thumbnail"] },
+        "asset_id": { "type": "string" },
+        "asset_offset": {
+          "description": "Asset time (seconds) at the first frame of this file, for trims. Asset time = media time + asset_offset.",
+          "type": "number",
+          "minimum": 0
+        },
+        "duration": { "type": "number", "minimum": 0 },
+        "rate": { "$ref": "#/$defs/rational" },
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 },
+        "video_codec": { "type": "string" },
+        "audio_codec": { "type": ["string", "null"] },
+        "has_audio": { "type": "boolean" },
+        "loudness_lufs": { "type": "number" },
+        "crop": {
+          "description": "If the file was reframed at export, the source rectangle used.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "aspect": { "enum": ["9:16", "1:1", "4:5", "16:9"] },
+            "source_rect": { "$ref": "#/$defs/normRect" }
+          }
+        },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "bytes": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "item": {
+      "type": "object",
+      "required": ["item_id", "shot_id", "asset_id", "source_range", "rights_ref"],
+      "additionalProperties": false,
+      "properties": {
+        "item_id": { "type": "string", "description": "Unique within the package; stable across rebuilds of the same package." },
+        "shot_id": { "type": "string" },
+        "asset_id": { "type": "string" },
+        "role": { "$ref": "#/$defs/termId", "description": "shot_role term the selection is intended for (a_roll, b_roll, cutaway, ...)." },
+        "source_range": { "$ref": "#/$defs/range", "description": "Selected in/out on the original asset clock (excluding handles)." },
+        "handles_sec": { "type": "number", "minimum": 0, "default": 0 },
+        "media": {
+          "description": "Where to find this item's picture/sound in the package, if media was shipped.",
+          "type": "object",
+          "required": ["file", "in", "out"],
+          "additionalProperties": false,
+          "properties": {
+            "file": { "$ref": "#/$defs/relPath" },
+            "in": { "type": "number", "minimum": 0, "description": "Media seconds of source_range.in inside file (after handles)." },
+            "out": { "type": "number", "minimum": 0 }
+          }
+        },
+        "thumbnail": { "$ref": "#/$defs/relPath" },
+        "description": { "type": "string", "maxLength": 2000 },
+        "tags": { "$ref": "#/$defs/tags" },
+        "quality_flags": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["flag", "severity"],
+            "additionalProperties": false,
+            "properties": {
+              "flag": { "$ref": "#/$defs/termId" },
+              "severity": { "enum": ["minor", "major", "unusable"] }
+            }
+          }
+        },
+        "transcript_excerpt": {
+          "description": "Speech inside source_range. Word times are on the asset clock.",
+          "type": "object",
+          "required": ["text"],
+          "additionalProperties": false,
+          "properties": {
+            "text": { "type": "string" },
+            "language": { "$ref": "#/$defs/language" },
+            "speaker": { "type": "string" },
+            "words": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["text", "start", "end"],
+                "additionalProperties": false,
+                "properties": {
+                  "text": { "type": "string" },
+                  "start": { "type": "number", "minimum": 0 },
+                  "end": { "type": "number", "minimum": 0 }
+                }
+              }
+            }
+          }
+        },
+        "safe_crops": {
+          "description": "Subject-aware crop per target aspect, normalised to the source frame. 'track' optionally gives keyframes (asset seconds).",
+          "type": "object",
+          "propertyNames": { "enum": ["9:16", "1:1", "4:5", "16:9"] },
+          "additionalProperties": {
+            "type": "object",
+            "required": ["rect"],
+            "additionalProperties": false,
+            "properties": {
+              "rect": { "$ref": "#/$defs/normRect" },
+              "track": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["t", "x"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "t": { "type": "number", "minimum": 0 },
+                    "x": { "type": "number", "minimum": 0, "maximum": 1 },
+                    "cut": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "score": { "type": "number", "description": "Retrieval score at selection time (informative)." },
+        "rights_ref": { "type": "string", "description": "Key into rights.records." },
+        "note": { "type": "string", "maxLength": 2000 },
+        "web_url": { "type": "string", "format": "uri" }
+      }
+    },
+    "sequence": {
+      "type": "object",
+      "required": ["sequence_id", "name", "rate", "tracks"],
+      "additionalProperties": false,
+      "properties": {
+        "sequence_id": { "type": "string" },
+        "name": { "type": "string" },
+        "rate": { "$ref": "#/$defs/rational" },
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 },
+        "start_timecode": { "type": "string" },
+        "duration": { "type": "number", "minimum": 0 },
+        "tracks": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["name", "kind", "clips"],
+            "additionalProperties": false,
+            "properties": {
+              "name": { "type": "string" },
+              "kind": { "enum": ["video", "audio"] },
+              "role": { "description": "a_roll | b_roll | music | voice_over | effects (free, but these values are understood by Cutawan).", "type": "string" },
+              "clips": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["item_id", "record_in", "duration"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "item_id": { "type": "string" },
+                    "record_in": { "type": "number", "minimum": 0, "description": "Sequence seconds where the clip starts." },
+                    "duration": { "type": "number", "exclusiveMinimum": 0 },
+                    "source_in": { "type": "number", "minimum": 0, "description": "Asset seconds of the first frame used; defaults to the item's source_range.in." },
+                    "speed": { "type": "number", "exclusiveMinimum": 0, "default": 1 },
+                    "transition_in": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": { "enum": ["cut", "dissolve", "dip_to_black"] },
+                        "duration": { "type": "number", "minimum": 0 }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "markers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["at", "name"],
+            "additionalProperties": false,
+            "properties": {
+              "at": { "type": "number", "minimum": 0 },
+              "duration": { "type": "number", "minimum": 0 },
+              "name": { "type": "string" },
+              "note": { "type": "string" },
+              "colour": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "rightsVerdict": { "enum": ["allowed", "restricted", "blocked", "unknown"] },
+    "rightsSummary": {
+      "type": "object",
+      "required": ["verdict", "checked_at", "records"],
+      "additionalProperties": false,
+      "properties": {
+        "verdict": { "$ref": "#/$defs/rightsVerdict", "description": "Worst verdict across included items, after overrides." },
+        "intended": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "usage": { "type": "array", "items": { "$ref": "#/$defs/termId" } },
+            "channels": { "type": "array", "items": { "$ref": "#/$defs/termId" } },
+            "territories": { "type": "array", "items": { "$ref": "#/$defs/territory" } },
+            "start": { "type": "string", "format": "date" },
+            "end": { "type": "string", "format": "date" }
+          }
+        },
+        "counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "allowed": { "type": "integer", "minimum": 0 },
+            "restricted": { "type": "integer", "minimum": 0 },
+            "blocked": { "type": "integer", "minimum": 0 },
+            "unknown": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "checked_at": { "type": "string", "format": "date-time" },
+        "rights_snapshot_hash": { "type": "string" },
+        "credits": { "type": "array", "items": { "type": "string" }, "description": "Credit lines required by any included item." },
+        "earliest_expiry": { "type": "string", "format": "date" },
+        "overrides": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["item_id", "by", "reason", "at"],
+            "additionalProperties": false,
+            "properties": {
+              "item_id": { "type": "string" },
+              "by": { "$ref": "#/$defs/principal" },
+              "reason": { "type": "string", "minLength": 1 },
+              "at": { "type": "string", "format": "date-time" }
+            }
+          }
+        },
+        "records": {
+          "description": "rights_ref -> per-item (or per-asset) rights detail.",
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/rightsRecord" }
+        },
+        "human_readable": { "$ref": "#/$defs/relPath", "description": "e.g. RIGHTS.md" }
+      }
+    },
+    "rightsRecord": {
+      "type": "object",
+      "required": ["verdict"],
+      "additionalProperties": false,
+      "properties": {
+        "verdict": { "$ref": "#/$defs/rightsVerdict" },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["code", "detail"],
+            "additionalProperties": false,
+            "properties": {
+              "code": { "type": "string", "description": "e.g. channel_not_permitted, territory_excluded, release_unknown, licence_expired, clearance_flag_unconfirmed" },
+              "detail": { "type": "string" }
+            }
+          }
+        },
+        "model_release": { "$ref": "#/$defs/termId", "description": "release_status term" },
+        "property_release": { "$ref": "#/$defs/termId", "description": "release_status term" },
+        "clearance_flags": { "type": "array", "items": { "$ref": "#/$defs/termId" } },
+        "licence": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "name": { "type": "string" },
+            "licensor": { "type": "string" },
+            "url": { "type": "string", "format": "uri" },
+            "reference": { "type": "string", "description": "Licence/contract/order number." }
+          }
+        },
+        "permitted": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "usage": { "type": "array", "items": { "$ref": "#/$defs/termId" } },
+            "channels": { "type": "array", "items": { "$ref": "#/$defs/termId" } },
+            "territories": { "type": "array", "items": { "$ref": "#/$defs/territory" } }
+          }
+        },
+        "prohibited": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "usage": { "type": "array", "items": { "$ref": "#/$defs/termId" } },
+            "channels": { "type": "array", "items": { "$ref": "#/$defs/termId" } },
+            "territories": { "type": "array", "items": { "$ref": "#/$defs/territory" } }
+          }
+        },
+        "requirements": { "type": "array", "items": { "type": "string" }, "description": "Duties, e.g. 'credit: Jane Doe / Acme', 'notify licensor before broadcast'." },
+        "credit": { "type": "string" },
+        "valid_from": { "type": "string", "format": "date" },
+        "expires_at": { "type": "string", "format": "date" }
+      }
+    },
+    "cutawanHints": {
+      "description": "How Cutawan should open the package. Other consumers ignore this.",
+      "type": "object",
+      "required": ["mode"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "description": "stringout: open stringout.file as the project video, one clip per item (or one whole-video clip). a_roll_with_inserts: open the A-roll stringout as the project video and add B-roll items as timed video inserts. broll_library: no project; offer items as B-roll candidates in an existing project.",
+          "enum": ["stringout", "a_roll_with_inserts", "broll_library"]
+        },
+        "project_name": { "type": "string" },
+        "flow": { "description": "Cutawan ProjectMode to land in.", "enum": ["clips", "whole-video"] },
+        "video_type": { "enum": ["auto", "talking-head", "podcast", "webinar", "product-demo"] },
+        "aspect": { "enum": ["9:16", "1:1", "16:9", "original"] },
+        "captions": { "type": "boolean", "default": true },
+        "auto_zoom": { "type": "boolean", "default": false },
+        "follow_speaker": { "type": "boolean", "default": false },
+        "inserts": {
+          "description": "For a_roll_with_inserts: B-roll placements on the stringout clock (seconds).",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["item_id", "start", "end"],
+            "additionalProperties": false,
+            "properties": {
+              "item_id": { "type": "string" },
+              "start": { "type": "number", "minimum": 0 },
+              "end": { "type": "number", "minimum": 0 },
+              "mode": { "enum": ["fullscreen", "overlay"], "default": "fullscreen" },
+              "trigger": { "type": "string", "description": "Spoken word/phrase the insert illustrates, shown in Cutawan's B-roll list." }
+            }
+          }
+        },
+        "prompt": { "type": "string", "description": "Optional steering prompt for Cutawan's clip finder." }
+      }
+    }
+  }
+}

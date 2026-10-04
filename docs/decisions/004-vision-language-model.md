@@ -94,7 +94,9 @@ All are served with the same JSON-schema mechanism.
     during a match", shot_size `medium`, objects [soccer player, soccer ball, stadium, crowd, …,
     Nike swoosh], people_count 1, indoor false.
   - Timing for that run is not meaningful. The host had a load average of about 16 on 4 vCPUs,
-    plus a stray second llama-server, giving 2.6 tok/s prompt and 0.2 tok/s decode. On an idle
+    plus a stray second llama-server, giving 2.6 tok/s prompt and 0.2 tok/s decode. A re-run with
+    `-t 3` and no stray server (load still ≈17) gave 5.5 tok/s prompt and 1.1 tok/s decode: 142 s
+    wall for one frame, with valid JSON again. On an idle
     4-core x86 the expected order of magnitude is 20-60 tok/s prompt and 10-20 tok/s decode for a
     2B Q4 model. **Re-benchmark in `eval/` on an idle machine.** Note also that JSON-schema grammar
     sampling over Qwen's ~250k vocabulary adds per-token cost on CPU.

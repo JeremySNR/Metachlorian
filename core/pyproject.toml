@@ -2,7 +2,7 @@
 name = "metachlorian"
 version = "0.1.0"
 description = "Self-hostable video library that understands every shot. Headless core: ingest, analysis, search, REST API and MCP server."
-readme = "../README.md"
+readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.10"
 authors = [{ name = "Metachlorian contributors" }]

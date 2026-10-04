@@ -1,0 +1,148 @@
+"""In-memory ANN index over the ``vectors`` table (usearch HNSW, Apache-2.0).
+
+SQLite is the source of truth; this index is a cache that is synchronised by
+row id and can be rebuilt at any time. Filtered queries use exact scoring over
+the candidate set when it is small, and oversampled HNSW + post-filter when it
+is large (usearch's Python API has no filter predicate).
+"""
+from __future__ import annotations
+
+import logging
+import threading
+from pathlib import Path
+
+import numpy as np
+
+from ..db import Database
+
+log = logging.getLogger(__name__)
+
+EXACT_LIMIT = 50_000
+
+
+class VectorIndex:
+    def __init__(self, db: Database, space: str, cache_dir: Path | None = None, dtype: str = "f16"):
+        self.db = db
+        self.space = space
+        self.cache_dir = cache_dir
+        self.dtype = dtype
+        self.lock = threading.RLock()
+        self.index = None
+        self.dim: int | None = None
+        self.watermark = 0          # highest vectors.id ingested
+        self.keys: set[int] = set()          # shot ids present
+        self.shot_of: dict[int, int] = {}    # vector row id -> shot id
+        self.vids_of: dict[int, list[int]] = {}  # shot id -> vector row ids
+
+    def _new(self, dim: int):
+        from usearch.index import Index
+
+        return Index(ndim=dim, metric="cos", dtype=self.dtype, connectivity=16, expansion_add=128, expansion_search=96)
+
+    def sync(self) -> int:
+        """Pull new rows; rebuild when rows were deleted (re-analysis replaces them).
+
+        Index keys are ``vectors.id``; ``self.shot_of`` maps them to shot ids, so a
+        space may hold several vectors per shot (e.g. one per keyframe)."""
+        with self.lock:
+            stat = self.db.q1("SELECT COUNT(*) n FROM vectors WHERE space=? AND id<=?", (self.space, self.watermark))
+            if self.index is not None and stat["n"] != len(self.shot_of):
+                self.index, self.shot_of, self.vids_of, self.watermark = None, {}, {}, 0
+            added = 0
+            while True:
+                rows = self.db.q("SELECT id, shot_id, dim, vec FROM vectors WHERE space=? AND id>? ORDER BY id LIMIT 20000", (self.space, self.watermark))
+                if not rows:
+                    break
+                if self.index is None:
+                    self.dim = rows[0]["dim"]
+                    self.index = self._new(self.dim)
+                keys = np.array([r["id"] for r in rows], dtype=np.uint64)
+                vecs = np.stack([np.frombuffer(r["vec"], dtype=np.float16).astype(np.float32) for r in rows])
+                self.index.add(keys, vecs)
+                for r in rows:
+                    self.shot_of[r["id"]] = r["shot_id"]
+                    self.vids_of.setdefault(r["shot_id"], []).append(r["id"])
+                self.watermark = rows[-1]["id"]
+                added += len(rows)
+            self.keys = set(self.vids_of)
+            return added
+
+    def __len__(self) -> int:
+        return len(self.keys)
+
+    def vector_ids(self, shot_ids: list[int]) -> tuple[list[int], list[int]]:
+        vids: list[int] = []
+        sids: list[int] = []
+        for s in shot_ids:
+            for v in self.vids_of.get(s, ()):
+                vids.append(v)
+                sids.append(s)
+        return vids, sids
+
+    def get(self, vector_ids: list[int]) -> np.ndarray:
+        with self.lock:
+            if self.index is None or not vector_ids:
+                return np.zeros((0, self.dim or 1), np.float32)
+            return np.asarray(self.index.get(np.array(vector_ids, dtype=np.uint64)), dtype=np.float32)
+
+    def shot_vector(self, shot_id: int) -> np.ndarray | None:
+        vids, _ = self.vector_ids([shot_id])
+        if not vids:
+            return None
+        v = self.get(vids).mean(axis=0)
+        return v / (np.linalg.norm(v) + 1e-9)
+
+    def search(self, q: np.ndarray, k: int, candidates: set[int] | None = None) -> list[tuple[int, float]]:
+        """Top-k (shot_id, cosine) with the best vector per shot, optionally
+        restricted to candidate shot ids."""
+        with self.lock:
+            if self.index is None or not self.shot_of:
+                return []
+            q = (q / (np.linalg.norm(q) + 1e-9)).astype(np.float32)
+            if candidates is not None:
+                if len(candidates) <= EXACT_LIMIT:
+                    vids, sids = self.vector_ids(list(candidates))
+                    if not vids:
+                        return []
+                    V = self.get(vids)
+                    V /= np.linalg.norm(V, axis=1, keepdims=True) + 1e-9
+                    return _best_per_shot(sids, V @ q, k)
+                over = max(k * 10, 1000)
+                while True:
+                    res = self.index.search(q, min(over, len(self.shot_of)))
+                    sids = [self.shot_of.get(int(key), -1) for key in res.keys]
+                    sims = 1.0 - np.asarray(res.distances, dtype=np.float32)
+                    keep = [i for i, s in enumerate(sids) if s in candidates]
+                    out = _best_per_shot([sids[i] for i in keep], sims[keep], k)
+                    if len(out) >= k or over >= len(self.shot_of):
+                        return out
+                    over *= 4
+            res = self.index.search(q, min(k * 3, len(self.shot_of)))
+            sids = [self.shot_of.get(int(key), -1) for key in res.keys]
+            return _best_per_shot(sids, 1.0 - np.asarray(res.distances, dtype=np.float32), k)
+
+
+def _best_per_shot(sids: list[int], sims: np.ndarray, k: int) -> list[tuple[int, float]]:
+    best: dict[int, float] = {}
+    for s, v in zip(sids, sims.tolist()):
+        if s >= 0 and v > best.get(s, -2.0):
+            best[s] = v
+    return sorted(best.items(), key=lambda x: -x[1])[:k]
+
+
+class VectorStore:
+    """One VectorIndex per embedding space, lazily created."""
+
+    def __init__(self, db: Database, cache_dir: Path | None = None):
+        self.db = db
+        self.cache_dir = cache_dir
+        self.spaces: dict[str, VectorIndex] = {}
+        self.lock = threading.Lock()
+
+    def get(self, space: str) -> VectorIndex:
+        with self.lock:
+            if space not in self.spaces:
+                self.spaces[space] = VectorIndex(self.db, space, self.cache_dir)
+            idx = self.spaces[space]
+        idx.sync()
+        return idx

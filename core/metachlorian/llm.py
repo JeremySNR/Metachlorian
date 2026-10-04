@@ -66,6 +66,7 @@ class ChatClient:
 
     def chat(self, messages: list[dict[str, Any]], schema: dict[str, Any] | None = None, max_tokens: int = 900) -> tuple[str, dict[str, Any]]:
         body: dict[str, Any] = {"model": self.ep.model, "messages": messages, "temperature": self.ep.temperature, "max_tokens": max_tokens}
+        body.update(self.ep.extra_body or {})
         if schema is not None and self.supports_schema:
             body["response_format"] = {"type": "json_schema", "json_schema": {"name": "record", "strict": True, "schema": schema}}
         with httpx.Client(timeout=self.ep.timeout_s) as c:

@@ -39,6 +39,9 @@ class ModelEndpoint:
     timeout_s: float = 600.0
     max_images: int = 4
     temperature: float = 0.1
+    # Extra JSON merged into every request, e.g. {"chat_template_kwargs": {"enable_thinking": false}}
+    # for reasoning models served by llama.cpp/vLLM.
+    extra_body: dict = field(default_factory=dict)
 
     @property
     def enabled(self) -> bool:
