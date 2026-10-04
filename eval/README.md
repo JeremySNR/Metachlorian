@@ -7,6 +7,24 @@ clip, its URL and licence); gold labels, scripts and result files are.
 shared during measurement with other workloads (load average 10–30 on 4 cores for most of the session). Timings are
 therefore pessimistic; quality metrics are unaffected.
 
+## CI gates — `ci_gates.py`
+
+One script, no external footage, exit code 1 when any metric drops below its floor. Everything is generated and seeded,
+so a run is byte-for-byte reproducible.
+
+| Gate | What it checks | Floor | Measured |
+|---|---|---|---|
+| Shot boundaries | 8 synthetic sequences (11,420 frames, 85 transitions): moving `lavfi` patterns (testsrc2, cellauto, life, gradients, scrolling bars) and procedural textured stills (plus two Mandelbrot frames) under a moving virtual camera, some with a moving subject; cuts, dissolves, fades through black/white, wipes, 28 flash decoys. Same detector call and matching as `sbd/evaluate.py` | F1 ≥ 0.85 | **F1 0.937** (P 0.91 / R 0.97) |
+| Camera motion | `motion/make_gold.py` moves over 4 procedural 4K stills (40 clips), scored like `motion/evaluate.py` | ≥ 36/40 | **40/40** |
+| Parser | the four spec queries in `test_parser_spec_queries` | 4/4 | **4/4** |
+
+Per type: cuts 43/44, dissolves 20/21, fades to black 7/7, fades to white 8/8, wipes 4/5; flash false positives 0/28.
+All 8 false positives are second boundaries at the edge of a fade or dissolve ramp, not detections inside shots.
+A `lavfi` Mandelbrot zoom is not used as a source: emerging fractal detail reads as a dissolve (F1 0.894 with it) and
+deep zooms render too slowly. Runtime: about 2¼ minutes on the 4 vCPU reference machine (under load).
+
+`python ci_gates.py [--json out.json] [--keep DIR]` (from the repo root: `core/.venv/bin/python eval/ci_gates.py`).
+
 ## Shot boundaries — `sbd/`
 
 Real CC-BY footage segments joined with exactly known transitions, plus single-frame flash decoys.
