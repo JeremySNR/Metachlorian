@@ -68,6 +68,9 @@ CONCEPTS: dict[str, list[str]] = {
     "sport": ["people playing sport"],
 }
 SINGLE = {"time_of_day", "shot_size", "season"}
+# Abstract terms an image-text model cannot judge from pixels; left to the VLM and people.
+SKIP_TERMS = {("setting", "synthetic"), ("weather", "windy"), ("time_of_day", "morning"), ("time_of_day", "afternoon"),
+              ("time_of_day", "midday"), ("season", "wet_season"), ("season", "dry_season")}
 
 
 def prompt_sets() -> dict[str, dict[str, list[str]]]:
@@ -77,6 +80,8 @@ def prompt_sets() -> dict[str, dict[str, list[str]]]:
         v = reg.get(vocab)
         out[vocab] = {}
         for t in v.terms.values():
+            if (vocab, t.id) in SKIP_TERMS:
+                continue
             prompts = OVERRIDES.get((vocab, t.id)) or [x.format(l=t.label.lower().split(" / ")[0]) for x in tmpl]
             out[vocab][t.id] = prompts
     out["concept"] = CONCEPTS
@@ -85,7 +90,7 @@ def prompt_sets() -> dict[str, dict[str, list[str]]]:
 
 class VisualTagAnalyser(Analyser):
     name = "visual_tags"
-    version = "1.0.0"
+    version = "1.1.0"
     requires = ("embed",)
     priority = 75
     resource = "model"

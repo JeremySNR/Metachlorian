@@ -60,8 +60,12 @@ SPECS: dict[str, ModelSpec] = {s.name: s for s in [
               [f"{SHERPA}/audio-tagging-models/sherpa-onnx-ced-mini-audio-tagging-2024-04-19.tar.bz2"], 11),
     ModelSpec("efficientdet-lite2", "Object and person detection (COCO 80 classes)", "Apache-2.0", "MediaPipe EfficientDet-Lite2",
               ["efficientdet_lite2.tflite"], [f"{MEDIAPIPE}/object_detector/efficientdet_lite2/float32/latest/efficientdet_lite2.tflite"], 23),
-    ModelSpec("blazeface-short", "Face detection (counts and sizes only, no identity)", "Apache-2.0", "MediaPipe BlazeFace short range",
-              ["blaze_face_short_range.tflite"], [f"{MEDIAPIPE}/face_detector/blaze_face_short_range/float16/latest/blaze_face_short_range.tflite"], 0.2),
+    ModelSpec("yunet", "Face detection (counts, sizes, positions; no identity)", "MIT", "OpenCV Zoo YuNet 2023mar",
+              ["face_detection_yunet_2023mar.onnx"],
+              ["https://media.githubusercontent.com/media/opencv/opencv_zoo/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx"], 0.2),
+    ModelSpec("blazeface-short", "Face detection, close range (legacy fallback)", "Apache-2.0", "MediaPipe BlazeFace short range",
+              ["blaze_face_short_range.tflite"], [f"{MEDIAPIPE}/face_detector/blaze_face_short_range/float16/latest/blaze_face_short_range.tflite"], 0.2,
+              default=False),
 ]}
 
 _lock = threading.Lock()

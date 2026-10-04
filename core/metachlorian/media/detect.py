@@ -175,6 +175,36 @@ class FaceDetector:
         return out
 
 
+class YuNet:
+    """OpenCV's YuNet face detector (MIT): small faces in wide frames, CPU-fast."""
+
+    def __init__(self, model: Path):
+        import cv2
+
+        self.det = cv2.FaceDetectorYN.create(str(model), "", (320, 320), 0.6, 0.3, 5000)
+
+    def detect(self, rgb: np.ndarray, threshold: float = 0.6) -> list[dict]:
+        import cv2
+
+        H, W = rgb.shape[:2]
+        scale = 1.0 if max(W, H) <= 1280 else 1280 / max(W, H)
+        img = cv2.cvtColor(cv2.resize(rgb, (int(W * scale), int(H * scale))) if scale != 1 else rgb, cv2.COLOR_RGB2BGR)
+        self.det.setScoreThreshold(threshold)
+        self.det.setInputSize((img.shape[1], img.shape[0]))
+        _, faces = self.det.detect(img)
+        out = []
+        for f in faces if faces is not None else []:
+            x, y, w, h = (float(v) / scale for v in f[:4])
+            out.append({"score": round(float(f[14]), 3), "box": [round(max(0, x) / W, 4), round(max(0, y) / H, 4),
+                                                                   round(min(W, x + w) / W, 4), round(min(H, y + h) / H, 4)]})
+        return out
+
+
+@lru_cache(maxsize=2)
+def yunet(path: str) -> YuNet:
+    return YuNet(Path(path))
+
+
 @lru_cache(maxsize=2)
 def object_detector(path: str) -> ObjectDetector:
     return ObjectDetector(Path(path))

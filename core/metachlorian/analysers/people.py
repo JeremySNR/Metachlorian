@@ -46,18 +46,18 @@ def shot_size_from_people(faces: list[dict], persons: list[dict]) -> tuple[str |
 
 class PeopleAnalyser(Analyser):
     name = "people"
-    version = "1.0.0"
+    version = "1.1.0"
     requires = ("keyframes",)
     priority = 50
     resource = "model"
-    description = "Person and face counts, face sizes and positions (no identity), COCO objects. MediaPipe models on LiteRT."
+    description = "Person and face counts, face sizes and positions (no identity), COCO objects. YuNet (OpenCV) faces, EfficientDet-Lite2 objects on LiteRT."
 
     def config(self, settings) -> dict[str, Any]:
-        return {"objects": "efficientdet-lite2", "faces": "blazeface-short", "identity": False}
+        return {"objects": "efficientdet-lite2", "faces": "yunet", "identity": False}
 
     def check(self, settings) -> str | None:
         root = settings.resolved_models_dir
-        for m in ("efficientdet-lite2", "blazeface-short"):
+        for m in ("efficientdet-lite2", "yunet"):
             if not models.installed(root, m):
                 return f"model '{m}' is not installed. Run: metachlorian models fetch {m}"
         try:
@@ -69,7 +69,7 @@ class PeopleAnalyser(Analyser):
     def run(self, ctx: AnalysisContext) -> dict[str, Any]:
         root = ctx.models_dir
         od = detect.object_detector(str(models.model_dir(root, "efficientdet-lite2") / "efficientdet_lite2.tflite"))
-        fd = detect.face_detector(str(models.model_dir(root, "blazeface-short") / "blaze_face_short_range.tflite"))
+        fd = detect.yunet(str(models.model_dir(root, "yunet") / "face_detection_yunet_2023mar.onnx"))
         with_people = 0
         for shot in ctx.shots():
             if not shot.keyframes:
@@ -78,7 +78,7 @@ class PeopleAnalyser(Analyser):
             for kf in shot.keyframes:
                 rgb = load_keyframe(ctx, kf)
                 objs = od.detect(rgb, 0.4)
-                faces = fd.detect(rgb, 0.65)
+                faces = fd.detect(rgb, 0.6)
                 persons = [o for o in objs if o["label"] == "person"]
                 per_kf.append({"t": kf["t"], "objects": objs, "faces": faces, "persons": persons})
             people_counts = [max(len(k["persons"]), len(k["faces"])) for k in per_kf]
