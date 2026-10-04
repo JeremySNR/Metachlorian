@@ -85,8 +85,42 @@ Diarisation counts are approximate (TitaNet-small on 2 s utterances under-cluste
 
 ## Search relevance — `search/`
 
-Pending: pooled judgments for 24 queries over the demo library comparing hybrid vs visual-only vs keyword-only vs no
-vocabulary preferences (`search/relevance.py`).
+**Visual descriptions, pooled blind judgments.** 24 tuning queries plus 12 held-out queries (written before the ranking
+changes below and judged only afterwards). The top 10 of every variant were pooled into contact sheets with no filenames
+or variant labels and graded 0/1/2 by a separate reviewer agent from one keyframe per shot (922 judgments,
+`search/judgments.json`). Unjudged results count as irrelevant (1–3% of the final hybrid's top 10).
+
+| Variant | nDCG@10 tuning | P@5 tuning | nDCG@10 held-out | P@5 held-out |
+|---|---|---|---|---|
+| Hybrid as first built (text-space list, preferences at full weight) | 0.556 | 0.433 | — | — |
+| Hybrid, with the text-space list | 0.586 | 0.458 | 0.222 | 0.250 |
+| **Hybrid (shipped)** | **0.791** | **0.608** | **0.415** | **0.333** |
+| Visual vectors only | 0.890 | 0.733 | 0.443 | 0.367 |
+| Keywords only (BM25) | 0.529 | 0.408 | 0.292 | 0.250 |
+| Hybrid without vocabulary preferences | 0.777 | 0.567 | 0.436 | 0.367 |
+
+**Words people remember, known-item (objective).** 20 four-word phrases from transcripts and 20 from on-screen text, drawn
+deterministically from the library; the shot they came from is the target (`search/known_item.py`):
+
+| Variant | Speech MRR@10 / hit@10 | On-screen text MRR@10 / hit@10 |
+|---|---|---|
+| **Hybrid (shipped)** | **0.91 / 1.00** | **0.98 / 1.00** |
+| Hybrid before the exact-words list | 0.55 / 1.00 | 0.70 / 0.85 |
+| Visual vectors only | 0.03 / 0.15 | 0.46 / 0.65 |
+| Keywords only | 1.00 / 1.00 | 0.97 / 1.00 |
+
+What changed, and why:
+1. The SigLIP text-tower list (query vs transcript/caption embeddings) was dropped from fusion; it is not a sentence
+   embedder and was the largest source of off-topic results (0.58 → 0.73 on tuning, 0.22 → 0.37 held-out).
+2. Vocabulary preferences were cut from weight 1.1 to 0.3: the list is ordered by label confidence, not relevance to the
+   whole query, and CPU-tier labels are ~70–90% accurate (0.73 → 0.79 tuning, 0.37 → 0.41 held-out).
+3. A new "exact words" list — every query word said, shown on screen, or in the place or file name — carries the
+   strongest weight, so remembered lines and on-screen text rank first while descriptive queries are unaffected.
+
+Visual-only still scores higher on the description sets. Two reasons, and an honest caveat: judges saw the same single
+keyframe the visual embedding sees, which favours it; and it cannot find anything by what was said (MRR 0.03), which
+hybrid must. The held-out gap is small (0.415 vs 0.443). The held-out set is hard for this 63-file library — several
+queries ("dog", "boat on the water", "fireworks") have no relevant shot at all — which is why its absolute numbers are low.
 
 ## Throughput and latency
 

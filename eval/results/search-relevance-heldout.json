@@ -1,0 +1,22 @@
+{
+ "hybrid": {
+  "ndcg@10": 0.415,
+  "p@5": 0.333
+ },
+ "hybrid_with_text_space": {
+  "ndcg@10": 0.222,
+  "p@5": 0.25
+ },
+ "visual_only": {
+  "ndcg@10": 0.443,
+  "p@5": 0.367
+ },
+ "keyword_only": {
+  "ndcg@10": 0.292,
+  "p@5": 0.25
+ },
+ "no_prefs": {
+  "ndcg@10": 0.436,
+  "p@5": 0.367
+ }
+}

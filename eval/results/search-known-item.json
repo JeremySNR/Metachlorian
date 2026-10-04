@@ -1,0 +1,242 @@
+{
+ "items": [
+  [
+   "speech",
+   "boy it's just hang",
+   271
+  ],
+  [
+   "speech",
+   "And now you believe",
+   199
+  ],
+  [
+   "speech",
+   "the hunted becomes the",
+   277
+  ],
+  [
+   "speech",
+   "and your customers People",
+   166
+  ],
+  [
+   "speech",
+   "it will be cold",
+   75
+  ],
+  [
+   "speech",
+   "witness Yeah witness Why",
+   197
+  ],
+  [
+   "speech",
+   "main engine start four",
+   23
+  ],
+  [
+   "speech",
+   "was school teacher Next",
+   188
+  ],
+  [
+   "speech",
+   "been known to happen",
+   195
+  ],
+  [
+   "speech",
+   "was nuts what he",
+   198
+  ],
+  [
+   "speech",
+   "Shouldn't you be down",
+   48
+  ],
+  [
+   "speech",
+   "That is exactly what",
+   71
+  ],
+  [
+   "speech",
+   "Yeah on that stretch",
+   185
+  ],
+  [
+   "speech",
+   "would like new alarm",
+   76
+  ],
+  [
+   "speech",
+   "good for you two",
+   286
+  ],
+  [
+   "speech",
+   "think have doctor's appointment",
+   77
+  ],
+  [
+   "speech",
+   "to support and amplify",
+   167
+  ],
+  [
+   "speech",
+   "rock That's right Yeah",
+   186
+  ],
+  [
+   "speech",
+   "had him checked out",
+   200
+  ],
+  [
+   "speech",
+   "your robotics and just",
+   29
+  ],
+  [
+   "text",
+   "009111 90 00 027",
+   34
+  ],
+  [
+   "text",
+   "ARETHEL MATADORHISSING ARETHES MATADOKMISSING",
+   188
+  ],
+  [
+   "text",
+   "2018 09 2211 49",
+   217
+  ],
+  [
+   "text",
+   "www bcastell com Copyright",
+   250
+  ],
+  [
+   "text",
+   "49 35 2018 09",
+   212
+  ],
+  [
+   "text",
+   "T45TCI TEC EASTCI CE45Y60",
+   178
+  ],
+  [
+   "text",
+   "DIVISION ATLANTA GEORGIA Better",
+   279
+  ],
+  [
+   "text",
+   "FARSOFSIF TEARSOFSTEEL TEARS OF",
+   38
+  ],
+  [
+   "text",
+   "42 2018 09 22",
+   216
+  ],
+  [
+   "text",
+   "PLINE ESSHGE BORHO TLI",
+   275
+  ],
+  [
+   "text",
+   "2013BrandonCastellano www bcastell com",
+   254
+  ],
+  [
+   "text",
+   "AFFITTASI UFFICI 028029214 0263799799",
+   97
+  ],
+  [
+   "text",
+   "GYM 23 102012 AMPE",
+   210
+  ],
+  [
+   "text",
+   "Send Spik PAErS BOAAD",
+   270
+  ],
+  [
+   "text",
+   "Fluing the Ouere Hcneland",
+   54
+  ],
+  [
+   "text",
+   "Florentine GARDENS GRUEN ZANZIB",
+   183
+  ],
+  [
+   "text",
+   "BSUJuniorDefensiveSpecialist EmmaHallmann das ad",
+   121
+  ],
+  [
+   "text",
+   "InitiateSearchProgram EnterPossword TLINE InitiateSearchProgrom",
+   273
+  ],
+  [
+   "text",
+   "Fund Netherlands Film Fund",
+   28
+  ],
+  [
+   "text",
+   "com Copyright 2013 Brandon",
+   253
+  ]
+ ],
+ "results": {
+  "hybrid": {
+   "speech": {
+    "mrr@10": 0.914,
+    "hit@10": 1.0,
+    "n": 20
+   },
+   "text": {
+    "mrr@10": 0.975,
+    "hit@10": 1.0,
+    "n": 20
+   }
+  },
+  "visual_only": {
+   "speech": {
+    "mrr@10": 0.027,
+    "hit@10": 0.15,
+    "n": 20
+   },
+   "text": {
+    "mrr@10": 0.421,
+    "hit@10": 0.55,
+    "n": 20
+   }
+  },
+  "keyword_only": {
+   "speech": {
+    "mrr@10": 1.0,
+    "hit@10": 1.0,
+    "n": 20
+   },
+   "text": {
+    "mrr@10": 0.967,
+    "hit@10": 1.0,
+    "n": 20
+   }
+  }
+ }
+}

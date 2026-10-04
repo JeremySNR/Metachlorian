@@ -87,3 +87,19 @@ tags 1.2, place 1.6, filename 0.5), vocabulary-term preferences (per-term top-k 
 query-by-example — plus small priors for preferred people count and quality, a usability penalty, rights filtering, and
 per-result explanations built from each retriever's contribution. Query parsing is rule- and vocabulary-based
 (`search/parse.py`, < 5 ms). No cross-encoder reranker in v1. Relevance numbers per variant are in `eval/README.md`.
+
+### Revised after evaluation (2026-10-04)
+
+Pooled blind judgments (36 queries, 922 judgments) and a known-item test changed three things — details and numbers in
+`eval/README.md`:
+
+- **The text-space list is no longer fused.** SigLIP's text tower is a contrastive image–text encoder, not a sentence
+  embedder; query-vs-transcript similarity was the largest source of off-topic results. The space remains for
+  "similar by transcript". A real multilingual sentence embedder (e.g. multilingual-e5-small) is the follow-up.
+- **Vocabulary preferences weigh 0.3, not 1.1.** They nudge rather than retrieve.
+- **New "exact words" list (weight 2.0):** all query words matched in transcript, OCR, place or filename, used only when
+  the match is specific (≤ 2% of shots). Spoken-phrase MRR 0.55 → 0.91, on-screen text 0.70 → 0.98, with no change on
+  descriptive queries.
+
+Weights were changed only where both the tuning and the held-out set agreed; finer weight tuning on 36 queries would be
+overfitting.

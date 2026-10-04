@@ -32,7 +32,13 @@ POOL_CAP = 4000
 COMMON_DF = 0.08  # keyword tokens in more than 8% of shots carry little signal and cost the most
 POOL = 600
 RRF_K = 60
-WEIGHTS = {"vector": 1.0, "text": 0.8, "keyword": 0.9, "terms": 1.1, "people": 0.5, "quality": 0.15, "example": 1.4}
+# Weights were set from pooled relevance judgments and known-item tests (eval/README.md, ADR 016):
+# "exact" (every query word literally said, written on screen or in the place/file name) is the
+# strongest evidence; vocabulary preferences are a gentle nudge because CPU-tier labels are noisy
+# and the list is ordered by label confidence, not by relevance to the whole query.
+WEIGHTS = {"vector": 1.0, "text": 0.8, "keyword": 0.9, "exact": 2.0, "terms": 0.3, "people": 0.5, "quality": 0.15, "example": 1.4}
+EXACT_MAX_SHARE = 0.02  # an all-words match shared by more than 2% of shots is not specific evidence
+STOPWORDS = frozenset("a an and are as at be but by for from has have in is it its of on or that the this to was were with".split())
 TERM_MIN_CONF = 0.3
 FUSE_TEXT_SPACE = False  # kept switchable for the relevance evaluation (eval/search)
 FACET_VOCABS = ("shot_size", "camera_movement", "shot_role", "setting", "time_of_day", "weather", "pace", "mood", "audio_class",
@@ -85,6 +91,18 @@ def fts_query(words: list[str]) -> str:
         if len(w) >= 2:
             toks.append(f'"{w}"*' if len(w) >= 4 else f'"{w}"')
     return " OR ".join(dict.fromkeys(toks))
+
+
+def fts_all_query(words: list[str]) -> str:
+    """All words (prefix-matched), restricted to recorded evidence: what was said, written on screen,
+    or named in the place and file name — not generated captions or labels."""
+    toks = []
+    for w in words:
+        w = re.sub(r"[^\w]", "", w.lower())
+        if len(w) >= 2 and w not in STOPWORDS:
+            toks.append(f'"{w}"*' if len(w) >= 4 else f'"{w}"')
+    toks = list(dict.fromkeys(toks))
+    return "{transcript ocr place filename} : (" + " AND ".join(toks) + ")" if len(toks) >= 2 else ""
 
 
 class SearchEngine:
@@ -258,6 +276,15 @@ class SearchEngine:
                 kl.append((r[0], -float(r[1])))
                 snippets[r[0]] = {k: r[k] for k in ("tr", "cap", "ocr") if r[k] and "[" in r[k]}
             lists["keyword"] = kl[:POOL]
+        if req.q and req.parse_query:
+            aq = fts_all_query(re.findall(r"[\w']+", parsed.text or req.q))
+            if aq:
+                try:
+                    rows = self.db.q(f"SELECT rowid, bm25(shot_fts) s FROM shot_fts WHERE shot_fts MATCH ? ORDER BY s LIMIT {POOL}", (aq,))
+                except Exception:
+                    rows = []
+                if rows and len(rows) <= max(50, EXACT_MAX_SHARE * self._shot_count()):
+                    lists["exact"] = [(r[0], -float(r[1])) for r in rows if candidates is None or r[0] in candidates]
         timings["keyword"] = time.perf_counter() - t1
         t1 = time.perf_counter()
         pref_pairs = [(v, t) for v, ts in prefer.items() for t in ts]
@@ -427,6 +454,8 @@ class SearchEngine:
         if "text" in contrib:
             why.append({"signal": "meaning of speech or description", "detail": f"what is said or described is close in meaning (similarity {contrib['text']['score']:.2f})",
                         "score": contrib["text"]["score"]})
+        if "exact" in contrib:
+            why.append({"signal": "exact words", "detail": "every word of the query was said, shown on screen or is in the place or file name"})
         if "keyword" in contrib:
             sn = snip or {}
             where_found = "transcript" if "tr" in sn else "caption" if "cap" in sn else "on-screen text" if "ocr" in sn else "tags or file name"
