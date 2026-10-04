@@ -42,6 +42,8 @@ def test_camera_raw_needs_a_decoder_then_works_through_its_master(lib, tmp_path,
     assert a["status"] == "error" and run["status"] == "failed"
     assert "Blackmagic RAW" in run["error"] and "Settings → Formats" in run["error"]
     assert db.q1("SELECT attempts FROM jobs WHERE asset_id=? AND analyser='technical'", (a["id"],))["attempts"] == 1  # not retried
+    # Nothing else tried to read the raw bytes: one clear failure, not one per step.
+    assert [r["analyser"] for r in db.q("SELECT analyser FROM analysis_runs WHERE asset_id=?", (a["id"],))] == ["technical"]
 
     tool = tmp_path / "braw-decode"
     tool.write_text(FAKE_DECODER.format(python=sys.executable))
@@ -87,7 +89,7 @@ def test_unreadable_files_fail_once_with_a_clear_message(lib, tmp_path):
     scan_source(db, add_source(db, str(d)))
     run_all(s, db)
     run = db.q1("SELECT status, error FROM analysis_runs WHERE analyser='technical'")
-    assert run["status"] == "failed" and "FFmpeg cannot read this file" in run["error"]
+    assert run["status"] == "failed" and "FFmpeg cannot read this file" in run["error"] and str(d) not in run["error"]
     assert db.q1("SELECT attempts FROM jobs WHERE analyser='technical'")["attempts"] == 1
 
 

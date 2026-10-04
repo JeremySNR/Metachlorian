@@ -44,7 +44,13 @@ def plan_asset(db: Database, settings: Settings, asset_id: int, boost: int = 0) 
     analysers = registry.all_analysers()
     enqueued: list[str] = []
     pending_keys: dict[str, str] = {}
+    # A file that cannot be read (no decoder) gets nothing further until reading it works: every later step would
+    # only fail on the same bytes. A change to the reading setup (e.g. a raw decoder) re-runs 'technical' first.
+    tech_failed = bool(runs.get("technical")) and runs["technical"][1] == "failed"
     for a in registry.topological():
+        if tech_failed and a.name != "technical":
+            pending_keys[a.name] = "pending"
+            continue
         deps_ready = True
         up: dict[str, str] = {}
         for dep in a.requires:
@@ -208,6 +214,8 @@ def run_job(db: Database, settings: Settings, job: dict) -> str:
     except CannotDecode as e:
         commit(db, job, analyser, AnalysisContext(db, settings, asset, analyser), "failed", {}, str(e), started)
         db.x("UPDATE jobs SET status='failed' WHERE id=?", (job["id"],))
+        # Nothing else can read this file either: drop its queued steps instead of failing them one by one.
+        db.x("UPDATE jobs SET status='cancelled', updated_at=? WHERE asset_id=? AND status='queued' AND id<>?", (now(), job["asset_id"], job["id"]))
         result = "failed"
     except Exception as e:
         log.warning("%s failed on %s: %s", analyser.name, asset["filename"], e)

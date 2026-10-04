@@ -49,7 +49,9 @@ class TechnicalAnalyser(Analyser):
         try:
             tech = ffmpeg.technical_metadata(src)
         except RuntimeError as e:
-            raise CannotDecode(f"FFmpeg cannot read this file ({str(e).splitlines()[-1][-200:] if str(e) else 'unknown format'}). "
+            # Name the file, never the server's folders (everyone who can see the file sees this message).
+            why = (str(e).strip().splitlines() or ["unknown format"])[-1].replace(str(src), Path(src).name)[-200:]
+            raise CannotDecode(f"FFmpeg cannot read this file ({why}). "
                                "If it is camera raw, set a raw decoder for its extension in Settings → Formats, or export a "
                                "ProRes/DNx copy into a watched folder.") from e
         if not tech.get("has_video"):
@@ -100,6 +102,6 @@ class TechnicalAnalyser(Analyser):
             if made:
                 os.replace(made[0], out)
         if p.returncode != 0 or not out.exists():
-            err = (p.stderr or p.stdout).decode(errors="replace").strip()[-400:]
+            err = (p.stderr or p.stdout).decode(errors="replace").strip()[-400:].replace(str(src), src.name).replace(str(out_dir), "…")
             raise CannotDecode(f"The raw decoder for .{ext[1:]} failed (exit {p.returncode}): {err or 'no output file'}")
         return out
