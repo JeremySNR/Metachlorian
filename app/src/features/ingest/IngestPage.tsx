@@ -69,8 +69,8 @@ export function IngestPage() {
   const lastAnnounce = useRef(0)
   const d = proc.data
   const assets = d?.assets ?? []
-  const ready = assets.filter((a) => a.status === 'ready').length
-  const processing = assets.filter((a) => a.status === 'processing').length
+  const ready = assets.filter((a) => a.status === 'ready' || a.status === 'updating').length
+  const processing = assets.filter((a) => a.status === 'processing' || a.status === 'updating').length
   const remote = health.data?.egress.content_leaves_machine
 
   useEffect(() => {
@@ -307,7 +307,7 @@ export function IngestPage() {
                         </td>
                         <td style={{ minInlineSize: 120 }}>
                           <span style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
-                            <Bar value={frac} current={a.status === 'processing'} label={`${a.filename} progress`} />
+                            <Bar value={frac} current={a.status === 'processing' || a.status === 'updating'} label={`${a.filename} progress`} />
                             <span className={s.pct}>{Math.round(frac * 100)}%</span>
                           </span>
                         </td>

@@ -32,6 +32,17 @@ CMX 3600 EDL).
 - **Runs on your hardware.** Default models run locally on CPU; a consumer GPU makes it faster. Nothing leaves the machine
   unless you enable a hosted model adapter, and the app shows it when you do.
 
+## Screenshots
+
+| | |
+|---|---|
+| ![Search with parsed query chips, results and why each shot matched](review/m4/screens/01-search-results--desktop-light.jpg) | ![Shot detail with every signal, its source and confidence](review/m4/screens/02-shot-detail--desktop-dark.jpg) |
+| Search: the query becomes editable chips; every result explains why it matched | Shot detail: each signal shows its source and confidence; corrections are marked human |
+| ![Library overview with edit stage, rights and coverage gaps](review/m4/screens/04-library-overview--desktop-light.jpg) | ![Send a collection to Cutawan](review/m4/screens/06-send-to-cutawan-dialog--desktop-dark.jpg) |
+| Library overview: edit stage, rights, coverage gaps | Collections go to Cutawan or out as OTIO / FCPXML / EDL |
+
+All journeys, at desktop, laptop and tablet sizes in light and dark: [review/m4](review/m4/index.md).
+
 ## Quick start
 
 **Server or NAS (Docker):**

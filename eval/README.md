@@ -124,8 +124,12 @@ queries ("dog", "boat on the water", "fireworks") have no relevant shot at all �
 
 ## Throughput and latency
 
-Pending: hours of footage per hour on the reference box (`metachlorian status` → `throughput`), and the storage benchmark
-(`../bench/storage_bench.py`) at library scale.
+**Search latency at scale** (`../bench/storage_bench.py`, details and the 10 M-shot projection in ADR 002): 1.6 M shots
+(3,778 h) on the reference box — median **325 ms**, p95 681 ms with the index loaded from cache (17 s); 276 ms median on
+the run that built the index. Filter-only browse 160 ms. Before the benchmark-driven fixes: 775 ms median and 135 s for
+a broad filter.
+
+**Analysis throughput** — measured with `throughput.sh` (fresh library, production server, 3 workers); result to follow.
 
 ## VLM captions (optional GPU tier)
 

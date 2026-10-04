@@ -61,7 +61,8 @@ export function LibraryPage() {
   }
 
   const processing = d?.status?.processing ?? 0
-  const ready = d?.status?.ready ?? 0
+  const updating = d?.status?.updating ?? 0
+  const ready = (d?.status?.ready ?? 0) + updating
   const edit = Object.entries(d?.edit_types ?? {}).sort((a, b) => b[1] - a[1])
   const editMax = Math.max(1, ...edit.map(([, n]) => n))
   const rights = Object.entries(d?.rights ?? {}) as [RightsBadge, number][]
@@ -81,7 +82,11 @@ export function LibraryPage() {
           <div className={s.figure}>
             <span className={s.figureLabel}>Files</span>
             <strong>{formatNumber(d?.assets)}</strong>
-            <span className={s.figureSub}>{processing ? `${formatNumber(ready)} analysed · ${formatNumber(processing)} in progress` : 'All analysed'}</span>
+            <span className={s.figureSub}>{processing
+                ? `${formatNumber(ready)} analysed · ${formatNumber(processing)} in progress`
+                : updating
+                  ? `All analysed · ${formatNumber(updating)} updating to newer analysers`
+                  : 'All analysed'}</span>
           </div>
           <div className={s.figure}>
             <span className={s.figureLabel}>Shots</span>
@@ -96,7 +101,7 @@ export function LibraryPage() {
           <div className={s.figure}>
             <span className={s.figureLabel}>Throughput</span>
             <strong>{d?.throughput.ratio ? `${d.throughput.ratio.toFixed(1)}×` : '—'}</strong>
-            <span className={s.figureSub}>Hours of footage analysed per hour</span>
+            <span className={s.figureSub}>{d?.throughput.ratio ? 'Hours of new footage analysed per hour of work' : 'Shown after new footage is analysed'}</span>
           </div>
         </div>
 
