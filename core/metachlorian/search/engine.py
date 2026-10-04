@@ -327,7 +327,7 @@ class SearchEngine:
                     rows += self.db.q(f"SELECT shot_id, IFNULL(quality, 0.5) q FROM shot_index WHERE shot_id IN ({','.join('?' * len(chunk))})", chunk)
                 lists["quality"] = sorted(((r[0], r[1]) for r in rows), key=lambda x: -x[1])
             else:
-                rows = self.db.q(f"SELECT si.shot_id, IFNULL(si.quality, 0.5) q {base_from} WHERE {where} ORDER BY si.asset_id DESC, si.start_s LIMIT 5000", args)
+                rows = self.db.q(f"SELECT si.shot_id, IFNULL(si.quality, 0.5) q {base_from} WHERE {where} ORDER BY a.id DESC, si.start_s LIMIT 5000", args)
                 lists["quality"] = [(r[0], r[1]) for r in rows]
         # ---------------------------------------------------------- fuse
         fused: dict[int, float] = {}

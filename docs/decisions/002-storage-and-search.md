@@ -1,6 +1,6 @@
 # 002. Storage and search engine
 
-- Status: proposed (research complete; benchmark pending)
+- Status: accepted (benchmarked at 1.6 M shots; see Benchmark for the 10 M-shot projection and gates)
 - Date: 2026-10-04
 - Deciders: build agent (autonomous), to be reviewed by maintainers
 
@@ -60,7 +60,40 @@ Key findings that challenge the tentative choice:
 6. **Licence screen:** ParadeDB (AGPL) and Typesense (GPL) are out. Meilisearch is OK only on the MIT community edition. OpenSearch and Vespa are licensed fine but cannot run embedded.
 
 ## Benchmark
-_Placeholder — to be completed by the builder with measured numbers from `eval/`._
+`bench/storage_bench.py` builds a library of synthetic shot records whose 768-d SigLIP vectors are perturbations of
+real ones from the demo library, then runs 16 queries × 3 (hybrid NL queries, a 4K/50 fps filter-only browse, place and
+keyword queries) through the real `SearchEngine`, including query text encoding. Reference box: 4 vCPU, 15 GB RAM, no
+GPU, shared with other work during the runs. Disk on the build machine capped the size at **1.6 M shots / 3,778 hours**
+(8.15 GB database + 2.7 GB index); 10 M shots would need ~70 GB.
+
+| Run (1.6 M shots, 3,778 h) | Median | p95 | Max | Filter-only browse | Index ready |
+|---|---|---|---|---|---|
+| First build, before the fixes below (1.55 M shots) | 775 ms | 2,874 ms | 166 s | 135 s | 2,512 s build, **not persisted** |
+| After fixes, cold (index built) | **276 ms** | 1,198 ms | 2,074 ms | 1,198 ms | 873 s build, persisted |
+| After fixes, warm start (index loaded from cache) | **325 ms** | 681 ms | 926 ms | **160 ms** | **17 s** load, 3.3 GB RSS |
+
+Stage medians, warm run: filter 1 ms, vector (incl. text encoding) 90 ms, keyword 50 ms (broad-keyword gate: < 150 ms ✓),
+terms + fusion 107 ms, results and facets ~75 ms.
+
+What the benchmark found and fixed:
+1. **Facets aggregated the whole match set** for broad filters (30 M term rows at this size): now computed over the
+   ranked pool (≤ 5,000 shots). Filter-only query 135 s → 1.2 s.
+2. **Browse ordering sorted every match**: ordering by the asset rowid with a `(asset_id, start_s)` index lets SQLite stop
+   at the limit (0.74 s → 13 ms for that query), plus sampled `PRAGMA optimize` statistics.
+3. **The vector index was never persisted and any deletion forced a full rebuild** (40+ minutes at this size, on every
+   re-analysis). Now: a trigger-fed deletion log removes exactly the deleted keys, vector ids are never reused
+   (AUTOINCREMENT), and the index and int8 matrix are saved scaled to size and on shutdown, then memory-mapped on load.
+
+**Projection to 10 M shots (10,000 h of finished, cut material; raw rushes at ~20 s per shot are ~1.8 M shots):**
+- *Latency* — the costly stages are bounded rather than linear: HNSW search is logarithmic, exact filtered scoring is
+  capped at 20,000 candidates, term retrieval reads the top 2,400 per term from an index, FTS drops terms in > 8% of shots,
+  facets cover ≤ 5,000 shots. Expect p50 ≈ 350–450 ms on this class of machine: inside the 500 ms target, but with less
+  headroom than we would like. Not measured.
+- *Memory is the real limit*: usearch's own i8 vectors (7.7 GB) plus graph (~1.3 GB) must be resident at 10 M; the
+  rescoring matrix is mmapped. That fits a 32 GB server, not a 16 GB laptop. The next step, already allowed by the
+  decision below, is binary (b1) codes in RAM (~1 GB) with i8 rescoring from the mmapped matrix.
+- *Cold build* would take ~1.5–2 h once; afterwards the cache loads in about a minute.
+
 
 ## Decision
 **Keep the tentative architecture, behind an interface and with measured gates:**

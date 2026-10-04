@@ -329,6 +329,10 @@ MIGRATIONS: list[str] = [
     CREATE INDEX vector_deletes_space ON vector_deletes(space, id);
     CREATE TRIGGER vectors_deleted AFTER DELETE ON vectors BEGIN INSERT INTO vector_deletes(vector_id, space) VALUES(old.id, old.space); END;
     """,
+    # ---------------------------------------------------------------- v4: browse order without a sort
+    """
+    CREATE INDEX si_browse ON shot_index(asset_id, start_s);
+    """,
 ]
 
 
@@ -432,6 +436,9 @@ class Database:
                 for stmt in _split_sql(MIGRATIONS[i]):
                     c.execute(stmt)
                 c.execute("INSERT OR REPLACE INTO meta(key, value) VALUES('schema_version', ?)", (str(i + 1),))
+        # Keep planner statistics fresh (sampled, so this stays fast on large libraries).
+        conn.execute("PRAGMA analysis_limit=1000")
+        conn.execute("PRAGMA optimize")
 
     def get_meta(self, key: str, default: str | None = None) -> str | None:
         r = self.q1("SELECT value FROM meta WHERE key=?", (key,))

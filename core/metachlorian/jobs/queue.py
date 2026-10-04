@@ -81,16 +81,37 @@ def stats(db: Database) -> dict[str, Any]:
     return out
 
 
-def throughput(db: Database) -> dict[str, Any]:
-    """Hours of footage processed per wall-clock hour, from finished runs."""
-    r = db.q1("SELECT MIN(started_at) s, MAX(finished_at) f, COUNT(DISTINCT asset_id) n FROM analysis_runs WHERE status IN ('done','unavailable')")
-    dur = db.q1("SELECT SUM(duration) d FROM assets WHERE status='ready'")
-    if not r or not r["s"] or not dur or not dur["d"]:
-        return {"footage_hours": 0, "wall_hours": 0, "ratio": None}
-    wall = max(1e-6, (r["f"] - r["s"]) / 3600)
-    fh = dur["d"] / 3600
+def throughput(db: Database, window_s: float = 7 * 86400) -> dict[str, Any]:
+    """Hours of new footage analysed per hour of worker activity.
+
+    Counts files ingested and fully analysed in the window (their proxy was made in it, so
+    re-analysis of old files does not inflate the figure) and divides by the time the workers
+    were actually busy on them (the union of their run intervals, so idle gaps do not count)."""
+    since = time.time() - window_s
+    new_ids = [r["asset_id"] for r in db.q(
+        "SELECT r.asset_id FROM analysis_runs r JOIN assets a ON a.id=r.asset_id"
+        " WHERE r.analyser='proxy' AND r.status='done' AND r.finished_at>=? AND a.status IN ('ready','updating')", (since,))]
     per = {row["analyser"]: round(row["t"], 2) for row in db.q("SELECT analyser, SUM(seconds) t FROM analysis_runs GROUP BY analyser")}
-    return {"footage_hours": round(fh, 4), "wall_hours": round(wall, 4), "ratio": round(fh / wall, 3), "analyser_seconds": per}
+    if not new_ids:
+        return {"footage_hours": 0, "wall_hours": 0, "ratio": None, "analyser_seconds": per}
+    q = ",".join("?" * len(new_ids))
+    fh = db.q1(f"SELECT SUM(duration) d FROM assets WHERE id IN ({q})", new_ids)["d"] or 0
+    spans = sorted((r["started_at"], r["finished_at"]) for r in db.q(
+        f"SELECT started_at, finished_at FROM analysis_runs WHERE asset_id IN ({q}) AND started_at>=? AND finished_at IS NOT NULL",
+        (*new_ids, since)))
+    busy, cur_s, cur_e = 0.0, None, None
+    for s_, e_ in spans:
+        if cur_e is None or s_ > cur_e:
+            if cur_e is not None:
+                busy += cur_e - cur_s
+            cur_s, cur_e = s_, e_
+        else:
+            cur_e = max(cur_e, e_)
+    if cur_e is not None:
+        busy += cur_e - cur_s
+    wall = max(1e-6, busy / 3600)
+    return {"footage_hours": round(fh / 3600, 4), "wall_hours": round(wall, 4), "ratio": round(fh / 3600 / wall, 3), "files": len(new_ids),
+            "analyser_seconds": per}
 
 
 _ = (loads, dumps, time, log)

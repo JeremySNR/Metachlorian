@@ -1,0 +1,39 @@
+{
+ "shots": 1599360,
+ "hours": 3778,
+ "index_from_cache": true,
+ "index_ready_s": 17.3,
+ "max_rss_gb": 3.28,
+ "queries": 48,
+ "median_ms": 325.3,
+ "p95_ms": 681.0,
+ "max_ms": 925.6,
+ "per_query_median_ms": {
+  "slow wide drone shots of a coastline at golden hour, no people, at least 8 seconds, 4K": 461.5,
+  "handheld street food close-ups, busy, night": 324.7,
+  "family holiday on the beach": 365.1,
+  "interview in an office": 321.6,
+  "city traffic at night": 283.0,
+  "someone cooking in a kitchen": 269.6,
+  "aerial view of mountains": 256.2,
+  "people walking in a market": 228.7,
+  "{\"min_height\": 2160, \"min_fps\": 50}": 159.7,
+  "sunset over the sea": 279.0,
+  "football crowd": 301.7,
+  "rain in the street": 330.4,
+  "lisbon tram": 297.0,
+  "close-up of hands typing on a laptop": 292.6,
+  "boat in a harbour": 479.9,
+  "festival concert lights": 334.9
+ },
+ "stage_median_ms": {
+  "filter": 0.8,
+  "vector": 89.5,
+  "keyword": 49.6,
+  "terms": 85.8,
+  "fuse": 107.3,
+  "total": 324.1
+ },
+ "db_gb": 8.18,
+ "cpu": 4
+}

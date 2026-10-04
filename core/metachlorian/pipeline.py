@@ -93,7 +93,9 @@ def _update_asset_status(db: Database, asset_id: int) -> None:
     if not a or a["status"] == "missing":
         return
     critical_failed = db.q1("SELECT COUNT(*) n FROM analysis_runs WHERE asset_id=? AND status='failed' AND analyser IN ('technical','proxy','shots')", (asset_id,))["n"]
-    status = "error" if critical_failed else ("processing" if open_jobs else "ready")
+    # "updating": analysed before and searchable, now refreshing with newer analyser versions.
+    busy = "updating" if a["status"] in ("ready", "updating") else "processing"
+    status = "error" if critical_failed else (busy if open_jobs else "ready")
     if a["status"] != status:
         db.x("UPDATE assets SET status=?, updated_at=? WHERE id=?", (status, now(), asset_id))
 

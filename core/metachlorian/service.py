@@ -521,7 +521,7 @@ class Library:
             " (SELECT COUNT(*) FROM analysis_runs r WHERE r.asset_id=a.id AND r.status='done') done,"
             " (SELECT COUNT(*) FROM analysis_runs r WHERE r.asset_id=a.id AND r.status='failed') failed,"
             " (SELECT COUNT(*) FROM analysis_runs r WHERE r.asset_id=a.id AND r.status='unavailable') unavailable"
-            " FROM assets a WHERE a.deleted_at IS NULL ORDER BY (a.status='processing') DESC, a.updated_at DESC LIMIT 200")]
+            " FROM assets a WHERE a.deleted_at IS NULL ORDER BY (a.status IN ('processing','updating')) DESC, a.updated_at DESC LIMIT 200")]
         from .analysers import registry as ar
 
         analysers = [{"name": a.name, "version": a.version, "description": a.description, "requires": list(a.requires),

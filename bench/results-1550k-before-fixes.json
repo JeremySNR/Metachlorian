@@ -26,5 +26,6 @@
   "festival concert lights": 424.0
  },
  "db_gb": 7.89,
- "cpu": 4
+ "cpu": 4,
+ "note": "before the facet, browse-order and index-persistence fixes"
 }
