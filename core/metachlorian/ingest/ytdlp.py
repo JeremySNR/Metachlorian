@@ -31,7 +31,7 @@ PLUGIN_DIR = Path(__file__).with_name("ytdlp_plugins")
 FORMAT = "bv*[height<={h}][ext=mp4]+ba[ext=m4a]/b[height<={h}][ext=mp4]/bv*[height<={h}]+ba/b[height<={h}]/b"
 INFO_KEYS = ("id", "title", "uploader", "uploader_id", "channel", "channel_url", "upload_date", "timestamp", "duration",
              "webpage_url", "extractor_key", "license", "description", "tags", "categories", "width", "height", "fps",
-             "language", "location", "playlist_title", "playlist_index")
+             "language", "location", "playlist_title", "playlist_index", "availability", "is_live", "live_status")
 
 
 class YtDlpError(Exception):

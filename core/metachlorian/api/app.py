@@ -435,6 +435,28 @@ def create_app(settings: Settings, db: Database | None = None, start_workers: bo
     async def upload(file: UploadFile = File(...), p: Principal = Depends(principal)):
         return lib.upload(p, file.filename or "upload.mp4", file.file)
 
+    # Community search has a separate endpoint and never falls through to the private library engine.
+    @app.get("/api/community/status")
+    def community_status(p: Principal = Depends(principal)):
+        A.require(p, "library:read")
+        from ..community.publisher import status
+
+        return status(db, settings)
+
+    @app.get("/api/community/search")
+    def community_search(q: str = Query(default="", max_length=300), limit: int = Query(default=20, ge=1, le=50),
+                         offset: int = Query(default=0, ge=0, le=10000), p: Principal = Depends(principal)):
+        A.require(p, "library:read")
+        from ..community.publisher import search
+        import httpx
+
+        if not settings.community_url:
+            raise HTTPException(503, "The community service has not been configured")
+        try:
+            return search(settings, q, limit, offset)
+        except (httpx.HTTPError, ValueError):
+            raise HTTPException(502, "Community search is temporarily unavailable") from None
+
     # ------------------------------------------------------------------ imports from web links
     @app.get("/api/imports")
     def imports_list(status: str | None = None, limit: int = 200, p: Principal = Depends(principal)):

@@ -2,8 +2,8 @@
 
 Configuration comes from (lowest to highest precedence): built-in defaults,
 ``<data_dir>/config.toml``, then ``METACHLORIAN_*`` environment variables.
-Everything that can send content off the machine is off by default and is
-reported by :func:`Settings.egress_summary` so the UI can show it.
+Hosted model adapters are off by default. Public YouTube metadata contributions
+are enabled by default; both are reported by :func:`Settings.egress_summary`.
 """
 from __future__ import annotations
 
@@ -156,6 +156,9 @@ class Settings:
     vlm: ModelEndpoint = field(default_factory=ModelEndpoint)
     llm: ModelEndpoint = field(default_factory=ModelEndpoint)
     allow_remote: bool = False
+    # Only newly imported, explicitly public YouTube videos are eligible. Admins can opt out or use their own service.
+    community_enabled: bool = True
+    community_url: str = "https://metachlorian-community.vercel.app"
     # Face identity (recognise and name people). On by default: embeddings stay in this library and are
     # never sent to any provider. Admins can switch it off and forget people individually.
     face_identity: bool = True
@@ -220,7 +223,10 @@ class Settings:
                     "sends": ("sampled keyframes as contact sheets, transcript and on-screen text snippets, measured facts" if name == "vlm"
                               else "shot captions, transcript snippets and measured facts, for summaries and roles"),
                 })
-        return {"content_leaves_machine": any(i["active"] for i in items), "adapters": items}
+        return {"content_leaves_machine": any(i["active"] for i in items) or bool(self.community_enabled and self.community_url),
+                "adapters": items, "community": {"enabled": self.community_enabled, "url": self.community_url,
+                "active": bool(self.community_enabled and self.community_url),
+                "sends": "machine analysis metadata and timestamps from anonymously verified public YouTube imports"}}
 
     def public_dict(self) -> dict[str, Any]:
         d = asdict(self)
@@ -247,12 +253,12 @@ def _env_overrides() -> dict[str, Any]:
     out: dict[str, Any] = {}
     p = "METACHLORIAN_"
     simple = {"HOST": "host", "PORT": "port", "WORKERS": "workers", "REQUIRE_AUTH": "require_auth",
-              "ALLOW_REMOTE": "allow_remote", "SECRET_KEY": "secret_key", "MODELS": "models_dir"}
+              "ALLOW_REMOTE": "allow_remote", "COMMUNITY_ENABLED": "community_enabled", "COMMUNITY_URL": "community_url", "SECRET_KEY": "secret_key", "MODELS": "models_dir"}
     for env, key in simple.items():
         if (v := os.environ.get(p + env)) is not None:
             if key in ("port", "workers"):
                 out[key] = int(v)
-            elif key in ("require_auth", "allow_remote"):
+            elif key in ("require_auth", "allow_remote", "community_enabled"):
                 out[key] = v.lower() in ("1", "true", "yes", "on")
             else:
                 out[key] = v

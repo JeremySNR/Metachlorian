@@ -117,10 +117,14 @@ def start_background(settings: Settings) -> dict[str, Any]:
     tstop = threading.Event()
     t = threading.Thread(target=_watch, args=(settings, tstop), daemon=True)
     t.start()
+    from .community.publisher import start as start_community
+
+    community_thread = start_community(settings, tstop)
 
     def stop() -> None:
         stop_evt.set()
         tstop.set()
+        community_thread.join(timeout=2)
         for p in procs:
             p.join(timeout=10)
             if p.is_alive():
@@ -132,11 +136,12 @@ def start_background(settings: Settings) -> dict[str, Any]:
 def save_settings(settings: Settings, changes: dict[str, Any]) -> None:
     """Apply admin changes and persist them to <data_dir>/config.toml."""
     editable = {"workers", "proxy_height", "sprite_interval", "max_segment_s", "allow_remote", "face_identity", "vlm", "llm", "require_auth",
-                "import_cookies_browser", "import_max_height", "ytdlp_path", "raw_decoders"}
+                "import_cookies_browser", "import_max_height", "ytdlp_path", "raw_decoders", "community_enabled", "community_url"}
     for k, v in changes.items():
         if k not in editable:
             raise ValueError(f"'{k}' cannot be changed here")
         _validate_setting(settings, k, v, changes)
+    for k, v in changes.items():
         if k in ("vlm", "llm"):
             ep: ModelEndpoint = getattr(settings, k)
             for f, fv in (v or {}).items():
@@ -155,12 +160,27 @@ def save_settings(settings: Settings, changes: dict[str, Any]) -> None:
         val = getattr(settings, k)
         current[k] = val.__dict__ if isinstance(val, ModelEndpoint) else val
     cfg.write_text(_toml(current))
+    if changes.get("community_enabled") is False:
+        from .community.publisher import suppress_pending
+
+        db = Database(settings.db_path)
+        try:
+            suppress_pending(db)
+        finally:
+            db.close()
 
 
 def _validate_setting(settings: Settings, k: str, v: Any, changes: dict[str, Any]) -> None:
     from .ingest.ytdlp import BROWSERS
 
-    if k == "import_cookies_browser":
+    if k == "community_enabled":
+        if not isinstance(v, bool):
+            raise ValueError("community_enabled must be true or false")
+    elif k == "community_url":
+        from .community.protocol import validate_endpoint
+
+        validate_endpoint(v)
+    elif k == "import_cookies_browser":
         if v not in ("", None) and v not in BROWSERS:
             raise ValueError(f"import_cookies_browser must be one of {sorted(BROWSERS)} or empty")
         if v and changes.get("require_auth", settings.require_auth):

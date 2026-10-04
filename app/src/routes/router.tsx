@@ -80,6 +80,8 @@ export const personRoute = createRoute({
 
 export const ingestRoute = createRoute({ getParentRoute: () => rootRoute, path: '/ingest', component: lazyRouteComponent(() => import('../features/ingest/IngestPage'), 'IngestPage') })
 
+const communityRoute = createRoute({ getParentRoute: () => rootRoute, path: '/community', component: lazyRouteComponent(() => import('../features/community/CommunityPage'), 'CommunityPage') })
+
 const settingsIndex = createRoute({
   getParentRoute: () => rootRoute,
   path: '/settings',
@@ -94,7 +96,7 @@ export const settingsRoute = createRoute({
 })
 
 const routeTree = rootRoute.addChildren([
-  indexRoute, searchRoute, shotRoute, fileRoute, collectionsRoute, collectionRoute, libraryRoute, foldersRoute, correctionsRoute, rightsRoute, peopleRoute, personRoute, ingestRoute, settingsIndex, settingsRoute,
+  indexRoute, searchRoute, shotRoute, fileRoute, collectionsRoute, collectionRoute, libraryRoute, foldersRoute, correctionsRoute, rightsRoute, peopleRoute, personRoute, ingestRoute, communityRoute, settingsIndex, settingsRoute,
 ])
 
 export const router = createRouter({ routeTree, defaultPreload: 'intent', scrollRestoration: false, stringifySearch })

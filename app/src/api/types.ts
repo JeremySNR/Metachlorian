@@ -20,6 +20,7 @@ export interface EgressAdapter {
 export interface Egress {
   content_leaves_machine: boolean
   adapters: EgressAdapter[]
+  community?: { enabled: boolean; active: boolean; url: string; sends: string }
 }
 
 export interface Health {
@@ -918,6 +919,8 @@ export interface AdminSettings {
     llm: ModelEndpoint
     allow_remote: boolean
     face_identity: boolean
+    community_enabled?: boolean
+    community_url?: string
     /** Imports: borrow this browser's login ("" = none). */
     import_cookies_browser?: string
     /** Imports: default quality cap (height in pixels). */
@@ -1035,4 +1038,22 @@ export interface FormatsResponse {
   /** Files whose technical step failed, with the reason. */
   undecodable: FormatFile[]
   placeholders: string[]
+}
+
+export interface CommunityStatus {
+  enabled: boolean
+  configured: boolean
+  url: string
+  counts: Record<string, number>
+  state: 'off' | 'ready' | 'needs_endpoint'
+}
+export interface CommunityResults {
+  query: string
+  next_offset: number | null
+  hidden_pending_visibility: number
+  results: Array<{
+    video_id: string; url: string; title: string; channel: string; license: string; kind: string
+    start_s: number; end_s: number; snippet: string
+    fields: Record<string, { value: string | number | boolean | string[]; source: string; confidence: number | null; model_version: string }>
+  }>
 }

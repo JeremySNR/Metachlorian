@@ -29,6 +29,9 @@ CMX 3600 EDL).
 - **Import from the web.** Paste YouTube, Vimeo or other video links (or a whole playlist) and they are downloaded into
   a folder of your choice and analysed like everything else, remembering where they came from. Rights start as unknown
   until someone checks them. Uses yt-dlp, the same importer as Cutawan.
+- **Community search.** Find matching moments in analysed public YouTube videos through the [community index](https://metachlorian-community.vercel.app).
+  New public YouTube downloads contribute machine metadata by default. Settings → Community sharing turns this off.
+  Personal files, private/unlisted videos, local duplicates, human notes and face identities are excluded. Full local records stay local.
 - **People you can name.** Faces are recognised across shots and files (locally; embeddings never leave the library).
   Name someone once and "Maria laughing in the kitchen" finds them. Merge, split or forget people at any time.
 - **Corrections stick.** Fix a tag and it is stored separately from machine output and wins over it, even after re-processing.
@@ -36,7 +39,7 @@ CMX 3600 EDL).
   need explicit scopes to write or export, and every agent action is audited.
 - **Runs on your hardware, or faster with a provider.** Default models run locally on CPU; a consumer GPU makes it faster.
   For richer captions and much higher throughput, plug in an OpenAI API key, OpenRouter, or your ChatGPT subscription via
-  the Codex CLI. Nothing leaves the machine until an admin enables a provider and confirms, and the app shows it when it does.
+  the Codex CLI. Hosted model analysis requires an admin to enable a provider. Separately, new public YouTube imports contribute machine metadata to the community index by default; opt out in Settings → Community sharing. Local, private and unlisted footage is excluded.
 
 ## Screenshots
 
@@ -82,6 +85,24 @@ built with `npm run package` (unsigned until signing certificates are provided, 
 **Agents (MCP):** create a token in Settings → Agents (or `metachlorian token my-agent`), then point your MCP client at
 `http://<host>:8765/mcp/` with `Authorization: Bearer <token>`, or run `metachlorian mcp` over stdio (read-only by default).
 See [docs/agents.md](docs/agents.md).
+
+## Community sharing
+
+Public YouTube imports have a separate, default-on sharing setting from hosted model analysis. After analysis finishes,
+the app verifies public visibility anonymously and sends only the machine metadata allowlist to the community service.
+The service independently verifies YouTube's public status. Videos, frames, audio files and complete library records are never contributed.
+
+The default service is `https://metachlorian-community.vercel.app`; its [source and deployment guide](https://github.com/JeremySNR/Metachlorian-community)
+live in a separate repository and database. Community search sends your query to that service and opens results at matching YouTube timestamps.
+Analysis can be wrong and does not establish reuse rights. Published metadata remains public after opting out;
+the community operator can remove a video from the index. Public visibility is rechecked after one hour before stale results are shown.
+
+Turn sharing off in **Settings → Community sharing**, or set `METACHLORIAN_COMMUNITY_ENABLED=false` before starting the app.
+`METACHLORIAN_COMMUNITY_URL` selects a self-hosted service (HTTPS required except on loopback).
+Videos imported while sharing is off are never backfilled; turning it off also suppresses pending updates.
+Only new downloaded public YouTube bytes are enrolled, so existing local libraries are never uploaded automatically.
+Network and visibility failures leave contributions pending for retry; local analysis continues normally.
+`metachlorian community-sync` retries a bounded batch without running the web server.
 
 ## Hardware tiers
 

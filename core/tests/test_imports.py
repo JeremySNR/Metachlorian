@@ -21,7 +21,8 @@ FAKE = textwrap.dedent('''\
         f.write(json.dumps(args) + "\\n")
     def video(vid, title, extra=None):
         d = {{"id": vid, "title": title, "duration": 6, "webpage_url": "https://www.youtube.com/watch?v=" + vid,
-             "extractor_key": "Youtube", "uploader": "Mickey Fan", "upload_date": "20260805"}}
+             "extractor_key": "Youtube", "uploader": "Mickey Fan", "upload_date": "20260805",
+             "availability": "unlisted" if vid == "unlisted123" else "public"}}
         d.update(extra or {{}})
         return d
     if "private" in url:
@@ -45,7 +46,7 @@ FAKE = textwrap.dedent('''\
     path = out.replace("%(title).120B", meta["title"]).replace("%(id)s", vid).replace("%(ext)s", "mp4")
     os.makedirs(os.path.dirname(path), exist_ok=True)
     shutil.copy(os.environ["FAKE_YTDLP_VIDEO"], path)
-    if vid != "same":
+    if vid not in ("same", "same1234567"):
         with open(path, "ab") as f:  # each video its own bytes (trailing data is ignored by decoders)
             f.write(vid.encode() * 64)
     with open(path[:-4] + ".info.json", "w") as f:
@@ -180,3 +181,34 @@ def test_error_text_is_cleaned_and_network_errors_get_no_login_advice():
                              "using  yt-dlp -U") == "Unable to download webpage: HTTP Error 403: Forbidden"
     assert not ytdlp.is_auth_error("Unable to connect to proxy: 403 Forbidden")
     assert ytdlp.is_auth_error("Private video. Sign in if you've been granted access")
+
+
+def test_new_public_youtube_import_enrolls_only_downloaded_bytes(fake):
+    s, db, lib, _ = fake
+    iid = lib.import_urls(LOCAL_ADMIN, ["https://www.youtube.com/watch?v=public12345"])["imports"][0]["id"]
+    row = _wait(db, [iid])[iid]
+    assert row["status"] == "done"
+    enrolled = db.q1("SELECT * FROM community_outbox WHERE asset_id=?", (row["asset_id"],))
+    assert enrolled["video_id"] == "public12345" and enrolled["status"] == "pending"
+    assert enrolled["imported_hash"] == db.q1("SELECT content_hash FROM assets WHERE id=?", (row["asset_id"],))[0]
+
+
+def test_unlisted_and_opted_out_imports_never_enter_outbox(fake):
+    s, db, lib, _ = fake
+    iid = lib.import_urls(LOCAL_ADMIN, ["https://www.youtube.com/watch?v=unlisted123"])["imports"][0]["id"]
+    assert _wait(db, [iid])[iid]["status"] == "done"
+    s.community_enabled = False
+    iid = lib.import_urls(LOCAL_ADMIN, ["https://www.youtube.com/watch?v=public12345"])["imports"][0]["id"]
+    assert _wait(db, [iid])[iid]["status"] == "done"
+    assert not db.q("SELECT * FROM community_outbox")
+
+
+def test_import_duplicate_of_personal_file_does_not_enroll(fake, sample_video):
+    from metachlorian.ingest.scan import register_file
+
+    s, db, lib, _ = fake
+    _, local_id = register_file(db, sample_video)
+    iid = lib.import_urls(LOCAL_ADMIN, ["https://www.youtube.com/watch?v=same1234567"])["imports"][0]["id"]
+    row = _wait(db, [iid])[iid]
+    assert row["status"] == "duplicate" and row["asset_id"] == local_id
+    assert not db.q("SELECT * FROM community_outbox")

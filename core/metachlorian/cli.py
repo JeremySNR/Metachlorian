@@ -107,7 +107,17 @@ def cmd_process(args) -> None:
             print(r, flush=True)
     from .jobs.queue import throughput
 
-    print(json.dumps({"jobs_run": done, **throughput(db)}, indent=1))
+    from .community.publisher import sync_once
+
+    shared = sync_once(db, s)
+    print(json.dumps({"jobs_run": done, "community_shared": shared, **throughput(db)}, indent=1))
+
+
+def cmd_community_sync(args) -> None:
+    from .community.publisher import status, sync_once
+
+    s, db = _lib(args)
+    print(json.dumps({"shared_now": sync_once(db, s), **status(db, s)}, indent=2))
 
 
 def cmd_status(args) -> None:
@@ -216,6 +226,7 @@ def main(argv: list[str] | None = None) -> None:
     sp.add_argument("-v", "--verbose", action="store_true")
     sp.set_defaults(fn=cmd_process)
     sub.add_parser("status").set_defaults(fn=cmd_status)
+    sub.add_parser("community-sync", help="retry pending public YouTube analysis contributions").set_defaults(fn=cmd_community_sync)
     sub.add_parser("reindex").set_defaults(fn=cmd_reindex)
     sp = sub.add_parser("search")
     sp.add_argument("query", nargs="+")
