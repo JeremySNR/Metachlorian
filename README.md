@@ -81,7 +81,7 @@ See [docs/agents.md](docs/agents.md).
 
 | Tier | What runs | Speed (this build's reference box: 4 vCPU, no GPU) |
 |---|---|---|
-| CPU only | Everything except VLM captions: shots, motion, quality, audio, speech, OCR, people, embeddings, zero-shot labels, rules-based fusion | see [eval/README.md](eval/README.md) for measured hours of footage per hour |
+| CPU only | Everything except VLM captions: shots, motion, quality, audio, speech, OCR, people, embeddings, zero-shot labels, rules-based fusion | **1.7 hours of footage per hour** with 3 workers; search median 325 ms at 1.6 M shots ([eval](eval/README.md)) |
 | Single consumer GPU (8–12 GB) | Adds a local VLM (Qwen3.5 4B/9B via llama.cpp or Ollama) for dense captions and LLM fusion; ONNX models use CUDA | GPU numbers to be measured by maintainers (no GPU in the build environment) |
 | Multi-GPU / server | Several workers (`workers = N`), a larger VLM, team mode with many users | scales with workers |
 

@@ -103,3 +103,13 @@ Pooled blind judgments (36 queries, 922 judgments) and a known-item test changed
 
 Weights were changed only where both the tuning and the held-out set agreed; finer weight tuning on 36 queries would be
 overfitting.
+
+### Match strength (after the fresh UI review, 2026-10-04)
+
+RRF scores are relative, so the UI's "weaker matches below" divider meant something different for every query (a
+nonsense query still showed "strong" results). Each result now carries an absolute **strength**: SigLIP's own sigmoid
+probability for the query text and the shot (log-scaled to 0..1), raised to 0.95 for an exact-words match and to
+0.45–0.95 by the share of query words said or shown on screen. Thresholds — loose 0.25, balanced 0.4, strict 0.6 — give
+strong-set precision of 0.53 / 0.64 / 0.80 on the judged queries. Strong matches are ordered first (fused order kept
+within each group); `strong_count` lets the UI say "No strong matches" honestly. Query-by-example uses image–image
+cosine mapped to the same scale (uncalibrated but monotonic).
