@@ -136,6 +136,7 @@ def save_settings(settings: Settings, changes: dict[str, Any]) -> None:
     for k, v in changes.items():
         if k not in editable:
             raise ValueError(f"'{k}' cannot be changed here")
+        _validate_setting(settings, k, v, changes)
         if k in ("vlm", "llm"):
             ep: ModelEndpoint = getattr(settings, k)
             for f, fv in (v or {}).items():
@@ -144,6 +145,8 @@ def save_settings(settings: Settings, changes: dict[str, Any]) -> None:
                     if f == "provider" and fv not in PROVIDERS:
                         raise ValueError(f"unknown provider '{fv}'; choose one of {sorted(PROVIDERS)}")
                     setattr(ep, f, fv)
+        elif k == "raw_decoders":
+            settings.raw_decoders = {e.lower().lstrip("."): c.strip() for e, c in v.items()}
         else:
             setattr(settings, k, v)
     cfg = settings.data_dir / "config.toml"
@@ -152,6 +155,27 @@ def save_settings(settings: Settings, changes: dict[str, Any]) -> None:
         val = getattr(settings, k)
         current[k] = val.__dict__ if isinstance(val, ModelEndpoint) else val
     cfg.write_text(_toml(current))
+
+
+def _validate_setting(settings: Settings, k: str, v: Any, changes: dict[str, Any]) -> None:
+    from .ingest.ytdlp import BROWSERS
+
+    if k == "import_cookies_browser":
+        if v not in ("", None) and v not in BROWSERS:
+            raise ValueError(f"import_cookies_browser must be one of {sorted(BROWSERS)} or empty")
+        if v and changes.get("require_auth", settings.require_auth):
+            raise ValueError("borrowing a browser login only works when Metachlorian runs on your own computer (solo mode); "
+                             "upload a cookies.txt file instead")
+    elif k == "import_max_height" and v not in (360, 480, 720, 1080, 1440, 2160, 4320):
+        raise ValueError("import_max_height must be one of 360, 480, 720, 1080, 1440, 2160, 4320")
+    elif k == "raw_decoders":
+        if not isinstance(v, dict) or not all(isinstance(e, str) and e.isalnum() and isinstance(c, str) and c.strip() for e, c in v.items()):
+            raise ValueError("raw_decoders maps a file extension (e.g. r3d) to a command line that contains {input} and {output}")
+        bad = [e for e, c in v.items() if "{input}" not in c or not any(x in c for x in ("{output}", "{output_stem}", "{output_dir}"))]
+        if bad:
+            raise ValueError(f"the raw decoder command for {', '.join(bad)} needs {{input}} and {{output}} (or {{output_stem}} / {{output_dir}})")
+    elif k == "ytdlp_path" and v and not os.access(str(v), os.X_OK):
+        raise ValueError(f"{v} is not an executable program on the server")
 
 
 def _toml(d: dict[str, Any]) -> str:

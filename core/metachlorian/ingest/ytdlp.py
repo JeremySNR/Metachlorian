@@ -93,11 +93,21 @@ def ensure(settings: Settings, progress: ProgressFn | None = None) -> str:
     return str(dest)
 
 
+_versions: dict[tuple[str, float], str | None] = {}
+
+
 def version(exe: str) -> str | None:
+    """yt-dlp's version, cached per executable and modification time (the standalone build takes ~1 s to start)."""
     try:
-        return subprocess.run([exe, "--version"], capture_output=True, text=True, timeout=30).stdout.strip() or None
-    except (OSError, subprocess.TimeoutExpired):
+        key = (exe, os.stat(exe).st_mtime)
+    except OSError:
         return None
+    if key not in _versions:
+        try:
+            _versions[key] = subprocess.run([exe, "--version"], capture_output=True, text=True, timeout=30).stdout.strip() or None
+        except (OSError, subprocess.TimeoutExpired):
+            return None
+    return _versions[key]
 
 
 def cookies_file(settings: Settings) -> Path:
@@ -119,11 +129,16 @@ def auth_args(settings: Settings) -> list[str]:
 
 def clean_error(stderr: str) -> str:
     line = next((x for x in reversed(stderr.splitlines()) if x.startswith("ERROR:")), "")
-    return re.sub(r"^ERROR:\s*(\[[^\]]+\]\s*[^\s:]*:?\s*)?", "", line).strip()
+    line = re.sub(r"^ERROR:\s*(\[[^\]]+\]\s*[^\s:]*:?\s*)?", "", line)
+    # yt-dlp's own "please report this issue / update yt-dlp" boilerplate is not a next step for the user here.
+    line = re.split(r";\s*please report this issue|\s*Confirm you are on the latest version", line, flags=re.I)[0]
+    return line.strip().rstrip(";")
 
 
 def is_auth_error(msg: str) -> bool:
-    return bool(re.search(r"log ?in|sign ?in|password|private|members only|purchase|cookies|401|403|authori[sz]", msg, re.I))
+    # Words, not bare status codes: a 403 from a network proxy or a rate limit is not a login problem.
+    return bool(re.search(r"log ?in|sign ?in|password|private video|members[- ]only|purchase|cookies|authori[sz]|account", msg, re.I)) \
+        and not re.search(r"proxy|tunnel|connection", msg, re.I)
 
 
 def is_cookie_copy_error(msg: str) -> bool:

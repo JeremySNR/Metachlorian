@@ -45,6 +45,9 @@ FAKE = textwrap.dedent('''\
     path = out.replace("%(title).120B", meta["title"]).replace("%(id)s", vid).replace("%(ext)s", "mp4")
     os.makedirs(os.path.dirname(path), exist_ok=True)
     shutil.copy(os.environ["FAKE_YTDLP_VIDEO"], path)
+    if vid != "same":
+        with open(path, "ab") as f:  # each video its own bytes (trailing data is ignored by decoders)
+            f.write(vid.encode() * 64)
     with open(path[:-4] + ".info.json", "w") as f:
         json.dump(meta, f)
     print("[download] 50.0% of 1MiB"); print("[download] 100% of 1MiB")
@@ -150,3 +153,30 @@ def test_links_folders_and_cookie_files_are_validated(fake, monkeypatch):
     s.import_cookies_browser = "firefox"
     assert ytdlp.auth_args(s)[-2:] == ["--cookies-from-browser", "firefox"]
     assert "Sign in to the site in" not in ytdlp.login_hint("ERROR: Sign in to confirm", s)  # browser set: a different hint
+
+
+def test_origin_outlives_the_import_list_and_duplicates_are_recognised(fake):
+    s, db, lib, _ = fake
+    first = lib.import_urls(LOCAL_ADMIN, ["https://www.youtube.com/watch?v=keep"])["imports"][0]["id"]
+    r = _wait(db, [first])[first]
+    lib.import_action(LOCAL_ADMIN, first, "forget")
+    uid = db.q1("SELECT uid FROM assets WHERE id=?", (r["asset_id"],))["uid"]
+    assert lib.get_asset(LOCAL_ADMIN, uid)["origin"]["url"].endswith("v=keep")          # still known after removing the row
+    again = lib.import_urls(LOCAL_ADMIN, ["https://www.youtube.com/watch?v=keep"])["imports"][0]["id"]
+    assert _wait(db, [again])[again]["status"] == "duplicate"                             # recognised from the file itself
+    # Different link, same bytes as a file already in the library: one copy kept, reported as already there.
+    a = lib.import_urls(LOCAL_ADMIN, ["https://www.youtube.com/watch?v=same"])["imports"][0]["id"]
+    ra = _wait(db, [a])[a]
+    b_link = "https://vimeo.com/watch?v=same"
+    b = lib.import_urls(LOCAL_ADMIN, [b_link])["imports"][0]["id"]
+    rb = _wait(db, [b])[b]
+    assert ra["status"] == "done" and rb["status"] in ("duplicate",) and rb["asset_id"] == ra["asset_id"]
+    assert len(list((s.data_dir / "imports").rglob("*same*"))) == 1
+
+
+def test_error_text_is_cleaned_and_network_errors_get_no_login_advice():
+    assert ytdlp.clean_error("ERROR: [youtube] abc: Unable to download webpage: HTTP Error 403: Forbidden; please report this issue on "
+                             "https://github.com/yt-dlp/yt-dlp/issues , filling out the template. Confirm you are on the latest version "
+                             "using  yt-dlp -U") == "Unable to download webpage: HTTP Error 403: Forbidden"
+    assert not ytdlp.is_auth_error("Unable to connect to proxy: 403 Forbidden")
+    assert ytdlp.is_auth_error("Private video. Sign in if you've been granted access")

@@ -128,14 +128,30 @@ def forget(db: Database, import_id: int) -> None:
 
 
 def origin_for_asset(db: Database, asset_id: int) -> dict[str, Any] | None:
-    r = db.q1("SELECT url, title, site, uploader, info, created_at FROM imports WHERE asset_id=? AND status IN ('done','duplicate')"
-              " ORDER BY id LIMIT 1", (asset_id,))
-    if not r:
-        return None
-    info = loads(r["info"], {}) or {}
-    return {"url": info.get("webpage_url") or r["url"], "title": r["title"], "site": r["site"], "uploader": r["uploader"],
+    """Where an imported file came from. Kept on the file itself, so it outlives the import list."""
+    r = db.q1("SELECT value FROM signals WHERE level='asset' AND target_id=? AND name='origin' AND source='import'", (asset_id,))
+    if r:
+        return loads(r["value"], None)
+    r = db.q1("SELECT url, title, site, uploader, info, origin_key, created_at FROM imports WHERE asset_id=? AND status IN ('done','duplicate')"
+              " ORDER BY id LIMIT 1", (asset_id,))  # imports made before origins were stored on the file
+    return _origin(r["url"], r["title"], r["site"], r["uploader"], loads(r["info"], {}) or {}, r["origin_key"], r["created_at"]) if r else None
+
+
+def _origin(url: str, title: str | None, site: str | None, uploader: str | None, info: dict[str, Any], key: str | None,
+            at: float) -> dict[str, Any]:
+    return {"url": info.get("webpage_url") or url, "title": title, "site": site, "uploader": uploader,
             "upload_date": _iso(info.get("upload_date")), "license": info.get("license"), "tags": (info.get("tags") or [])[:20],
-            "description": (info.get("description") or "")[:2000], "imported_at": r["created_at"]}
+            "description": (info.get("description") or "")[:2000], "imported_at": at, "key": key}
+
+
+def _store_origin(db: Database, asset_id: int, origin: dict[str, Any], replace: bool) -> None:
+    exists = db.q1("SELECT 1 FROM signals WHERE level='asset' AND target_id=? AND name='origin' AND source='import'", (asset_id,))
+    if exists and not replace:
+        return
+    with db.tx() as c:
+        c.execute("DELETE FROM signals WHERE level='asset' AND target_id=? AND name='origin' AND source='import'", (asset_id,))
+        c.execute("INSERT INTO signals(level, target_id, asset_id, name, value, source, confidence, model_version, created_at)"
+                  " VALUES('asset', ?, ?, 'origin', ?, 'import', 1.0, 'import', ?)", (asset_id, asset_id, dumps(origin), now()))
 
 
 def _iso(d: Any) -> str | None:
@@ -256,7 +272,9 @@ def _process(db: Database, settings: Settings, iid: int, owner: _Runner) -> None
     db.x("UPDATE imports SET origin_key=?, title=?, site=?, uploader=?, duration=?, info=?, updated_at=? WHERE id=?",
          (key, e.get("title"), e.get("site"), info.get("uploader") or info.get("channel"), e.get("duration"), dumps(info), now(), iid))
     prev = db.q1("SELECT asset_id FROM imports i JOIN assets a ON a.id=i.asset_id WHERE i.origin_key=? AND i.status='done'"
-                 " AND a.deleted_at IS NULL AND i.id<>? LIMIT 1", (key, iid))
+                 " AND a.deleted_at IS NULL AND i.id<>? LIMIT 1", (key, iid)) or \
+        db.q1("SELECT s.target_id asset_id FROM signals s JOIN assets a ON a.id=s.target_id WHERE s.level='asset' AND s.name='origin'"
+              " AND s.source='import' AND json_extract(s.value, '$.key')=? AND a.deleted_at IS NULL LIMIT 1", (key,))
     if prev:
         db.x("UPDATE imports SET status='duplicate', progress=1, asset_id=?, message='Already in the library', updated_at=? WHERE id=?",
              (prev["asset_id"], now(), iid))
@@ -285,11 +303,23 @@ def _process(db: Database, settings: Settings, iid: int, owner: _Runner) -> None
         t = dt.datetime.fromisoformat(up).replace(tzinfo=dt.timezone.utc).timestamp()
         os.utime(dest, (t, t))
     progress(0.98, "Adding to the library…")
-    aid = _register(db, settings, dest)
+    outcome, aid = _register(db, settings, dest)
+    title, who = info.get("title") or e.get("title"), info.get("uploader") or info.get("channel")
+    origin = _origin(e["url"], title, e.get("site"), who, info, key, now())
+    if outcome == "duplicate":
+        # The same bytes are already in the library (e.g. the file was also copied in from a card): keep one copy.
+        with db.tx() as c:
+            c.execute("DELETE FROM asset_paths WHERE path=?", (str(dest),))
+        dest.unlink(missing_ok=True)
+        db.x("UPDATE imports SET status='duplicate', progress=1, message='Already in the library', asset_id=?, info=?, title=?, uploader=?,"
+             " updated_at=? WHERE id=?", (aid, dumps(info), title, who, now(), iid))
+        if aid:
+            _store_origin(db, aid, origin, replace=False)  # its own origin, if it has one, stays
+        return
     db.x("UPDATE imports SET status='done', progress=1, message='Imported', path=?, asset_id=?, info=?, title=?, uploader=?, updated_at=?"
-         " WHERE id=?", (str(dest), aid, dumps(info), info.get("title") or e.get("title"), info.get("uploader") or info.get("channel"),
-                         now(), iid))
+         " WHERE id=?", (str(dest), aid, dumps(info), title, who, now(), iid))
     if aid:
+        _store_origin(db, aid, origin, replace=True)
         _prefill_rights(db, aid, info, e, job["actor"])
         from ..indexer import index_asset
 
@@ -309,7 +339,7 @@ def _site_folder(site: str | None) -> str:
     return SITE_FOLDERS.get(s.lower(), s)
 
 
-def _register(db: Database, settings: Settings, path: Path) -> int | None:
+def _register(db: Database, settings: Settings, path: Path) -> tuple[str, int | None]:
     from ..pipeline import plan_asset
     from .scan import add_source, register_file
 
@@ -317,10 +347,10 @@ def _register(db: Database, settings: Settings, path: Path) -> int | None:
     root.mkdir(parents=True, exist_ok=True)
     src = db.q1("SELECT id FROM sources WHERE uri=?", (str(root.resolve()),))
     sid = src["id"] if src else add_source(db, str(root), watch=False, priority=5)
-    _, aid = register_file(db, path, sid, 5)
-    if aid:
+    outcome, aid = register_file(db, path, sid, 5)
+    if aid and outcome != "duplicate":
         plan_asset(db, settings, aid)
-    return aid
+    return outcome, aid
 
 
 def _prefill_rights(db: Database, aid: int, info: dict[str, Any], e: dict[str, Any], actor: str) -> None:
