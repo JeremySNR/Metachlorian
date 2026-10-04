@@ -67,7 +67,7 @@ def classify_edit(f: dict[str, Any]) -> tuple[str, float, dict[str, float]]:
 
 class RollupAnalyser(Analyser):
     name = "rollup"
-    version = "1.0.0"
+    version = "1.0.1"
     requires = ("fusion", "technical", "audio", "speech", "quality")
     priority = 8
     description = "Asset structure (shot count, ASL, cuts/min, single take), pacing and raw/selects/finished classification; asset summary."
@@ -157,7 +157,7 @@ class RollupAnalyser(Analyser):
         mins, secs = divmod(int(round(st["duration"])), 60)
         kind = {"raw": "Raw footage", "selects": "Selects reel", "finished": "Finished edit"}[st["edit_type"]["term"]]
         bits = [f"{kind}, {mins} min {secs} s" if mins else f"{kind}, {secs} s",
-                "one continuous take" if st["single_take"] else f"{st['shot_count']} shots ({st['cuts_per_minute']} cuts/min)"]
+                "one continuous take" if st["single_take"] else f"{st['shot_count']} shots ({st['cuts_per_minute']:.1f} cuts/min)"]
         extras = [x for x, on in (("music bed", st["music_bed"]), ("titles", st["titles"]), ("lower thirds", st["lower_thirds"]),
                                   ("speech", st["speech_share"] > 0.2)) if on]
         if extras:

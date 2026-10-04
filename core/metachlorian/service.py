@@ -24,6 +24,15 @@ from .search.engine import SearchEngine, SearchRequest, summarise_doc
 from .vocab import registry
 
 
+def _timecode(t: float, fps: float | None) -> str:
+    """HH:MM:SS:FF at the file's nominal rate (non-drop), for display."""
+    rate = round(fps) if fps else 25
+    frames = int(round(t * (fps or rate)))
+    ff = frames % rate
+    secs = frames // rate
+    return f"{secs // 3600:02d}:{secs // 60 % 60:02d}:{secs % 60:02d}:{ff:02d}"
+
+
 class NotFound(Exception):
     pass
 
@@ -355,7 +364,9 @@ class Library:
             # Where it applies and what the model says there, so the log reads "Night -> Morning" on "Shot 3 at 00:00:08".
             sh = self.db.q1("SELECT id, idx, start_s, end_s FROM shots WHERE uid=?", (r["shot_uid"],)) if r["shot_uid"] else None
             if sh:
-                d["shot"] = {"idx": sh["idx"], "number": sh["idx"] + 1, "start": sh["start_s"], "end": sh["end_s"]}
+                fps = (self.db.q1("SELECT fps FROM assets WHERE uid=?", (r["asset_uid"],)) or {"fps": None})["fps"]
+                d["shot"] = {"idx": sh["idx"], "number": sh["idx"] + 1, "start": sh["start_s"], "end": sh["end_s"], "fps": fps,
+                             "timecode": _timecode(sh["start_s"], fps)}
                 m = collect(self.db, "shot", sh["id"]).get(r["field"])
                 d["model_value"] = {"value": m["value"], "source": m["source"], "confidence": m["confidence"]} if m else None
             else:
@@ -624,6 +635,12 @@ class Library:
             " (SELECT COUNT(*) FROM analysis_runs r WHERE r.asset_id=a.id AND r.status='failed') failed,"
             " (SELECT COUNT(*) FROM analysis_runs r WHERE r.asset_id=a.id AND r.status='unavailable') unavailable"
             " FROM assets a WHERE a.deleted_at IS NULL ORDER BY (a.status IN ('processing','updating')) DESC, a.updated_at DESC LIMIT 200")]
+        pending: dict[str, list[str]] = {}
+        for r in self.db.q("SELECT a.uid, j.analyser FROM jobs j JOIN assets a ON a.id=j.asset_id WHERE j.status IN ('queued','running')"
+                           " ORDER BY j.priority DESC, j.id"):
+            pending.setdefault(r["uid"], []).append(r["analyser"])
+        for a in active:
+            a["pending"] = pending.get(a["uid"], [])
         from .analysers import registry as ar
 
         analysers = [{"name": a.name, "version": a.version, "description": a.description, "requires": list(a.requires),
