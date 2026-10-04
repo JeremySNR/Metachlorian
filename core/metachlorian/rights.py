@@ -230,6 +230,8 @@ def gate(r: dict[str, Any], *, principal: "Principal | None" = None, mode: str =
     """
     if mode not in MODES:
         raise ValueError(f"mode must be one of {MODES}")
+    if (intended or {}).get("date"):
+        dt.date.fromisoformat(str(intended["date"])[:10])  # the caller's date: a typo is their error (ValueError), not a block
     try:
         badge = summary_status(r)
         chk = check_all(r, intended, people_visible)

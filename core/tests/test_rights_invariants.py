@@ -93,6 +93,12 @@ def test_gate_takes_the_worst_combination_and_fails_closed():
     assert R.summary_status({"status": "restricted", "expires": "2099-01-01"}) == "restricted"
     with pytest.raises(ValueError):
         R.gate(r, mode="download")
+    # A malformed date from the caller is the caller's error, not a blocked record (same as check_rights).
+    with pytest.raises(ValueError):
+        R.gate(r, mode="list", intended={"use": "marketing", "date": "2026-1-5"})
+    with pytest.raises(ValueError):
+        R.check(r, "marketing", on="2026-1-5")
+    assert R.gate(r, mode="list", intended={"use": "marketing", "date": "2026-01-05"}).permitted
 
 
 # ---------------------------------------------------------------------- search
