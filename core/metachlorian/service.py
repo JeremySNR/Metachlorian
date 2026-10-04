@@ -38,6 +38,9 @@ class NotFound(Exception):
     pass
 
 
+STILL_SUFFIXES = frozenset({".jpg", ".jpeg", ".png", ".webp", ".vtt", ".json"})
+
+
 class Library:
     def __init__(self, db: Database, settings: Settings):
         self.db = db
@@ -68,20 +71,60 @@ class Library:
         r = R.get_rights(self.db, doc["asset_id"], doc["id"])  # the shot's override when it has one, else the asset's
         return {**r, "badge": R.summary_status(r)}
 
-    def media_access(self, p: Principal, asset_uid: str) -> None:
+    def media_access(self, p: Principal, asset_uid: str, path: str = "") -> None:
         """Proxy, sprites, posters and keyframes under /media/<asset>/. People with library:read see them
-        all (reviewing footage is how rights get fixed); agents get nothing from a file holding any blocked
-        shot, because those files cover the whole asset."""
+        all (reviewing footage is how rights get fixed). These files cover the whole asset, so for agents
+        every shot counts: stills (posters, thumbnails, sprites) are refused when any shot is blocked, and
+        video (the proxy) unless every shot's rights as recorded are 'allowed', as for export_clip."""
         require(p, "library:read")
         if not p.is_agent:
             return
         a = self.db.q1("SELECT id FROM assets WHERE uid=?", (asset_uid,))
         if not a:
-            return  # nothing to protect; the route answers 404
-        rows = self.db.q("SELECT shot_id FROM rights WHERE asset_id=?", (a["id"],))
-        for r in [{"shot_id": None}] + [dict(x) for x in rows if x["shot_id"] is not None]:
-            if R.summary_status(R.get_rights(self.db, a["id"], r["shot_id"])) in R.BLOCKED_BADGES:
+            raise NotFound(f"no asset {asset_uid}")  # never fall through to the file system (case-insensitive disks)
+        still = Path(path).suffix.lower() in STILL_SUFFIXES
+        for uid, v in R.range_gate(self.db, a["id"], 0.0, float("inf"), principal=p, mode="media"):
+            if v.blocked:
                 raise Forbidden("this file holds blocked footage (not cleared or rights expired); agents cannot fetch its media")
+            if not still and not v.permitted:
+                raise Forbidden(f"agents can fetch a file's video only when every shot is cleared as recorded; shot {uid}: {v.refusal}")
+
+    # ------------------------------------------------------------------ export records
+    # Every exported file or package gets a record of the time ranges it holds, so a download re-checks
+    # the rights as they are now (a shot blocked since the export does not leave) and agents only ever
+    # download their own exports.
+    def _record_dir(self) -> Path:
+        return self.settings.export_dir / ".rights"
+
+    def _record_export(self, p: Principal, rel: str, mode: str, ranges: list[tuple[int, float, float]],
+                       intended: dict[str, Any] | None = None, allow_restricted: bool = False) -> None:
+        f = self._record_dir() / f"{rel}.json"
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(dumps({"owner": p.username, "mode": mode, "intended": intended or {}, "allow_restricted": allow_restricted,
+                            "ranges": [[a, round(x, 4), round(y, 4)] for a, x, y in ranges]}))
+
+    def export_access(self, p: Principal, rel: str) -> None:
+        """May ``p`` download this file from the export folder (a clip, a package, a file inside one, or its zip)?"""
+        require(p, "media:export")
+        parts = Path(rel).parts
+        if any(x.startswith(".") for x in parts):
+            raise NotFound(rel)  # staging folders and the records themselves
+        candidates = [rel, *(str(Path(*parts[:i])) for i in range(len(parts) - 1, 0, -1))]
+        if rel.endswith(".zip"):
+            candidates.insert(1, rel[:-4])
+        rec = next((loads(f.read_text()) for c in candidates if (f := self._record_dir() / f"{c}.json").is_file()), None)
+        if rec is None:
+            if p.is_agent:
+                raise Forbidden("agents can download only exports with a rights record (made by this version)")
+            return
+        if p.is_agent and rec["owner"] != p.username:
+            raise Forbidden("agents can download only their own exports")
+        for aid, x, y in rec["ranges"]:
+            for uid, v in R.range_gate(self.db, aid, x, y, principal=p, mode=rec["mode"], intended=rec["intended"] or None,
+                                       allow_restricted=rec["allow_restricted"]):
+                if not v.permitted:
+                    self._log(p, "export_download", rel, {"refused": v.verdict, "shot": uid}, write=True)
+                    raise Forbidden(f"shot {uid} in this export: {v.refusal}")
 
     # ------------------------------------------------------------------ read
     def health(self) -> dict[str, Any]:
@@ -534,16 +577,24 @@ class Library:
                     intended: dict[str, Any] | None = None) -> dict[str, Any]:
         require(p, "media:export")
         # Blocked footage never leaves as media, for people or agents; agents also need an 'allowed' verdict.
+        # in/out may run past the shot, so every shot the range covers is checked, not only the one named.
         doc = build_shot_doc(self.db, self._shot_id(shot_uid))
-        v = R.gate(self._shot_rights(doc), principal=p, mode="reference" if mode == "reference" else "media",
-                   intended={k: (intended or {}).get(k) for k in ("use", "channel", "territory", "date")},
-                   people_visible=bool(summarise_doc(doc).get("people")))
-        if not v.permitted:
-            self._log(p, "export_clip", shot_uid, {"refused": v.verdict, "badge": v.badge, "mode": mode}, write=True)
-            raise Forbidden(v.refusal)
+        a_in = doc["start"] if in_s is None else float(in_s)
+        a_out = doc["end"] if out_s is None else float(out_s)
+        want = {k: (intended or {}).get(k) for k in ("use", "channel", "territory", "date")}
+        if mode != "reference":
+            covered = R.range_gate(self.db, doc["asset_id"], a_in, a_out, principal=p, mode="media", intended=want)
+            if not covered:
+                raise ValueError("in/out covers no shot")
+            for uid, v in covered:
+                if not v.permitted:
+                    self._log(p, "export_clip", shot_uid, {"refused": v.verdict, "badge": v.badge, "shot": uid, "mode": mode}, write=True)
+                    raise Forbidden(v.refusal if uid == shot_uid else f"in/out {a_in:g}–{a_out:g} s covers shot {uid}: {v.refusal}")
         res = P.export_clip(self.db, self.settings, shot_uid, in_s, out_s, mode)
         if res.get("file"):
-            res["download"] = "/api/exports/file?path=" + str(Path(res["file"]).relative_to(self.settings.export_dir))
+            rel = Path(res["file"]).relative_to(self.settings.export_dir).as_posix()
+            self._record_export(p, rel, "media", [(doc["asset_id"], a_in, a_out)], want)
+            res["download"] = "/api/exports/file?path=" + rel
         self._log(p, "export_clip", shot_uid, {"mode": mode, "in": in_s, "out": out_s}, write=True)
         return res
 
@@ -565,6 +616,7 @@ class Library:
         except P.Refused as e:
             self._log(p, "build_package", name, {"refused": e.verdict, "counts": e.counts}, write=True)
             raise
+        self._record_export(p, Path(res["path"]).name, "package", res.pop("ranges"), res.pop("intended"), allow_restricted)
         res["download"] = "/api/exports/file?path=" + Path(res["path"]).name
         res.pop("manifest_obj", None)
         self._log(p, "build_package", name, {"items": len(items), "verdict": res["verdict"], "path": res["path"]}, write=True)

@@ -174,6 +174,7 @@ def summary_status(r: dict[str, Any], on: str | None = None) -> str:
 BLOCKED_BADGES = frozenset({"not_cleared", "expired"})  # blocked for every use: never leaves as media
 VERDICT_ORDER = {"allowed": 0, "unknown": 1, "restricted": 2, "blocked": 3}
 MODES = ("list", "reference", "media", "package")
+_BADGE_VERDICT = {"cleared": "allowed", "expiring": "allowed"}
 
 
 @dataclass(frozen=True)
@@ -202,6 +203,9 @@ def check_all(r: dict[str, Any], intended: dict[str, Any] | None = None, people_
     """The worst verdict over every use x channel x territory combination of an intended use (each
     may be a single value or a list), with the reasons of every combination that reached it."""
     intended = intended or {}
+    if not any(isinstance(intended.get(k), (list, tuple)) for k in ("use", "channel", "territory")):  # one combination (search)
+        return check(r, intended.get("use") or None, intended.get("channel") or None, intended.get("territory") or None,
+                     intended.get("date"), people_visible=people_visible)
     worst: dict[str, Any] | None = None
     for u, c, t in itertools.product(_as_list(intended.get("use")), _as_list(intended.get("channel")), _as_list(intended.get("territory"))):
         chk = check(r, u, c, t, intended.get("date"), people_visible=people_visible)
@@ -227,13 +231,21 @@ def gate(r: dict[str, Any], *, principal: "Principal | None" = None, mode: str =
       also needs an ``allowed`` verdict for the intended use (no intended use: the rights as recorded).
     * ``package`` (hand-off packages): as ``media``, except that ``allow_restricted`` lets an agent
       through with restricted or unknown items (never blocked ones).
+
+    In ``media`` and ``package`` modes an intended ``date`` is ignored: the media leaves today. In ``list``
+    mode without an intended use the verdict is read from the badge (no use, so nothing else applies).
     """
     if mode not in MODES:
         raise ValueError(f"mode must be one of {MODES}")
     if (intended or {}).get("date"):
         dt.date.fromisoformat(str(intended["date"])[:10])  # the caller's date: a typo is their error (ValueError), not a block
+        if mode in ("media", "package"):
+            intended = {k: v for k, v in intended.items() if k != "date"}  # media leaves today, whatever date is asked about
     try:
         badge = summary_status(r)
+        if mode == "list" and not intended and badge not in BLOCKED_BADGES:
+            # The hot path (every shot of a search pool): with no intended use only the badge decides.
+            return Verdict(_BADGE_VERDICT.get(badge, badge), (), badge, True)
         chk = check_all(r, intended, people_visible)
         verdict, reasons = chk["verdict"], tuple(chk["reasons"])
     except ValueError:  # a malformed date written outside set_rights: fail closed
@@ -252,3 +264,14 @@ def gate(r: dict[str, Any], *, principal: "Principal | None" = None, mode: str =
         elif agent and verdict != "allowed" and not (mode == "package" and allow_restricted and verdict != "blocked"):
             refusal = f"rights verdict is '{verdict}': {'; '.join(reasons)}"
     return Verdict(verdict, reasons, badge, not refusal, refusal)
+
+
+def range_gate(db: Database, asset_id: int, start: float, end: float, **kw: Any) -> list[tuple[str, Verdict]]:
+    """``gate`` for every active shot of a file that the time range [start, end] overlaps, in order. Media cut
+    from a range (a clip with its own in/out, package handles) carries every shot it covers, not only the one
+    it was asked for."""
+    eps = 1e-3
+    rows = db.q("SELECT s.id, s.uid, si.people_count FROM shots s LEFT JOIN shot_index si ON si.shot_id=s.id"
+                " WHERE s.asset_id=? AND s.active=1 AND s.start_s < ? AND s.end_s > ? ORDER BY s.start_s",
+                (asset_id, end - eps, start + eps))
+    return [(r["uid"], gate(get_rights(db, asset_id, r["id"]), people_visible=(r["people_count"] or 0) > 0, **kw)) for r in rows]

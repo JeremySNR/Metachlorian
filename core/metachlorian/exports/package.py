@@ -225,6 +225,13 @@ def _build_package(db, settings, items, name, brief, target, media_policy, mode,
         proxy = settings.media_dir / d["asset_uid"] / "proxy.mp4"
         h_in = max(0.0, r["in"] - handles)
         h_out = min(float(a.get("duration") or r["out"]), r["out"] + handles)
+        # Handles reach into the neighbouring shots: drop them on a side where a neighbour may not leave.
+        gkw = {"principal": principal, "mode": "package", "intended": intended, "allow_restricted": allow_restricted}
+        if h_in < r["in"] and not all(v.permitted for _, v in R.range_gate(db, d["asset_id"], h_in, r["in"], **gkw)):
+            h_in = r["in"]
+        if h_out > r["out"] and not all(v.permitted for _, v in R.range_gate(db, d["asset_id"], r["out"], h_out, **gkw)):
+            h_out = r["out"]
+        r["range"] = (d["asset_id"], h_in, h_out)
         r["asset_offset"] = h_in
         thumb_src = settings.media_dir / d["asset_uid"] / (d.get("thumb") or "")
         if d.get("thumb") and thumb_src.exists():
@@ -424,7 +431,8 @@ def _build_package(db, settings, items, name, brief, target, media_policy, mode,
     (tmp / "manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False))
     os.replace(tmp, final)
     staged.clear()  # complete from here on
-    result: dict[str, Any] = {"package_id": pid, "path": str(final), "manifest": manifest, "verdict": verdict, "counts": counts}
+    result: dict[str, Any] = {"package_id": pid, "path": str(final), "manifest": manifest, "verdict": verdict, "counts": counts,
+                              "ranges": [r["range"] for r in resolved], "intended": intended}
     if zip_it:
         zpath = final.with_suffix(".zip")
         with zipfile.ZipFile(zpath, "w", zipfile.ZIP_DEFLATED) as z:

@@ -392,8 +392,9 @@ def create_app(settings: Settings, db: Database | None = None, start_workers: bo
         A.require(p, "media:export")
         base = settings.export_dir.resolve()
         target = (base / path).resolve()
-        if base not in target.parents and target != base:
+        if base not in target.parents:
             raise HTTPException(400, "bad path")
+        lib.export_access(p, target.relative_to(base).as_posix())  # rights as they are now, and agents only their own
         if target.is_dir():
             z = target.with_suffix(".zip")
             if not z.exists():
@@ -589,7 +590,7 @@ def create_app(settings: Settings, db: Database | None = None, start_workers: bo
     # ------------------------------------------------------------------ media
     @app.get("/media/{asset_uid}/{path:path}")
     def media(asset_uid: str, path: str, request: Request, p: Principal = Depends(principal)):
-        lib.media_access(p, asset_uid)  # library:read; agents never get media of a file holding blocked shots
+        lib.media_access(p, asset_uid, path)  # library:read; for agents, the rights of every shot in the file
         if not asset_uid.replace("-", "").isalnum():
             raise HTTPException(400, "bad asset id")
         base = (settings.media_dir / asset_uid).resolve()

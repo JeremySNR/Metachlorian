@@ -212,6 +212,49 @@ def test_export_clip_rules(m, principals, state, who):
             assert lib.export_clip(p, shot, mode=mode)
 
 
+@pytest.mark.parametrize("who", ("editor", "agent+export"))
+def test_export_clip_in_out_cannot_reach_a_blocked_neighbour(m, principals, who):
+    """in/out are file seconds: naming an allowed shot must not cut the blocked shot next to it."""
+    lib, p, db = m["lib"], principals[who], m["db"]
+    shot0 = m["by_state"]["cleared"][0]
+    nxt = db.q1("SELECT start_s, end_s FROM shots WHERE uid=?", (m["override"],))
+    before = _exports(m)
+    for a, b in ((nxt["start_s"], nxt["end_s"]), (0.0, nxt["end_s"]), (nxt["start_s"] - 0.2, nxt["start_s"] + 0.2)):
+        for mode in MEDIA_MODES:
+            with pytest.raises(Forbidden, match=m["override"]):
+                lib.export_clip(p, shot0, a, b, mode=mode, intended=USE)
+    assert _exports(m) == before
+    assert "reference" in lib.export_clip(p, shot0, nxt["start_s"], nxt["end_s"], mode="reference", intended=USE)
+    s0 = db.q1("SELECT start_s, end_s FROM shots WHERE uid=?", (shot0,))
+    assert Path(lib.export_clip(p, shot0, s0["start_s"] + 0.1, s0["end_s"] - 0.1, mode="proxy", intended=USE)["file"]).exists()
+
+
+def test_package_handles_stop_at_a_blocked_neighbour(m, principals):
+    from metachlorian.media import ffmpeg
+
+    db = m["db"]
+    shot0 = db.q1("SELECT start_s, end_s FROM shots WHERE uid=?", (m["by_state"]["cleared"][0],))
+    for who in ("editor", "agent+export"):
+        res = m["lib"].build_package(principals[who], [{"shot_uid": m["by_state"]["cleared"][0]}], name=f"handles {who}",
+                                     target={"usage": ["marketing"], "channels": ["paid_social"], "territories": ["GB"]})
+        dur = float(ffmpeg.technical_metadata(Path(res["path"], "media", "it_01.mp4"))["duration"])
+        assert dur <= shot0["end_s"] - shot0["start_s"] + 0.1, (who, dur)  # no handle into the not-cleared shot
+    # A permitted neighbour still gives handles: the unknown file's first shot, for a person.
+    u = db.q1("SELECT start_s, end_s FROM shots WHERE uid=?", (m["by_state"]["unknown"][0],))
+    res = m["lib"].build_package(principals["editor"], [{"shot_uid": m["by_state"]["unknown"][0]}], name="handles ok")
+    assert float(ffmpeg.technical_metadata(Path(res["path"], "media", "it_01.mp4"))["duration"]) > u["end_s"] - u["start_s"] + 0.5
+
+
+def test_media_exports_ignore_the_callers_date(principals):
+    """Media leaves today: asking about a date when the licence will be valid does not release it now."""
+    r = {**R.empty(), **RIGHTS_STATES["cleared"], "starts": "2090-01-01"}
+    later = {"use": "editorial", "date": "2091-01-01"}
+    assert R.gate(r, mode="list", intended=later).permitted  # listing for a future use is fine
+    for mode in ("media", "package"):
+        v = R.gate(r, principal=principals["agent+export"], mode=mode, intended=later)
+        assert not v.permitted and "starts" in v.refusal
+
+
 def test_refused_exports_are_audited(m, principals):
     db = m["db"]
     with pytest.raises(Forbidden):
@@ -280,13 +323,17 @@ def test_media_route(m):
             for state, auid in m["assets"].items():
                 # The cleared file holds the overridden (not cleared) shot, so its whole-file media is held back from agents.
                 blocked_file = state in ("not_cleared", "expired", "cleared")
-                for path in ("proxy.mp4", "poster.jpg"):
+                # Video needs every shot cleared as recorded (as export_clip without a use); stills only no blocked shot.
+                agent_ok = {"proxy.mp4": state == "editorial_only", "poster.jpg": not blocked_file}
+                for path, ok in agent_ok.items():
                     url = f"/media/{auid}/{path}"
                     assert c.get(url, headers={"Authorization": f"Bearer {tokens['viewer']}"}).status_code == 200, url
                     r = c.get(url, headers={"Authorization": f"Bearer {tokens['agent']}"})
-                    assert r.status_code == (403 if blocked_file else 200), (url, r.status_code)
-                    assert c.get(f"{url}?token={tokens['agent']}").status_code == (403 if blocked_file else 200)
+                    assert r.status_code == (200 if ok else 403), (url, r.status_code)
+                    assert c.get(f"{url}?token={tokens['agent']}").status_code == (200 if ok else 403)
                 assert c.get(f"/media/{auid}/proxy.mp4").status_code == 401
+                # An id that is not in the library never reaches the file system for agents (case-insensitive disks).
+                assert c.get(f"/media/{auid.upper()}/poster.jpg", headers={"Authorization": f"Bearer {tokens['agent']}"}).status_code == 404
             assert c.get("/media/nope/proxy.mp4", headers={"Authorization": f"Bearer {tokens['agent']}"}).status_code == 404
     finally:
         s.require_auth = False
@@ -347,3 +394,41 @@ def test_mcp_exits_follow_the_gate(m, mcp_client, principals):
     for st in STATES:
         assert exp[st].is_error == (st != "cleared"), (st, exp[st].content[0].text)
         assert pkg[st].is_error == (st != "cleared"), (st, pkg[st].content[0].text)
+
+
+# ---------------------------------------------------------------------- /api/exports/file
+def test_export_downloads_recheck_rights_and_agents_get_only_their_own(processed):
+    from metachlorian.api.app import create_app
+
+    s, db, a = processed
+    R.set_rights(db, a["id"], {"status": "cleared", "model_release": "not_applicable"}, "x")
+    ed = A.create_token(db, A.create_user(db, "ed", "editor", "correct horse battery"), "t")
+    bot_uid = A.create_user(db, "bot", "agent")
+    bot = A.create_token(db, bot_uid, "t", ["library:read", "media:export"])
+    bot2 = A.create_token(db, A.create_user(db, "bot2", "agent"), "t", ["library:read", "media:export"])
+    shot = db.q1("SELECT uid FROM shots WHERE asset_id=? ORDER BY idx", (a["id"],))["uid"]
+    s.require_auth = True
+    H = lambda t: {"Authorization": f"Bearer {t}"}  # noqa: E731
+    with TestClient(create_app(s, db, start_workers=False)) as c:
+        clip = c.post("/api/export/clip", json={"shot_uid": shot, "mode": "proxy"}, headers=H(ed)).json()["download"]
+        mine = c.post("/api/export/clip", json={"shot_uid": shot, "mode": "edl"}, headers=H(bot)).json()["download"]
+        pkg = c.post("/api/package", json={"items": [{"shot_uid": shot}], "name": "p", "zip": True}, headers=H(ed)).json()
+        assert c.get(clip, headers=H(ed)).status_code == 200
+        assert c.get(mine, headers=H(bot)).status_code == 200
+        assert c.get(mine, headers=H(bot2)).status_code == 403  # another agent's export
+        assert c.get(clip, headers=H(bot)).status_code == 403  # a person's export
+        for url in (pkg["download"], pkg["download"] + ".zip", pkg["download"] + "/media/it_01.mp4"):
+            assert c.get(url, headers=H(ed)).status_code == 200, url
+        # Files without a record (made outside the service): people only.
+        (s.export_dir / "legacy.txt").write_text("x")
+        assert c.get("/api/exports/file?path=legacy.txt", headers=H(ed)).status_code == 200
+        assert c.get("/api/exports/file?path=legacy.txt", headers=H(bot)).status_code == 403
+        # The records and staging folders are not downloadable.
+        assert c.get("/api/exports/file?path=.rights", headers=H(ed)).status_code == 404
+        assert c.get("/api/exports/file?path=../lib.sqlite", headers=H(ed)).status_code == 400
+        # Rights change after the export: nothing already exported leaves any more.
+        R.set_rights(db, a["id"], {"status": "not_cleared"}, "x")
+        for url in (clip, mine, pkg["download"], pkg["download"] + ".zip", pkg["download"] + "/media/it_01.mp4"):
+            who = bot if url == mine else ed
+            assert c.get(url, headers=H(who)).status_code == 403, url
+    s.require_auth = False

@@ -99,12 +99,15 @@ media and the MCP tools cannot disagree. The rules, proved by `core/tests/test_r
 |---|---|---|
 | Search and similar shots (`search_shots`, `find_similar`, REST, app) | Blocked footage (not cleared, or past expiry) is hidden unless `hide_blocked` is off, and then marked `rights.verdict: blocked`. With an `intended_use`, only `allowed` shots unless `include` asks for more | Same |
 | `export_clip`, mode `reference` | Always (paths and timecodes, no media) | Always |
-| `export_clip`, media modes (`proxy`, `file`, `otio`, `fcpxml`, `edl`) | Refused for blocked footage | Refused unless the verdict for `intended_use` (or, without one, the rights as recorded) is `allowed` |
+| `export_clip`, media modes (`proxy`, `file`, `otio`, `fcpxml`, `edl`) | Refused when any shot the in/out range covers is blocked footage | Refused unless every shot the range covers is `allowed` for `intended_use` (or, without one, for the rights as recorded) |
 | `build_package` | Refused if any item is blocked footage | Refused unless every item is `allowed` (or restricted / unknown with `allow_restricted`, never blocked) |
-| `/media/<file>/…` (proxy, poster, sprites, keyframes) | Served with `library:read` (reviewing footage is how rights get fixed) | Refused for a file that holds any blocked shot, because these files cover the whole file |
+| `/api/exports/file` (download an export) | Re-checked against the rights as they are now | Only the agent's own exports, re-checked the same way |
+| `/media/<file>/…` (proxy, poster, sprites, keyframes) | Served with `library:read` (reviewing footage is how rights get fixed) | These files cover the whole file, so every shot counts: stills are refused when any shot is blocked, video unless every shot is `allowed` as recorded |
 
-A shot-level override wins over the file's rights. A package is refused before anything is rendered, so nothing is left in
-the export folder. Refusals are written to the audit log.
+A shot-level override wins over the file's rights. In/out points are file seconds and may run past the shot named, so a
+clip is checked against every shot it covers; package handles stop at a neighbouring shot that may not leave. Media leaves
+today, so an intended-use `date` does not release a licence that has not started. A package is refused before anything
+is rendered, so nothing is left in the export folder. Refusals are written to the audit log.
 
 ## Errors
 

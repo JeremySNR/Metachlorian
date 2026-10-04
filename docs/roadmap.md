@@ -89,8 +89,9 @@ written against the current behaviour so the refactor is a pure move.
 
 ### Delivered
 
-Status: **done**. `rights.gate` decides for every exit; `tests/test_rights_invariants.py` (173 cases) pins it, and a
-mutation check (disabling each rule in turn) makes at least one case fail every time. The invariant tests found holes
+Status: **done**. `rights.gate` (and `rights.range_gate` for time ranges) decides for every exit;
+`tests/test_rights_invariants.py` pins it, and a mutation check (disabling each rule in turn) makes at least one case fail
+every time. An independent review then found range and download leaks, closed in the same PR (below). The invariant tests found holes
 that the "pure move" could not keep, so behaviour changed in these places:
 
 - **Packages with blocked footage are refused for everyone**, as clip exports already were. Before, a person could
@@ -98,8 +99,14 @@ that the "pure move" could not keep, so behaviour changed in these places:
 - **Refusals happen before anything is rendered.** Before, an agent's refused package was rendered, then deleted, and
   with `zip` its `.zip` stayed in the export folder, downloadable through `/api/exports/file`.
 - **`allow_restricted` never admits blocked items** (it admitted any verdict; it is not exposed over REST or MCP).
-- **`/media/` for agents**: refused for a file that holds any blocked shot (the decision this item asked for); people
+- **`/media/` for agents** (the decision this item asked for): these files cover the whole file, so stills are refused
+  when any shot is blocked and video unless every shot is cleared as recorded; an id not in the library is a 404. People
   with `library:read` still see everything, because reviewing footage is how its rights get fixed.
+- **Clip in/out reaching past the shot**: `export_clip` checked only the named shot, so its in/out could cut a blocked
+  neighbour. Every shot the range covers is now checked, and package handles stop at a neighbour that may not leave.
+- **Downloads re-check rights**: every export gets a record of the ranges it holds; `/api/exports/file` re-checks them
+  against the rights as they are now, and agents can download only their own exports.
+- **Media leaves today**: an intended-use `date` no longer releases a licence that has not started yet.
 - **Search results carry `rights.verdict: blocked`** with reasons when blocked footage is shown (`hide_blocked=false`).
 - **A restricted licence past its expiry is `expired`** (the badge said `restricted`, so it was not treated as blocked).
 - **MCP failures are tool errors** (`isError: true`, text `"<Type>: <message>"`), as ADR 011 specified, instead of an
