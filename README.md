@@ -19,18 +19,21 @@ CMX 3600 EDL).
   Each shot gets a structured record, and every signal has a value, a source, a confidence and a model version.
 - **Measured, not guessed.** Shot boundaries, durations, cuts per minute, technical metadata, camera motion (optical flow),
   loudness (EBU R128) and image quality are computed deterministically. Models are used for meaning: SigLIP embeddings and
-  zero-shot labels, speech with word timings (Parakeet), speaker turns, audio events, OCR, people and faces (counts only),
-  and optional captions from a local vision-language model.
+  zero-shot labels, speech with word timings (Parakeet), speaker turns, audio events, OCR, people and objects,
+  and optional captions from a vision-language model.
 - **Hybrid search.** Natural language is parsed into filters and vocabulary preferences; results blend semantic similarity,
   keywords in transcripts and on-screen text, and label matches, and every result says *why* it matched. Query by example
   with a shot, a still or a clip.
 - **Rights-aware.** Record source, licence, permitted uses, channels, territories, expiry and releases per file (overridable per
   shot). State an intended use and you only get shots cleared for it.
+- **People you can name.** Faces are recognised across shots and files (locally; embeddings never leave the library).
+  Name someone once and "Maria laughing in the kitchen" finds them. Merge, split or forget people at any time.
 - **Corrections stick.** Fix a tag and it is stored separately from machine output and wins over it, even after re-processing.
 - **Agents are first-class.** An MCP server and a REST API expose everything the app can do. Agents are read-only by default,
   need explicit scopes to write or export, and every agent action is audited.
-- **Runs on your hardware.** Default models run locally on CPU; a consumer GPU makes it faster. Nothing leaves the machine
-  unless you enable a hosted model adapter, and the app shows it when you do.
+- **Runs on your hardware, or faster with a provider.** Default models run locally on CPU; a consumer GPU makes it faster.
+  For richer captions and much higher throughput, plug in an OpenAI API key, OpenRouter, or your ChatGPT subscription via
+  the Codex CLI. Nothing leaves the machine until an admin enables a provider and confirms, and the app shows it when it does.
 
 ## Screenshots
 
