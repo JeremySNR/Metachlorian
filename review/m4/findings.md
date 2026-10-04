@@ -43,14 +43,14 @@ committed (27 MB).
 | medium | Journey 08's adapter form moved under the *Local* provider; saving now needs a model as well as an endpoint before anything can leave | Journey updated |
 | low | Dialog captures were taken mid-fade | Captures wait for the dialog to settle |
 
-Core gaps found while building (not fixed here; `core/` is out of scope):
-- Search results' `people` (identities) overwrites the summary's `people` count, so results no longer carry the person count (the app's types omit it).
-- The person filter is only reported as a sentence in `notes`; the app reads `query.require.person` instead. A structured `query.people: [{id, name}]` would be sturdier.
-- Match strength does not count a person filter as evidence (name-only queries score as weak).
-- Names are not unique: two identities may share a name and `/api/search` then filters by only one of them. The app offers *Merge into …* when a typed name already exists.
-- Naming (`PATCH /api/people/{id}`) marks every face of the cluster as confirmed (`assigned_by='human'`); unnaming doesn't undo that, so a journey's "restore" leaves the faces confirmed.
-- Face rows (`/api/people/{id}`) carry no frame rate or timecode; the app looks the fps up from `/api/assets`.
-- `POST /api/people/{id}/merge` with `into` equal to the id raises a `ValueError` (likely a 500, not a 400).
-- `egress.adapters[].sends` says the language model sends "queries", but search never calls the language model (only fusion and rollup do).
-- Switching an endpoint to a hosted provider clears its custom `base_url`; there is no per-provider memory, so the custom address must be retyped after a round trip (the app remembers it until the form is saved).
-- `/api/admin/providers` reports Codex status and remaining requests only for the active endpoint; a quick "is Codex set up" for an inactive provider needs `POST /api/admin/providers/test`.
+Core gaps found while building — all resolved in the core afterwards:
+- Results carry identities as `identities`; `people` is the person count again.
+- Responses give the person filter as `query.people: [{id, name}]`.
+- A query made only of known names counts every match as strong.
+- Names are unique: naming a second group with an existing name is refused with "merge them instead".
+- Naming confirms faces as `named`; un-naming reverts exactly those (individual moves and merges stay).
+- Face rows carry the file's `fps`.
+- Merging a person into themselves returns 400 (ValueError handler), as it already did.
+- Egress text says exactly what each model receives.
+- Hosted providers ignore a leftover custom address, so it is no longer lost when switching back to Local.
+- `/api/admin/providers` reports Codex installation, sign-in and today's budget even when Codex is not active.
