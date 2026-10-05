@@ -50,7 +50,8 @@ def _fields(db: Database, asset_id: int, level: str, target_id: int) -> dict:
             continue
         value = scalar(loads(r["value"]))
         if isinstance(value, list):
-            value = [v.get("term") if isinstance(v, dict) else v for v in value]
+            # Wire allowlist: at most 30 terms per field (protocol.Fields).
+            value = [v.get("term") if isinstance(v, dict) else v for v in value][:30]
         # Strict validation rejects arbitrary nested dictionaries, local references and raw model responses.
         try:
             signal = Signal(value=value, source=r["source"], confidence=r["confidence"], model_version=r["model_version"])
@@ -73,19 +74,23 @@ def build_contribution(db: Database, asset_id: int) -> Contribution | None:
         if db.q1("SELECT 1 FROM jobs WHERE asset_id=? AND status IN ('queued','running') LIMIT 1", (asset_id,)):
             return None
         shots = [{"start_s": r["start_s"], "end_s": r["end_s"], "fields": _fields(db, asset_id, "shot", r["id"])}
-                 for r in db.q("SELECT * FROM shots WHERE asset_id=? AND active=1 ORDER BY idx", (asset_id,))]
+                 for r in db.q("SELECT * FROM shots WHERE asset_id=? AND active=1 ORDER BY idx", (asset_id,))][:2000]
         moments = [{k: r[k] for k in ("kind", "start_s", "end_s", "text", "source", "model_version")}
                    for r in db.q("SELECT * FROM moments WHERE asset_id=? AND ((kind='speech' AND source='speech') OR"
-                                 " (kind='text' AND source='ocr')) ORDER BY start_s", (asset_id,))]
+                                 " (kind='text' AND source='ocr')) ORDER BY start_s", (asset_id,))][:4000]
         if not shots or not any(s["fields"] for s in shots):
             return None
         from ..ingest.importer import origin_for_asset
 
         origin = origin_for_asset(db, asset_id) or {}
-        return Contribution(video_id=job["video_id"], title=str(origin.get("title") or "YouTube video")[:500],
-                            channel=str(origin.get("uploader") or "")[:300], license=str(origin.get("license") or "")[:500],
-                            duration=float(a["duration"]) if a["duration"] and 0 < a["duration"] <= 604800 else None,
-                            fields=_fields(db, asset_id, "asset", asset_id), shots=shots, moments=moments)
+        try:
+            return Contribution(video_id=job["video_id"], title=str(origin.get("title") or "YouTube video")[:500],
+                                channel=str(origin.get("uploader") or "")[:300], license=str(origin.get("license") or "")[:500],
+                                duration=float(a["duration"]) if a["duration"] and 0 < a["duration"] <= 604800 else None,
+                                fields=_fields(db, asset_id, "asset", asset_id), shots=shots, moments=moments)
+        except ValidationError as exc:
+            # Remaining wire failures are permanent; do not treat them as a transient outage.
+            raise Ineligible("Analysis is outside the community contribution allowlist") from exc
 
 
 def suppress_pending(db: Database) -> None:

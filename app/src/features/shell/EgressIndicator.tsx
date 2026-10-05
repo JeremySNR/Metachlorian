@@ -50,7 +50,7 @@ export function EgressIndicator() {
                   <dt>Community index</dt><dd>Public YouTube analysis</dd>
                   <dt>What leaves</dt><dd>{egress.community.sends}. No videos, frames, face data or human notes.</dd>
                   <dt>Where to</dt><dd>{safeHost(egress.community.url)}</dd>
-                  <dt>When</dt><dd>After eligible imports finish analysis. Private, unlisted and local files are excluded.</dd>
+                  <dt>When</dt><dd>After eligible imports finish analysis. Local files are excluded.</dd>
                 </dl>
               )}
               <p style={{ color: 'var(--fg-2)', fontSize: 'var(--text-xs)' }}>Never sent: {NEVER_SENT.join(', ').toLowerCase()}.</p>
