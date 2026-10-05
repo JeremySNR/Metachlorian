@@ -74,7 +74,7 @@ function AdapterStatus({ settings, providers }: { settings: AdminSettings; provi
   const qc = useQueryClient()
   const [pausing, setPausing] = useState(false)
   const st = settings.settings
-  const leaves = settings.egress.content_leaves_machine
+  const leaves = settings.egress.adapters.some((a) => a.active)
   const hostedConfigured = settings.egress.adapters.length > 0
   const caption = proc.data?.analysers.find((a) => a.name === 'caption')
   const queuedCaptions = proc.data ? filesPending(proc.data.assets, 'caption') : null
@@ -102,7 +102,7 @@ function AdapterStatus({ settings, providers }: { settings: AdminSettings; provi
     try {
       await api.put('/api/admin/settings', { allow_remote: on })
       for (const k of [['admin', 'settings'], ['admin', 'providers'], ['health'], ['processing']]) qc.invalidateQueries({ queryKey: k })
-      toast({ title: on ? 'Hosted providers are on again' : 'Hosted providers paused', description: on ? undefined : 'Nothing leaves this machine until you turn them back on.', tone: 'info' })
+      toast({ title: on ? 'Hosted providers are on again' : 'Hosted providers paused', description: on ? undefined : 'Hosted models will receive no content until you turn them back on.', tone: 'info' })
     } catch (e) {
       toast({ title: "Couldn't change hosted providers", description: e instanceof ApiError ? e.detail : String(e), tone: 'error' })
     } finally {
@@ -113,7 +113,7 @@ function AdapterStatus({ settings, providers }: { settings: AdminSettings; provi
     <div className={s.statusBlock} aria-busy={proc.isFetching && !proc.data ? true : undefined}>
       <div className={s.statusHead}>
         <h2>Status</h2>
-        {leaves ? <StatusText tone="caution" icon={Cloud} filled>Leaves this machine</StatusText> : <StatusText tone="neutral" icon={HardDrive}>Local: nothing leaves this machine</StatusText>}
+        {leaves ? <StatusText tone="caution" icon={Cloud} filled>Leaves this machine</StatusText> : <StatusText tone="neutral" icon={HardDrive}>Model analysis stays here</StatusText>}
       </div>
       <dl className={s.statusList}>
         {row('vlm')}

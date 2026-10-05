@@ -76,3 +76,16 @@ Roles viewer/editor/admin/agent with scopes; argon2 passwords; hashed bearer tok
 CSRF rule; solo mode accepts only loopback clients with a loopback Host header (DNS-rebinding defence); refusal to listen on a
 network address without auth; audit log of all writes and all agent calls; hosted model adapters off by default and refused
 unless `allow_remote` is set, with the egress state shown in the UI.
+
+Community sharing is independent of model providers. New YouTube downloads enroll in a durable local outbox while
+`community_enabled` is true (the default). The import UI warns that analysis metadata becomes public and tells users to
+turn sharing off before importing private, unlisted or sensitive YouTube videos. Visibility is not checked locally or
+by the server; no YouTube API key is needed. The publisher waits for analysis to finish, checks that the downloaded
+bytes have not been replaced, and sends only allowlisted machine signals, timestamped speech/OCR moments and download
+metadata (title/channel/licence/duration). Human library edits and private records are excluded.
+Local/personal imports, other websites and duplicate local assets never enroll. Opt-out suppresses outstanding
+contributions without backfilling on re-enable. Egress reporting shows the community destination separately from
+hosted model providers. Private library search never sends its records to community search.
+The separate [community service](https://github.com/JeremySNR/Metachlorian-community) uses its own Postgres database,
+validates/deduplicates contributions and indexes content by timestamp. Results identify metadata as community supplied;
+moderator suppression removes records, while changes to YouTube visibility do not automatically remove them.

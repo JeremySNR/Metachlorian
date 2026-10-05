@@ -8,7 +8,7 @@ import {
 } from 'lucide-react'
 import type { ImportList, ImportRow, ImportStatus } from '../../api/types'
 import { api, ApiError } from '../../api/client'
-import { useFolders, useImports, useImportTool, useMe } from '../../api/queries'
+import { useFolders, useHealth, useImports, useImportTool, useMe } from '../../api/queries'
 import { Button, buttonClass } from '../../components/Button'
 import { Bar, StatusText } from '../../components/EmptyState'
 import { Checkbox, ComboBox, Select, TextField } from '../../components/Field'
@@ -41,6 +41,7 @@ const STATUS_ICON: Record<ImportStatus, LucideIcon> = {
 /** Ingest → Add from links: paste links, choose a folder and a quality cap (docs/guides/importing-from-the-web.md). */
 export function AddFromLinks() {
   const me = useMe()
+  const health = useHealth()
   const tool = useImportTool()
   const folders = useFolders()
   const qc = useQueryClient()
@@ -105,6 +106,12 @@ export function AddFromLinks() {
       }}
       data-testid="add-from-links"
     >
+      <p className={s.hint} role={health.data?.egress.community?.enabled === false ? undefined : 'alert'}>
+        {health.data?.egress.community?.enabled === false
+          ? 'Community sharing is off. No community metadata is shared.'
+          : 'Warning: YouTube imports publish analysis metadata by default, including transcripts and on-screen text. If a video is private, unlisted or sensitive, turn off Community sharing before importing it.'}
+        {' '}<Link to="/settings/$section" params={{ section: 'community' }}>Community sharing settings</Link>
+      </p>
       <div ref={wrap} className={s.links}>
         <TextField
           name="links"
@@ -371,4 +378,3 @@ function ImportItem({ row, kids, root, currentId, act, nested }: { row: ImportRo
     </li>
   )
 }
-

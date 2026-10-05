@@ -15,14 +15,14 @@ export function EgressIndicator() {
   const active = egress?.adapters.filter((a) => a.active) ?? []
   return (
     <DialogTrigger>
-      <RacButton className={`${s.egress} ${remote ? s.egressRemote : ''}`} aria-label={remote ? 'Content leaves this machine. Show details' : 'Local: nothing leaves this machine. Show details'} data-testid="egress">
+      <RacButton className={`${s.egress} ${remote ? s.egressRemote : ''}`} aria-label={remote ? 'Content leaves this machine. Show details' : 'Local library analysis. Show content destinations'} data-testid="egress">
         <Ic icon={remote ? Cloud : HardDrive} size={16} />
         <span>{remote ? 'Leaves this machine' : 'Local'}</span>
       </RacButton>
       <Popover placement="bottom end" offset={6} className={`${o.popover} ${o.dialogPopover}`}>
         <Dialog className={s.egressPanel} aria-label="Where content goes">
           <Heading slot="title" level={3}>
-            {remote ? 'Content leaves this machine' : 'Everything runs on this machine'}
+            {remote ? 'Content leaves this machine' : 'Library analysis runs on this machine'}
           </Heading>
           {remote ? (
             <>
@@ -45,14 +45,24 @@ export function EgressIndicator() {
                   </dl>
                 )
               })}
+              {egress?.community?.active && (
+                <dl className={s.egressRow}>
+                  <dt>Community index</dt><dd>Public YouTube analysis</dd>
+                  <dt>What leaves</dt><dd>{egress.community.sends}. No videos, frames, face data or human notes.</dd>
+                  <dt>Where to</dt><dd>{safeHost(egress.community.url)}</dd>
+                  <dt>When</dt><dd>After eligible imports finish analysis. Private, unlisted and local files are excluded.</dd>
+                </dl>
+              )}
               <p style={{ color: 'var(--fg-2)', fontSize: 'var(--text-xs)' }}>Never sent: {NEVER_SENT.join(', ').toLowerCase()}.</p>
             </>
           ) : (
             <p style={{ color: 'var(--fg-2)' }}>
-              Analysis, search, previews and face recognition use local models and this server. Footage, frames, audio, text and face data stay here.
+              Library analysis, private-library search, previews and face recognition use local models and this server. Footage, frames, audio, text and face data stay here.
               {data && !data.vlm && ' No vision language model is configured, so descriptions come from the CPU tier.'}
             </p>
           )}
+          {egress?.community?.url && <p style={{ color: 'var(--fg-2)', fontSize: 'var(--text-xs)' }}>Community searches send the query to {safeHost(egress.community.url)} when you search, even when contribution sharing is off.</p>}
+          <Link to="/settings/$section" params={{ section: 'community' }}>Community sharing settings</Link>
           <Link to="/settings/$section" params={{ section: 'adapters' }}>
             Model adapters settings
           </Link>

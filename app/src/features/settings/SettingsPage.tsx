@@ -9,6 +9,7 @@ import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { ModelAdapters } from './ModelProviders'
 import { ImportSettings } from './ImportSettings'
 import { FormatsSettings } from './Formats'
+import { CommunitySettings } from '../community/CommunityPage'
 import { Button } from '../../components/Button'
 import { Dialog } from '../../components/Dialog'
 import { EmptyState, StatusText } from '../../components/EmptyState'
@@ -30,6 +31,7 @@ const SECTIONS: { id: string; label: string; admin?: boolean; desktop?: boolean 
   { id: 'users', label: 'Users and roles', admin: true },
   { id: 'tokens', label: 'API tokens for agents', admin: true },
   { id: 'adapters', label: 'Model adapters', admin: true },
+  { id: 'community', label: 'Community sharing', admin: true },
   { id: 'privacy', label: 'Privacy and analysis', admin: true },
   { id: 'imports', label: 'Imports' },
   { id: 'formats', label: 'Formats' },
@@ -72,6 +74,7 @@ export function SettingsPage() {
           {current?.id === 'users' && <Users />}
           {current?.id === 'tokens' && <Tokens />}
           {current?.id === 'adapters' && <ModelAdapters onAdminError={(e) => <AdminOnly error={e} />} />}
+          {current?.id === 'community' && <CommunitySettings />}
           {current?.id === 'privacy' && <PrivacySettings />}
           {current?.id === 'imports' && <ImportSettings />}
           {current?.id === 'formats' && <FormatsSettings />}
@@ -415,7 +418,7 @@ function PrivacySettings() {
       setBusy(false)
     }
   }
-  const remote = health.data?.egress.content_leaves_machine
+  const remote = health.data?.egress.adapters.some((a) => a.active)
   const known = people.data?.total ?? 0
   return (
     <section className={s.group}>
@@ -442,7 +445,7 @@ function PrivacySettings() {
       <div className={s.group}>
         <h2>Model providers</h2>
         <Row label="Where analysis runs" hint="Captions and summaries can use a hosted provider; everything else runs here.">
-          {remote ? <StatusText tone="caution" icon={Cloud} filled>Leaves this machine</StatusText> : <StatusText tone="neutral" icon={HardDrive}>Local: nothing leaves this machine</StatusText>}
+          {remote ? <StatusText tone="caution" icon={Cloud} filled>Leaves this machine</StatusText> : <StatusText tone="neutral" icon={HardDrive}>Model analysis stays here</StatusText>}
         </Row>
         <div>
           <Link to="/settings/$section" params={{ section: 'adapters' }} className={s.inlineLink}>

@@ -321,6 +321,10 @@ def _process(db: Database, settings: Settings, iid: int, owner: _Runner) -> None
     if aid:
         _store_origin(db, aid, origin, replace=True)
         _prefill_rights(db, aid, info, e, job["actor"])
+        from ..community.publisher import enroll
+
+        if outcome == "added":
+            enroll(db, settings, aid, e.get("site") or "", info)
         from ..indexer import index_asset
 
         try:

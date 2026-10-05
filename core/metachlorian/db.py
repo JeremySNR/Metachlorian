@@ -15,7 +15,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Iterator
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 7
 
 MIGRATIONS: list[str] = [
     # ---------------------------------------------------------------- v1
@@ -388,6 +388,21 @@ MIGRATIONS: list[str] = [
     CREATE INDEX imports_status ON imports(status);
     CREATE INDEX imports_origin ON imports(origin_key);
     CREATE INDEX imports_asset ON imports(asset_id);
+    """,
+    # v7: enrolled public YouTube imports only; no private payloads are persisted here.
+    """
+    CREATE TABLE community_outbox (
+        asset_id INTEGER PRIMARY KEY REFERENCES assets(id) ON DELETE CASCADE,
+        video_id TEXT NOT NULL,
+        imported_hash TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        digest TEXT NOT NULL DEFAULT '',
+        destination TEXT NOT NULL DEFAULT '',
+        attempts INTEGER NOT NULL DEFAULT 0,
+        run_after REAL NOT NULL DEFAULT 0,
+        message TEXT NOT NULL DEFAULT '',
+        updated_at REAL NOT NULL
+    );
     """,
 ]
 
