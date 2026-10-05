@@ -104,6 +104,46 @@ def test_sync_retries_deduplicates_and_updates_analysis(ready, monkeypatch):
     assert calls[-1]["shots"][0]["fields"]["content.caption"]["value"] == "Ocean waves"
 
 
+def test_many_machine_terms_are_bounded_before_publishing(ready):
+    settings, db, aid, sid, _ = ready
+    terms = [{"term": f"object-{i}"} for i in range(31)]
+    db.x("INSERT INTO signals(level,target_id,asset_id,name,value,source,confidence,model_version,created_at)"
+         " VALUES('shot',?,?,'content.objects',?,'fusion',0.8,'1',?)", (sid, aid, dumps(terms), now()))
+    enroll(ready)
+    settings.community_url = "https://community.example"
+    received = []
+    def receive(request):
+        received.append(json.loads(request.content))
+        return httpx.Response(200)
+    assert publisher.sync_once(db, settings, httpx.MockTransport(receive)) == 1
+    assert received[0]["shots"][0]["fields"]["content.objects"]["value"] == [f"object-{i}" for i in range(30)]
+
+
+@pytest.mark.parametrize("invalid", ["shots", "moments", "moment_text", "moment_span"])
+def test_invalid_analysis_is_suppressed_without_network_or_retries(ready, invalid):
+    settings, db, aid, _, _ = ready
+    with db.tx() as conn:
+        if invalid == "shots":
+            conn.executemany("INSERT INTO shots(uid,asset_id,idx,start_s,end_s,start_frame,end_frame,segmenter)"
+                             " VALUES(?,?,?,0,20,0,500,'shots@1')",
+                             [(f"extra-{i}", aid, i + 1) for i in range(2000)])
+        else:
+            count = 4001 if invalid == "moments" else 1
+            text = "PRIVATE" * 2001 if invalid == "moment_text" else "Transcript"
+            end = 0 if invalid == "moment_span" else 20
+            conn.executemany("INSERT INTO moments(asset_id,kind,start_s,end_s,text,source,model_version)"
+                             " VALUES(?,'speech',0,?,?,'speech','1')", [(aid, end, text)] * count)
+    enroll(ready)
+    settings.community_url = "https://community.example"
+    transport = httpx.MockTransport(lambda r: pytest.fail("invalid analysis must never POST"))
+    assert publisher.sync_once(db, settings, transport) == 0
+    job = db.q1("SELECT * FROM community_outbox")
+    assert job["status"] == "suppressed" and job["attempts"] == 0
+    assert job["message"] == "Analysis does not meet community contribution limits"
+    assert publisher.sync_once(db, settings, transport) == 0
+    assert db.q1("SELECT attempts FROM community_outbox")[0] == 0
+
+
 def test_unfinished_analysis_cannot_starve_later_contributions(ready, tmp_path, monkeypatch):
     settings, db, aid, *_ = ready
     settings.community_url = "https://community.example"

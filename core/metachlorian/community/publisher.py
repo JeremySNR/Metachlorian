@@ -50,7 +50,7 @@ def _fields(db: Database, asset_id: int, level: str, target_id: int) -> dict:
             continue
         value = scalar(loads(r["value"]))
         if isinstance(value, list):
-            value = [v.get("term") if isinstance(v, dict) else v for v in value]
+            value = [v.get("term") if isinstance(v, dict) else v for v in value[:30]]
         # Strict validation rejects arbitrary nested dictionaries, local references and raw model responses.
         try:
             signal = Signal(value=value, source=r["source"], confidence=r["confidence"], model_version=r["model_version"])
@@ -143,6 +143,11 @@ def sync_once(db: Database, settings: Settings, transport: httpx.BaseTransport |
             db.x("UPDATE community_outbox SET digest=?, destination=?, status='shared', attempts=0, run_after=?, message='Shared',"
                  " updated_at=? WHERE asset_id=? AND status != 'suppressed'", (digest, endpoint, now() + 300, now(), job["asset_id"]))
             sent += 1
+        except ValidationError:
+            # Invalid analysis is permanent for this snapshot, not a service outage.
+            # Do not expose validation details, which can include transcript text.
+            db.x("UPDATE community_outbox SET status='suppressed', message='Analysis does not meet community contribution limits',"
+                 " updated_at=? WHERE asset_id=?", (now(), job["asset_id"]))
         except Ineligible:
             db.x("UPDATE community_outbox SET status='suppressed', message='Import is not eligible for sharing', updated_at=?"
                  " WHERE asset_id=?", (now(), job["asset_id"]))
