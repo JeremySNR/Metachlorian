@@ -193,14 +193,16 @@ def test_new_public_youtube_import_enrolls_only_downloaded_bytes(fake):
     assert enrolled["imported_hash"] == db.q1("SELECT content_hash FROM assets WHERE id=?", (row["asset_id"],))[0]
 
 
-def test_unlisted_and_opted_out_imports_never_enter_outbox(fake):
+def test_unlisted_imports_share_when_enabled_and_opted_out_imports_do_not(fake):
     s, db, lib, _ = fake
     iid = lib.import_urls(LOCAL_ADMIN, ["https://www.youtube.com/watch?v=unlisted123"])["imports"][0]["id"]
-    assert _wait(db, [iid])[iid]["status"] == "done"
+    row = _wait(db, [iid])[iid]
+    assert row["status"] == "done"
+    assert db.q1("SELECT video_id FROM community_outbox WHERE asset_id=?", (row["asset_id"],))[0] == "unlisted123"
     s.community_enabled = False
     iid = lib.import_urls(LOCAL_ADMIN, ["https://www.youtube.com/watch?v=public12345"])["imports"][0]["id"]
     assert _wait(db, [iid])[iid]["status"] == "done"
-    assert not db.q("SELECT * FROM community_outbox")
+    assert [r["video_id"] for r in db.q("SELECT * FROM community_outbox")] == ["unlisted123"]
 
 
 def test_import_duplicate_of_personal_file_does_not_enroll(fake, sample_video):

@@ -106,10 +106,10 @@ export function AddFromLinks() {
       }}
       data-testid="add-from-links"
     >
-      <p className={s.hint}>
+      <p className={s.hint} role={health.data?.egress.community?.enabled === false ? undefined : 'alert'}>
         {health.data?.egress.community?.enabled === false
           ? 'Community sharing is off. No community metadata is shared.'
-          : 'Public YouTube imports contribute machine analysis to the community index. Private, unlisted and local footage is excluded.'}
+          : 'Warning: YouTube imports publish analysis metadata by default, including transcripts and on-screen text. If a video is private, unlisted or sensitive, turn off Community sharing before importing it.'}
         {' '}<Link to="/settings/$section" params={{ section: 'community' }}>Community sharing settings</Link>
       </p>
       <div ref={wrap} className={s.links}>

@@ -28,8 +28,8 @@ export function CommunityPage() {
   })
   return (
     <main id="main" className={s.page}>
-      <header><p className={s.eyebrow}>Metachlorian Community</p><h1>Find a moment in public video.</h1>
-        <p>Search the content people have analysed from public YouTube videos: descriptions, camera movement, spoken words and on-screen text.</p></header>
+      <header><p className={s.eyebrow}>Metachlorian Community</p><h1>Find a moment in YouTube video.</h1>
+        <p>Search the content people have analysed from YouTube videos: descriptions, camera movement, spoken words and on-screen text.</p></header>
       <form className={s.search} onSubmit={(e) => {
         e.preventDefault()
         const query = text.trim()
@@ -41,16 +41,16 @@ export function CommunityPage() {
       </form>
       {status.isError && <p role="alert">Couldn’t read community status. {String(status.error.message)}</p>}
       {status.data && !status.data.configured && <EmptyState inline title="Community service is not connected yet">An admin can connect it in <Link to="/settings/$section" params={{ section: 'community' }}>Community sharing settings</Link>.</EmptyState>}
-      <p className={s.note}>Community search sends your query to the community service. Results open on YouTube. Contributions are machine-generated and may contain errors; a result does not establish permission to reuse footage.</p>
+      <p className={s.note}>Community search sends your query to the community service. Results open on YouTube. Video visibility is not checked. Metadata may remain here after a video becomes private or is deleted. Contributions are machine-generated and may contain errors; a result does not establish permission to reuse footage.</p>
       <section aria-live="polite" aria-busy={results.isFetching}>
         {results.isError && <p role="alert">Couldn’t search the community. {results.error.message}</p>}
-        {results.data && <p>{results.data.results.length} moments on this page{results.data.hidden_pending_visibility ? ` · ${results.data.hidden_pending_visibility} hidden while public visibility is checked` : ''}</p>}
-        {results.data?.results.length === 0 && <EmptyState inline title="No public moments found">Try fewer words, or search again once more videos have been analysed.</EmptyState>}
+        {results.data && <p>{results.data.results.length} moments on this page</p>}
+        {results.data?.results.length === 0 && <EmptyState inline title="No community moments found">Try fewer words, or search again once more videos have been analysed.</EmptyState>}
         <div className={s.results}>{results.data?.results.map((r, i) => (
           <article key={`${r.video_id}-${r.start_s}-${r.kind}-${i}`} className={s.card}>
             <p className={s.eyebrow}>{r.kind} · {formatLength(r.start_s)} – {formatLength(r.end_s)}</p>
             <h2><a href={`https://www.youtube.com/watch?v=${encodeURIComponent(r.video_id)}&t=${Math.max(0, Math.floor(r.start_s))}s`} target="_blank" rel="noopener noreferrer">{r.title}</a></h2><p>{r.channel}</p>
-            <p>{r.snippet}</p><p className={s.note}>Community analysis · {r.license || 'Licence not provided by YouTube'}</p>
+            <p>{r.snippet}</p><p className={s.note}>Contributor-reported licence · {r.license || 'Licence not provided'}</p>
           </article>
         ))}</div>
         {results.data?.next_offset != null && <Button variant="quiet" isDisabled={results.isFetching} onPress={() => setSubmitted({ query: submitted?.query ?? '', offset: results.data?.next_offset ?? 0 })}>Next page</Button>}
@@ -79,11 +79,12 @@ export function CommunitySettings() {
   if (!st) return <div aria-busy="true" />
   return (
     <section className={s.settings}>
-      <h2>Help make public videos searchable</h2>
-      <Switch isSelected={st.community_enabled ?? true} isDisabled={busy} onChange={(on) => save({ community_enabled: on })}>Share analysis of public YouTube imports</Switch>
-      <p>On by default. After a newly downloaded public YouTube video finishes analysis, its machine descriptions, tags, shot times, transcripts and on-screen text contribute to the public community database.</p>
-      <ul><li>Public visibility is checked without your login before each contribution, and independently by the community service.</li>
-        <li>Local or personal files, private or unlisted videos, other websites and duplicates of local footage are excluded.</li>
+      <h2>Help make YouTube videos searchable</h2>
+      <Switch isSelected={st.community_enabled ?? true} isDisabled={busy} onChange={(on) => save({ community_enabled: on })}>Publish analysis of YouTube imports</Switch>
+      <p>On by default. After a newly downloaded YouTube video finishes analysis, its machine descriptions, tags, shot times, transcripts and on-screen text contribute to the public community database.</p>
+      <p role="alert"><strong>Private or unlisted YouTube video?</strong> Turn sharing off before importing it if you want its metadata to stay private. Video visibility is not checked; titles, descriptions, transcripts and on-screen text can become publicly searchable.</p>
+      <ul>
+        <li>Local or personal files, other websites and duplicates of local footage are excluded.</li>
         <li>Videos, frames, audio files, face identities, local paths, your corrections, notes and rights records stay in your library.</li>
         <li>Turning this off stops pending contributions. Videos imported while it is off are not shared later. Previously published metadata stays public; removal requests go to the community operator.</li></ul>
       <form onSubmit={(e) => { e.preventDefault(); save({ community_url: (endpoint ?? st.community_url ?? '').trim() }) }}>

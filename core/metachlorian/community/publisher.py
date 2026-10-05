@@ -1,7 +1,8 @@
-"""Durable contribution queue. It contains only assets enrolled by a successful public YouTube download.
+"""Durable contribution queue for newly downloaded YouTube videos.
 
 Sharing is independent of hosted model settings. Rebuild the allowlisted payload at send time; do not queue private
-library records. A changed local file, opt-out, deletion or uncertain visibility prevents a contribution.
+library records. A changed local file, opt-out or deletion prevents a contribution. Visibility is not verified;
+the import UI warns users to turn sharing off before importing private or unlisted videos.
 """
 from __future__ import annotations
 
@@ -17,15 +18,18 @@ from ..config import Settings
 from ..db import Database, loads, now
 from ..records import scalar
 from .protocol import Contribution, FIELDS, Signal, youtube_url, validate_endpoint
-from .public import NotPublic, verify_public
 
 log = logging.getLogger(__name__)
 SOURCES = {"fusion", "rollup", "speech", "ocr", "motion", "audio", "quality", "visual_tags"}
 
 
+class Ineligible(ValueError):
+    pass
+
+
 def enroll(db: Database, settings: Settings, asset_id: int, site: str, info: dict) -> None:
     """Called only for new downloaded bytes, never for local duplicates or scanned files. No historical backfill."""
-    if not settings.community_enabled or site.lower() != "youtube" or info.get("availability") != "public":
+    if not settings.community_enabled or site.lower() != "youtube":
         return
     video_id = info.get("id") or ""
     try:
@@ -75,7 +79,13 @@ def build_contribution(db: Database, asset_id: int) -> Contribution | None:
                                  " (kind='text' AND source='ocr')) ORDER BY start_s", (asset_id,))]
         if not shots or not any(s["fields"] for s in shots):
             return None
-        return Contribution(video_id=job["video_id"], fields=_fields(db, asset_id, "asset", asset_id), shots=shots, moments=moments)
+        from ..ingest.importer import origin_for_asset
+
+        origin = origin_for_asset(db, asset_id) or {}
+        return Contribution(video_id=job["video_id"], title=str(origin.get("title") or "YouTube video")[:500],
+                            channel=str(origin.get("uploader") or "")[:300], license=str(origin.get("license") or "")[:500],
+                            duration=float(a["duration"]) if a["duration"] and 0 < a["duration"] <= 604800 else None,
+                            fields=_fields(db, asset_id, "asset", asset_id), shots=shots, moments=moments)
 
 
 def suppress_pending(db: Database) -> None:
@@ -110,9 +120,8 @@ def sync_once(db: Database, settings: Settings, transport: httpx.BaseTransport |
             from ..ingest.scan import content_hash
             asset = db.q1("SELECT path, local_path FROM assets WHERE id=?", (job["asset_id"],))
             if not asset or content_hash(asset["local_path"] or asset["path"]) != job["imported_hash"]:
-                raise NotPublic("The downloaded file was changed locally")
-            verify_public(contribution.video_id, settings)
-            # Recheck after the external visibility probe: a user may have opted out or changed a file meanwhile.
+                raise Ineligible("The downloaded file was changed locally")
+            # Recheck after hashing: a user may have opted out or changed the analysis meanwhile.
             if not settings.community_enabled or settings.community_url.rstrip("/") != endpoint:
                 break
             current = build_contribution(db, job["asset_id"])
@@ -121,19 +130,21 @@ def sync_once(db: Database, settings: Settings, transport: httpx.BaseTransport |
                      (now() + 300, job["asset_id"]))
                 continue
             if content_hash(asset["local_path"] or asset["path"]) != job["imported_hash"]:
-                raise NotPublic("The downloaded file was changed locally")
+                raise Ineligible("The downloaded file was changed locally")
             if len(body.encode()) > 2 * 1024 * 1024:
-                raise NotPublic("Analysis exceeds the community contribution size limit")
+                raise Ineligible("Analysis exceeds the community contribution size limit")
+            if not settings.community_enabled or settings.community_url.rstrip("/") != endpoint:
+                break
             with httpx.Client(timeout=45, follow_redirects=False, transport=transport, trust_env=False) as client:
                 response = client.post(endpoint + "/v1/contributions", content=body, headers={"Content-Type": "application/json"})
                 if response.status_code in (400, 403, 413, 422):
-                    raise NotPublic("The service rejected this contribution")
+                    raise Ineligible("The service rejected this contribution")
                 response.raise_for_status()
             db.x("UPDATE community_outbox SET digest=?, destination=?, status='shared', attempts=0, run_after=?, message='Shared',"
                  " updated_at=? WHERE asset_id=? AND status != 'suppressed'", (digest, endpoint, now() + 300, now(), job["asset_id"]))
             sent += 1
-        except NotPublic:
-            db.x("UPDATE community_outbox SET status='suppressed', message='Video is not eligible for public sharing', updated_at=?"
+        except Ineligible:
+            db.x("UPDATE community_outbox SET status='suppressed', message='Import is not eligible for sharing', updated_at=?"
                  " WHERE asset_id=?", (now(), job["asset_id"]))
         except Exception:
             attempts = job["attempts"] + 1

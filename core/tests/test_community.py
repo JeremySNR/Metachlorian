@@ -1,14 +1,14 @@
 """Privacy boundary and durable publisher behaviour; network is always replaced with test transports."""
 import json
-import subprocess
 
 import httpx
 import pytest
 
-from metachlorian.community import publisher, public
+from metachlorian.community import publisher
 from metachlorian.community.protocol import Contribution, validate_endpoint
 from metachlorian.config import Settings, load_settings
 from metachlorian.db import dumps, now
+from metachlorian.ingest import scan
 from metachlorian.ingest.scan import content_hash, register_file
 from metachlorian.runtime import save_settings
 
@@ -34,9 +34,9 @@ def enroll(ready, availability="public", site="Youtube"):
 
 
 @pytest.mark.parametrize("availability", [None, "unlisted", "private", "subscriber_only", "needs_auth", "premium_only"])
-def test_nonpublic_and_unknown_downloads_never_enroll(ready, availability):
+def test_youtube_downloads_enroll_without_visibility_checks(ready, availability):
     enroll(ready, availability)
-    assert ready[1].q("SELECT * FROM community_outbox") == []
+    assert ready[1].q1("SELECT video_id FROM community_outbox")[0] == VIDEO
 
 
 def test_default_opt_out_and_no_backfill(ready):
@@ -63,7 +63,6 @@ def test_local_files_other_sites_and_changed_bytes_are_excluded(ready, monkeypat
     enroll(ready)
     settings.community_url = "https://community.example"
     path.write_bytes(b"personal footage that replaced the downloaded file")
-    monkeypatch.setattr(publisher, "verify_public", lambda *a: pytest.fail("changed bytes must never reach a public probe"))
     assert publisher.sync_once(db, settings) == 0
     assert db.q1("SELECT status FROM community_outbox")[0] == "suppressed"
 
@@ -88,7 +87,6 @@ def test_sync_retries_deduplicates_and_updates_analysis(ready, monkeypatch):
     settings, db, aid, sid, _ = ready
     enroll(ready)
     settings.community_url = "https://community.example"
-    monkeypatch.setattr(publisher, "verify_public", lambda *a: {})
     calls = []
     def receive(request):
         calls.append(json.loads(request.content))
@@ -119,7 +117,6 @@ def test_unfinished_analysis_cannot_starve_later_contributions(ready, tmp_path, 
         db.x("UPDATE community_outbox SET updated_at=0 WHERE asset_id=?", (waiting,))
     enroll(ready)
     db.x("UPDATE community_outbox SET updated_at=1 WHERE asset_id=?", (aid,))
-    monkeypatch.setattr(publisher, "verify_public", lambda *a: {})
     received = []
     def receive(request):
         received.append(json.loads(request.content))
@@ -130,32 +127,34 @@ def test_unfinished_analysis_cannot_starve_later_contributions(ready, tmp_path, 
     assert len(received) == 1 and received[0]["shots"][0]["fields"]["content.caption"]["value"] == "Coastal drone sunset"
 
 
-def test_opt_out_during_visibility_probe_sends_nothing(ready, monkeypatch):
+def test_opt_out_during_file_check_sends_nothing(ready, monkeypatch):
     settings, db, *_ = ready
     enroll(ready)
     settings.community_url = "https://community.example"
-    def probe(*a):
+    def hash_file(path):
+        digest = content_hash(path)
         save_settings(settings, {"community_enabled": False})
-        return {}
-    monkeypatch.setattr(publisher, "verify_public", probe)
+        return digest
+    monkeypatch.setattr(scan, "content_hash", hash_file)
     transport = httpx.MockTransport(lambda r: pytest.fail("opt-out must prevent POST"))
     assert publisher.sync_once(db, settings, transport) == 0
 
 
-def test_replacement_during_probe_and_service_rejection_stop_sharing(ready, monkeypatch):
+def test_replacement_during_file_check_and_service_rejection_stop_sharing(ready, monkeypatch):
     settings, db, _, _, path = ready
     enroll(ready)
     settings.community_url = "https://community.example"
     original = path.read_bytes()
-    def probe(*a):
-        path.write_bytes(b"replaced with personal footage during public visibility check")
-        return {}
-    monkeypatch.setattr(publisher, "verify_public", probe)
+    def hash_file(file):
+        digest = content_hash(file)
+        path.write_bytes(b"personal footage replaced the downloaded file")
+        return digest
+    monkeypatch.setattr(scan, "content_hash", hash_file)
     assert publisher.sync_once(db, settings, httpx.MockTransport(lambda r: pytest.fail("changed file must not POST"))) == 0
     assert db.q1("SELECT status FROM community_outbox")[0] == "suppressed"
     path.write_bytes(original)
     db.x("UPDATE community_outbox SET status='pending'")
-    monkeypatch.setattr(publisher, "verify_public", lambda *a: {})
+    monkeypatch.setattr(scan, "content_hash", content_hash)
     assert publisher.sync_once(db, settings, httpx.MockTransport(lambda r: httpx.Response(403))) == 0
     assert db.q1("SELECT status FROM community_outbox")[0] == "suppressed"
 
@@ -165,7 +164,6 @@ def test_inflight_response_cannot_restore_opted_out_queue(ready, monkeypatch, re
     settings, db, *_ = ready
     enroll(ready)
     settings.community_url = "https://community.example"
-    monkeypatch.setattr(publisher, "verify_public", lambda *a: {})
     def receive(request):
         save_settings(settings, {"community_enabled": False})
         return httpx.Response(response_code)
@@ -182,21 +180,25 @@ def test_processing_deletion_and_replaced_library_records_never_publish(ready):
         assert publisher.build_contribution(db, aid) is None
 
 
-def test_visibility_probe_never_uses_cookies_config_or_plugins(ready, monkeypatch):
-    settings, *_ = ready
+def test_download_metadata_is_allowlisted_and_only_the_contribution_is_sent(ready, monkeypatch):
+    from metachlorian.ingest.importer import _store_origin
+
+    settings, db, aid, *_ = ready
+    settings.community_url = "https://community.example"
     settings.import_cookies_browser = "chrome"
     (settings.data_dir / "import-cookies.txt").write_text("PRIVATE COOKIE")
-    monkeypatch.setattr(public.ytdlp, "find", lambda _: "yt-dlp")
-    calls = []
-    def run(args, **kwargs):
-        calls.append(args)
-        return subprocess.CompletedProcess(args, 0, json.dumps({"id": VIDEO, "extractor_key": "Youtube", "availability": "public"}), "")
-    monkeypatch.setattr(public.subprocess, "run", run)
-    public.verify_public(VIDEO, settings)
-    args = calls[0]
-    assert "--ignore-config" in args and "--no-plugin-dirs" in args
-    assert not any("cookie" in x or "chrome" in x for x in args)
-    assert args[-1] == f"https://www.youtube.com/watch?v={VIDEO}"
+    _store_origin(db, aid, {"title": "Imported YouTube title", "uploader": "YouTube channel", "license": "CC BY",
+                           "description": "PRIVATE DESCRIPTION", "url": "https://example.com?token=PRIVATE", "tags": ["PRIVATE"]}, True)
+    enroll(ready, availability="private")
+    def receive(request):
+        assert str(request.url) == "https://community.example/v1/contributions"
+        assert "cookie" not in request.headers
+        assert "PRIVATE" not in request.content.decode()
+        data = json.loads(request.content)
+        assert data["title"] == "Imported YouTube title" and data["channel"] == "YouTube channel"
+        assert data["license"] == "CC BY" and data["duration"] == 20
+        return httpx.Response(200)
+    assert publisher.sync_once(db, settings, httpx.MockTransport(receive)) == 1
 
 
 @pytest.mark.parametrize("value", ["http://remote.example", "https://user:pass@example.com", "https://example.com?token=secret", "file:///tmp/db"])

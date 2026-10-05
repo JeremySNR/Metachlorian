@@ -2,7 +2,7 @@
 
 Configuration comes from (lowest to highest precedence): built-in defaults,
 ``<data_dir>/config.toml``, then ``METACHLORIAN_*`` environment variables.
-Hosted model adapters are off by default. Public YouTube metadata contributions
+Hosted model adapters are off by default. YouTube metadata contributions
 are enabled by default; both are reported by :func:`Settings.egress_summary`.
 """
 from __future__ import annotations
@@ -156,7 +156,7 @@ class Settings:
     vlm: ModelEndpoint = field(default_factory=ModelEndpoint)
     llm: ModelEndpoint = field(default_factory=ModelEndpoint)
     allow_remote: bool = False
-    # Only newly imported, explicitly public YouTube videos are eligible. Admins can opt out or use their own service.
+    # Only newly downloaded YouTube videos are eligible; the import UI warns about public metadata. Admins can opt out or use their own service.
     community_enabled: bool = True
     community_url: str = "https://metachlorian-community.vercel.app"
     # Face identity (recognise and name people). On by default: embeddings stay in this library and are
@@ -226,7 +226,7 @@ class Settings:
         return {"content_leaves_machine": any(i["active"] for i in items) or bool(self.community_enabled and self.community_url),
                 "adapters": items, "community": {"enabled": self.community_enabled, "url": self.community_url,
                 "active": bool(self.community_enabled and self.community_url),
-                "sends": "machine analysis metadata and timestamps from anonymously verified public YouTube imports"}}
+                "sends": "machine analysis metadata and timestamps from YouTube imports; video visibility is not checked"}}
 
     def public_dict(self) -> dict[str, Any]:
         d = asdict(self)

@@ -1,1 +1,1 @@
-"""Public YouTube analysis exchange, separate from a user's private library."""
+"""YouTube metadata exchange, separate from a user's local library."""

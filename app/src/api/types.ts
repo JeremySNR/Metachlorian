@@ -1050,7 +1050,6 @@ export interface CommunityStatus {
 export interface CommunityResults {
   query: string
   next_offset: number | null
-  hidden_pending_visibility: number
   results: Array<{
     video_id: string; url: string; title: string; channel: string; license: string; kind: string
     start_s: number; end_s: number; snippet: string
