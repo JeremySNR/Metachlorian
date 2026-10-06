@@ -38,6 +38,7 @@ CORRECTABLE: dict[str, str] = {**{k: ("terms" if multi else "term") for k, (_, m
                                "content.caption": "text", "content.summary": "text", "content.location": "text",
                                "people.count": "int", "quality.usable": "bool", "people.talking_to_camera": "bool",
                                "content.ocr_text": "text", "audio.transcript": "text", "tags": "terms"}
+CORRECTABLE.update({f"content.{k}": "text" for k in ("destination", "venue", "area", "attraction_or_show")})
 ASSET_CORRECTABLE = {"structure.edit_type": "term", "content.location": "text", "semantic.summary": "text", "title": "text",
                      "tags": "terms", "capture_date": "text"}
 
@@ -228,6 +229,8 @@ def shot_doc(asset: dict[str, Any], s: dict[str, Any], fields: dict[str, dict[st
         # Where an imported file came from (web link); the long description stays on the file record.
         "origin": {k: v for k, v in asset["origin"].items() if k != "description"} if asset.get("origin") else None,
         "fields": fields,
+        "place_recognition": {k: fields[f"content.{k}"].get("value") for k in
+                              ("destination", "venue", "area", "attraction_or_show") if f"content.{k}" in fields},
         "moments": [{"kind": m["kind"], "start": m["start_s"], "end": m["end_s"], "text": m["text"], "confidence": m["confidence"],
                      "source": m["source"], "data": {k: v for k, v in (loads(m["data"], {}) or {}).items() if k != "words"}} for m in moments],
     }

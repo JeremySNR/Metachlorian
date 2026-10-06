@@ -353,6 +353,16 @@ export interface TranscriptSegment {
   words?: TranscriptWord[]
 }
 
+export interface RecognisedPlace {
+  value: string
+  confidence?: number
+  method?: 'direct' | 'inherited'
+  evidence?: string[]
+  anchor_shot_uid?: Uid
+  anchor_asset_uid?: Uid
+  gap_seconds?: number
+}
+
 export interface ShotDoc {
   uid: Uid
   id: number
@@ -374,6 +384,7 @@ export interface ShotDoc {
   technical: TechnicalSummary
   edit_type: EditType | string | null
   fields: Record<string, FieldValue>
+  place_recognition?: Partial<Record<'destination' | 'venue' | 'area' | 'attraction_or_show', RecognisedPlace>>
   moments: Moment[]
   rights: RightsRecord
   rights_check?: { verdict: Verdict; reasons: string[] }

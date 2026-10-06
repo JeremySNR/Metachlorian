@@ -11,6 +11,7 @@ import { Timecode, TimecodeRange } from '../../components/Timecode'
 import { MOD } from '../../lib/bridge'
 import { humanise } from '../../lib/format'
 import { Player, type PlayerHandle } from './Player'
+import { PlaceRecognition } from './PlaceRecognition'
 import { SignalTable } from './SignalTable'
 import { AddToCollectionButton, BlockedNote, ExportMenu, InCollections, RightsBlock, Section, shotRightsState, WhyMatched } from './ShotPanels'
 import { techSummary } from './techSummary'
@@ -138,6 +139,7 @@ export function Inspector({ uid, result, intended, query, onClose, onCollapse, e
                 <WhyMatched why={result.why} label={label} query={query} />
               </Section>
             )}
+            <PlaceRecognition shot={d} />
             <Section title="Signals" id="signals" action={<span className={t.slate}>E edits</span>}>
               <SignalTable shot={d} vocabs={vocabs} label={label} editField={editField} collapsible />
             </Section>

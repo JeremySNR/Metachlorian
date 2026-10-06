@@ -135,7 +135,7 @@ def start_background(settings: Settings) -> dict[str, Any]:
 
 def save_settings(settings: Settings, changes: dict[str, Any]) -> None:
     """Apply admin changes and persist them to <data_dir>/config.toml."""
-    editable = {"workers", "proxy_height", "sprite_interval", "max_segment_s", "allow_remote", "face_identity", "vlm", "llm", "require_auth",
+    editable = {"workers", "proxy_height", "sprite_interval", "max_segment_s", "allow_remote", "logging_context", "face_identity", "vlm", "llm", "require_auth",
                 "import_cookies_browser", "import_max_height", "ytdlp_path", "raw_decoders", "community_enabled", "community_url"}
     for k, v in changes.items():
         if k not in editable:
@@ -173,7 +173,10 @@ def save_settings(settings: Settings, changes: dict[str, Any]) -> None:
 def _validate_setting(settings: Settings, k: str, v: Any, changes: dict[str, Any]) -> None:
     from .ingest.ytdlp import BROWSERS
 
-    if k == "community_enabled":
+    if k == "logging_context":
+        if not isinstance(v, str) or len(v) > 600 or "\n" in v or "\r" in v:
+            raise ValueError("logging_context must be a single line of text up to 600 characters")
+    elif k == "community_enabled":
         if not isinstance(v, bool):
             raise ValueError("community_enabled must be true or false")
     elif k == "community_url":

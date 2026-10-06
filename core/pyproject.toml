@@ -24,6 +24,7 @@ dependencies = [
   "pillow>=10",
   "sentencepiece>=0.2",
   "mcp>=1.10",
+  "filelock>=3.16",
 ]
 
 [project.optional-dependencies]

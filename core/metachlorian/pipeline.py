@@ -237,6 +237,13 @@ def run_job(db: Database, settings: Settings, job: dict) -> str:
         except Exception:  # pragma: no cover - indexing must never block the queue
             log.exception("indexing failed for asset %s", job["asset_id"])
         plan_asset(db, settings, job["asset_id"])
+        if analyser.name == "caption":
+            from .place_context import refresh_places
+
+            try:
+                refresh_places(db, settings)
+            except Exception:
+                log.exception("place context refresh failed for asset %s", job["asset_id"])
     return result
 
 

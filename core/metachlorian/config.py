@@ -156,6 +156,8 @@ class Settings:
     vlm: ModelEndpoint = field(default_factory=ModelEndpoint)
     llm: ModelEndpoint = field(default_factory=ModelEndpoint)
     allow_remote: bool = False
+    # Optional collection context (e.g. a holiday destination). This is a clue, not evidence for a venue.
+    logging_context: str = ""
     # Only newly downloaded YouTube videos are eligible; the import UI warns about public metadata. Admins can opt out or use their own service.
     community_enabled: bool = True
     community_url: str = "https://metachlorian-community.vercel.app"

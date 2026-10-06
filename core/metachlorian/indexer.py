@@ -42,6 +42,8 @@ def index_asset(db: Database, settings: Settings | None, asset_id: int) -> int:
             usable = scalar(_f(d, "quality.usable"))
             edit = (d.get("edit_type") or {}).get("term") if isinstance(d.get("edit_type"), dict) else d.get("edit_type")
             loc = scalar(_f(d, "content.location")) or d.get("location") or scalar(_f(d, "content.location_guess")) or ""
+            recognised = [scalar(_f(d, f"content.{k}")) for k in ("destination", "venue", "area", "attraction_or_show")]
+            loc = " | ".join(dict.fromkeys(str(x) for x in [loc, *recognised] if x))
             c.execute(
                 "INSERT INTO shot_index(shot_id, asset_id, duration, start_s, end_s, width, height, fps, aspect, log_profile, hdr, people_count,"
                 " faces, speech, music, motion_energy, pace, shot_size, camera_movement, role, time_of_day, usable, quality, capture_date,"

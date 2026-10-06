@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Iterator
 
-from ..db import Database, dumps, now
+from ..db import Database, dumps, loads, now
 
 log = logging.getLogger(__name__)
 
@@ -97,10 +97,12 @@ def register_file(db: Database, path: str | Path, source_id: int | None = None, 
     location (a local path or an s3:// uri); ``local_path`` the readable copy."""
     key = str(path)
     lp = Path(local_path or path)
-    name = key.rstrip("/").rsplit("/", 1)[-1]
+    name = key.replace("\\", "/").rstrip("/").rsplit("/", 1)[-1]
     suffix = os.path.splitext(name)[1].lower()
     st = lp.stat()
     row = db.q1("SELECT a.id, a.size, a.mtime, a.quick_hash, a.deleted_at FROM asset_paths p JOIN assets a ON a.id=p.asset_id WHERE p.path=?", (key,))
+    if row and source_id is not None:
+        db.x("UPDATE assets SET source_id=COALESCE(source_id,?) WHERE id=?", (source_id, row["id"]))
     if row and row["size"] == st.st_size and abs(row["mtime"] - st.st_mtime) < 1e-3 and row["deleted_at"] is None:
         db.x("UPDATE asset_paths SET seen_at=? WHERE path=?", (now(), key))
         return "unchanged", row["id"]
@@ -147,6 +149,9 @@ def add_source(db: Database, uri: str, watch: bool = True, priority: int = 0, op
         uri = str(Path(uri).expanduser().resolve())
     row = db.q1("SELECT id FROM sources WHERE uri=?", (uri,))
     if row:
+        if options is not None:
+            existing = loads(db.q1("SELECT options FROM sources WHERE id=?", (row["id"],))["options"], {})
+            db.x("UPDATE sources SET options=? WHERE id=?", (dumps({**existing, **options}), row["id"]))
         return row["id"]
     cur = db.x("INSERT INTO sources(uri, kind, watch, priority, options, created_at) VALUES(?,?,?,?,?,?)",
                (uri, kind, int(watch), priority, dumps(options or {}), now()))

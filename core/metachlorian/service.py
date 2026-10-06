@@ -459,6 +459,10 @@ class Library:
             raise ValueError("give shot_uid or asset_uid")
         index_asset(self.db, self.settings, a["id"])
         self._log(p, "correct_tag", shot_uid or asset_uid or "", {"field": field, "op": op, "value": value, "note": note, "id": cid}, write=True)
+        if field in {"content.destination", "content.venue", "content.area", "content.attraction_or_show"}:
+            from .place_context import refresh_places
+
+            refresh_places(self.db, self.settings)
         return {"correction_id": cid, "record": self.get_shot(p, shot_uid) if shot_uid else self.get_asset(p, asset_uid or "")}
 
     def corrections(self, p: Principal, asset_uid: str | None = None, limit: int = 200) -> list[dict[str, Any]]:
@@ -486,13 +490,17 @@ class Library:
 
     def revert(self, p: Principal, correction_id: int) -> None:
         require(p, "tags:write")
-        r = self.db.q1("SELECT asset_uid FROM corrections WHERE id=?", (correction_id,))
+        r = self.db.q1("SELECT asset_uid, field FROM corrections WHERE id=?", (correction_id,))
         if not r:
             raise NotFound("no such correction")
         revert_correction(self.db, correction_id)
         a = self._asset_row(r["asset_uid"])
         index_asset(self.db, self.settings, a["id"])
         self._log(p, "revert_correction", str(correction_id), write=True)
+        if r["field"] in {"content.destination", "content.venue", "content.area", "content.attraction_or_show"}:
+            from .place_context import refresh_places
+
+            refresh_places(self.db, self.settings)
 
     def correctable(self) -> dict[str, Any]:
         return {"shot": CORRECTABLE, "asset": ASSET_CORRECTABLE}
@@ -826,6 +834,9 @@ class Library:
         index_asset(self.db, self.settings, a["id"])
         self.db.x("DELETE FROM vectors WHERE asset_id=?", (a["id"],))
         self._log(p, "delete_asset", asset_uid, write=True)
+        from .place_context import refresh_places
+
+        refresh_places(self.db, self.settings)
 
     def processing(self, p: Principal) -> dict[str, Any]:
         require(p, "library:read")
