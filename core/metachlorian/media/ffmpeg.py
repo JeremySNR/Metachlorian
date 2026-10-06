@@ -446,7 +446,7 @@ def make_sprites(src: str | Path, out_dir: str | Path, duration: float, interval
 
 def loudness(src: str | Path) -> dict[str, Any]:
     """EBU R128 integrated loudness, range and true peak, plus a 100 ms momentary curve."""
-    p = subprocess.run([ffmpeg_bin(), "-v", "info", "-nostats", "-i", str(src), "-map", "0:a:0", "-af", "ebur128=peak=true:framelog=verbose",
+    p = subprocess.run([ffmpeg_bin(), "-v", "info", "-nostats", "-i", str(src), "-map", "0:a:0", "-af", "ebur128=peak=true:framelog=info",
                         "-f", "null", "-"], capture_output=True, timeout=3600)
     err = p.stderr.decode(errors="replace")
     momentary: list[tuple[float, float]] = []

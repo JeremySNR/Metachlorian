@@ -38,7 +38,7 @@ def _labels(path) -> list[str]:
 
 class AudioAnalyser(Analyser):
     name = "audio"
-    version = "1.0.0"
+    version = "1.0.1"
     requires = ("shots",)
     priority = 55
     description = "Loudness (EBU R128), audio energy, silence, and speech/music/ambience/event classification (CED-mini)."
