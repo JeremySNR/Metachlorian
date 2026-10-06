@@ -96,7 +96,7 @@ def cmd_process(args) -> None:
     s, db = _lib(args)
     n = plan_all(db, s)
     print(f"planned {n} jobs")
-    w = Worker(db, s)
+    w = Worker(db, s, resources=tuple(args.resources))
     done = 0
     while True:
         r = w.run_once()
@@ -234,6 +234,8 @@ def main(argv: list[str] | None = None) -> None:
     sp.add_argument("--camera-originals", action="store_true", help="confirm these files are continuous camera takes; allow nearby-clip place inference")
     sp.set_defaults(fn=cmd_add)
     sp = sub.add_parser("process", help="run all pending analysis in this process, then exit")
+    sp.add_argument("--resources", nargs="+", choices=("cpu", "model", "io"), default=("cpu", "model", "io"),
+                    help="worker lanes to consume; model adds a recognition worker without decoding more originals")
     sp.add_argument("-v", "--verbose", action="store_true")
     sp.set_defaults(fn=cmd_process)
     sub.add_parser("status").set_defaults(fn=cmd_status)
