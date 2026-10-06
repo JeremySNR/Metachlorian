@@ -73,6 +73,12 @@ and Unix. Native Windows source paths retain their actual filename. Install
 FFmpeg, Python and `core[analysis]`, build `app` with `npm ci && npm run build`,
 and use `metachlorian serve` on loopback. Docker is optional.
 
+Proxy generation also extracts the original 16 kHz analysis audio in the
+same FFmpeg read. Background workers reserve one lane for source decoding,
+so competing camera-original reads do not overload a hard drive. With three
+or more workers, model work has its own lane and can overlap local analysis
+and decoding. A single CLI worker still handles all resource types.
+
 If the SigLIP release asset is unavailable, its export is reproducible using
 `scripts/export_siglip.py` with the original Google weights. Install torch,
 transformers, onnx and sentencepiece in an export environment and follow that

@@ -250,7 +250,7 @@ def run_job(db: Database, settings: Settings, job: dict) -> str:
 class Worker:
     """Pulls jobs until stopped. Several workers (processes) can share a library."""
 
-    def __init__(self, db: Database, settings: Settings, resources: tuple[str, ...] = ("cpu", "model"), idle_sleep: float = 1.0):
+    def __init__(self, db: Database, settings: Settings, resources: tuple[str, ...] = ("cpu", "model", "io"), idle_sleep: float = 1.0):
         self.db = db
         self.settings = settings
         self.resources = resources

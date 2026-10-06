@@ -88,6 +88,19 @@ def test_resource_backlog_does_not_hide_runnable_jobs(q):
     assert queue.claim(db, "unsupported-worker", resources=("unsupported",), analysers=analysers) is None
 
 
+@pytest.mark.parametrize('count', [0, 1, 2, 3, 5])
+def test_background_lanes_cover_all_work_without_competing_original_reads(count):
+    from metachlorian.runtime import worker_resources
+    lanes = worker_resources(count)
+    assert len(lanes) == count
+    if count:
+        assert set().union(*map(set, lanes)) == {'cpu', 'model', 'io'}
+        assert sum('io' in lane for lane in lanes) == 1
+        assert sum('model' in lane for lane in lanes) == 1
+    if count >= 3:
+        assert lanes[0] == ('model',)
+
+
 def test_heartbeat_extends_only_a_running_lease(q):
     db, aid, clock = q
     queue.enqueue(db, aid, "shots", "k", 1)

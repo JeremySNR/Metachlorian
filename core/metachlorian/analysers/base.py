@@ -176,6 +176,7 @@ class Analyser:
     priority: ClassVar[int] = 50
     # Which shared resource it occupies: 'cpu' work runs in parallel workers;
     # 'model' work (large local models) is serialised to keep memory bounded.
+    # 'io' work reads camera originals in one lane to avoid disk contention.
     resource: ClassVar[str] = "cpu"
     description: ClassVar[str] = ""
 

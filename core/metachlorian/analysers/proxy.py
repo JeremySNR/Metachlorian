@@ -12,6 +12,7 @@ class ProxyAnalyser(Analyser):
     version = "1.1.0"
     requires = ("technical",)
     priority = 95
+    resource = "io"
     description = ("Lightweight H.264 proxy (1 s GOP for instant seeking) converted to SDR BT.709 from any bit depth, chroma or colour "
                    "space (HDR tone-mapped, interlaced deinterlaced), 16 kHz mono audio for analysis, and sprite sheets for hover scrubbing.")
 

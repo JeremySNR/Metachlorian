@@ -102,16 +102,23 @@ def _watch(settings: Settings, stop: threading.Event) -> None:
                 last_full = time.time()
 
 
+def worker_resources(count: int) -> list[tuple[str, ...]]:
+    """Keep original decoding serial while analysis of finished proxies overlaps."""
+    if count <= 0:
+        return []
+    if count == 1:
+        return [("model", "cpu", "io")]
+    model_lane = ("model", "cpu") if count == 2 else ("model",)
+    return [model_lane, ("cpu", "io"), *[("cpu",)] * (count - 2)]
+
+
 def start_background(settings: Settings) -> dict[str, Any]:
     ctx = mp.get_context("spawn")
     stop_evt = ctx.Event()
     procs = []
     n = max(0, settings.workers)
-    if n:
-        # One worker owns the large local models; the rest do CPU analysis.
-        procs.append(ctx.Process(target=_worker_main, args=(str(settings.data_dir), ("model", "cpu"), stop_evt), daemon=True))
-        for _ in range(n - 1):
-            procs.append(ctx.Process(target=_worker_main, args=(str(settings.data_dir), ("cpu",), stop_evt), daemon=True))
+    for resources in worker_resources(n):
+        procs.append(ctx.Process(target=_worker_main, args=(str(settings.data_dir), resources, stop_evt), daemon=True))
     for p in procs:
         p.start()
     tstop = threading.Event()
