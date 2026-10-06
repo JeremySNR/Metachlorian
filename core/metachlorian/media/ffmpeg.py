@@ -283,11 +283,14 @@ _DECODE_ERR = re.compile(r"error while decoding|corrupt|concealing \d+|Invalid N
 
 
 def make_proxy(src: str | Path, dst: str | Path, height: int = 540, crf: int = 26, fps_cap: float = 30.0,
-               src_fps: float | None = None, tech: dict[str, Any] | None = None) -> dict[str, Any]:
+               src_fps: float | None = None, tech: dict[str, Any] | None = None,
+               audio_dst: str | Path | None = None) -> dict[str, Any]:
     """H.264 proxy with a 1 s GOP for instant seeking/scrubbing, faststart for streaming, converted to display
     SDR BT.709 (see display_filter). Returns how the colour was handled and how many decode errors were seen."""
     dst = Path(dst)
     tmp = dst.with_suffix(".tmp.mp4")
+    audio = Path(audio_dst) if audio_dst is not None else None
+    audio_tmp = audio.with_suffix(".tmp.wav") if audio is not None else None
     gop = max(1, int(round(min(src_fps or fps_cap, fps_cap))))
     pre = f"fps={fps_cap}," if src_fps and src_fps > fps_cap + 0.5 else ""
     chains = []
@@ -300,12 +303,17 @@ def make_proxy(src: str | Path, dst: str | Path, height: int = 540, crf: int = 2
                 "-vf", vf, "-c:v", "libx264", "-preset", "veryfast", "-crf", str(crf), "-g", str(gop), "-keyint_min", str(gop),
                 "-sc_threshold", "0", *BT709_TAGS, "-c:a", "aac", "-b:a", "96k", "-ac", "2", "-movflags", "+faststart",
                 "-map_metadata", "-1", str(tmp)]
+        if audio_tmp is not None:
+            # Decode the original audio in the same read as the video proxy.
+            args += ["-map", "0:a:0", "-vn", "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", str(audio_tmp)]
         try:
             p = run(args)
         except RuntimeError as e:  # e.g. a colour description zimg cannot convert: fall back rather than fail
             last = e
             continue
         tmp.replace(dst)
+        if audio_tmp is not None:
+            audio_tmp.replace(audio)
         errs = sum(1 for line in p.stderr.decode(errors="replace").splitlines() if _DECODE_ERR.search(line))
         hdr = bool(tech and (tech.get("color_transfer") or "") in _HDR_TRC)
         return {"colour": ("hdr_tonemapped" if hdr else "converted") if kind == "display" else "unconverted",

@@ -75,3 +75,25 @@ def test_damaged_files_are_reported(tmp_path):
     bad.write_bytes(bytes(data))
     out = F.make_proxy(bad, tmp_path / "p.mp4", 180, tech=F.technical_metadata(bad), src_fps=25)
     assert out["decode_errors"] > 0
+
+
+def test_proxy_and_analysis_audio_share_one_source_read(sample_video, tmp_path, monkeypatch):
+    calls = []
+    original_run = F.run
+    def capture(args, **kwargs):
+        calls.append(args)
+        return original_run(args, **kwargs)
+    tech = F.technical_metadata(sample_video)
+    monkeypatch.setattr(F, 'run', capture)
+    wav = tmp_path / 'analysis.wav'
+    proxy = tmp_path / 'proxy.mp4'
+    F.make_proxy(sample_video, proxy, 180, tech=tech, src_fps=25, audio_dst=wav)
+    assert len(calls) == 1 and calls[0].count('-i') == 1
+    samples, rate = F.read_wav_mono(wav)
+    assert rate == 16000 and len(samples) / rate == pytest.approx(6, abs=0.1)
+    assert np.sqrt(np.mean(samples ** 2)) > 0.01
+    assert F.technical_metadata(proxy)['duration'] == pytest.approx(6, abs=0.1)
+    reference = tmp_path / 'reference.wav'
+    assert F.extract_audio(sample_video, reference)
+    expected, _ = F.read_wav_mono(reference)
+    np.testing.assert_array_equal(samples, expected)
