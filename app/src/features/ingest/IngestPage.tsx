@@ -42,9 +42,11 @@ export function IngestPage() {
   const lastAnnounce = useRef(0)
   const d = proc.data
   const assets = d?.assets ?? []
-  const ready = assets.filter((a) => a.status === 'ready' || a.status === 'updating').length
-  const processing = assets.filter((a) => a.status === 'processing').length
-  const updating = assets.filter((a) => a.status === 'updating').length
+  const counts = d?.asset_counts ?? {}
+  const total = Object.values(counts).reduce((sum, count) => sum + count, 0)
+  const ready = (counts.ready ?? 0) + (counts.updating ?? 0)
+  const processing = total - ready
+  const updating = counts.updating ?? 0
   // Magenta marks only the current item (§0 rule 2): the first row with a running step.
   const currentUid = assets.find((a) => a.running > 0)?.uid
   const remote = health.data?.egress.content_leaves_machine
@@ -54,9 +56,9 @@ export function IngestPage() {
     const now = Date.now()
     if (now - lastAnnounce.current < 10_000) return
     lastAnnounce.current = now
-    const t = window.setTimeout(() => setAnnounce(`Ingest: ${ready} of ${assets.length} files ready`), 0)
+    const t = window.setTimeout(() => setAnnounce(`Ingest: ${ready} of ${total} files searchable`), 0)
     return () => window.clearTimeout(t)
-  }, [d, ready, assets.length])
+  }, [d, ready, total])
 
   const addSource = async () => {
     if (!uri.trim()) return
@@ -110,7 +112,7 @@ export function IngestPage() {
           <div className={l.figure}>
             <span className={l.figureLabel}>Searchable</span>
             <strong>{formatNumber(ready)}</strong>
-            <span className={l.figureSub}>of {plural(assets.length, 'file')}{updating ? ` · ${formatNumber(updating)} updating` : ''}</span>
+            <span className={l.figureSub}>of {plural(total, 'file')}{updating ? ` · ${formatNumber(updating)} updating` : ''}</span>
           </div>
           <div className={l.figure}>
             <span className={l.figureLabel}>Not yet searchable</span>

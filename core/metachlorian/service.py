@@ -841,6 +841,8 @@ class Library:
     def processing(self, p: Principal) -> dict[str, Any]:
         require(p, "library:read")
         st = queue.stats(self.db)
+        asset_counts = {r['status']: r['n'] for r in self.db.q(
+            "SELECT status, COUNT(*) n FROM assets WHERE deleted_at IS NULL GROUP BY status")}
         active = [dict(r) for r in self.db.q(
             "SELECT a.uid, a.filename, a.status, a.duration, a.priority, a.updated_at,"
             " (SELECT COUNT(*) FROM jobs j WHERE j.asset_id=a.id AND j.status='queued') queued,"
@@ -859,14 +861,17 @@ class Library:
 
         analysers = [{"name": a.name, "version": a.version, "description": a.description, "requires": list(a.requires),
                       "available": a.check(self.settings) is None, "reason": a.check(self.settings)} for a in ar.topological()]
-        return {"queue": st, "assets": active, "analysers": analysers, "throughput": queue.throughput(self.db)}
+        return {"queue": st, "assets": active, "asset_counts": asset_counts,
+                "analysers": analysers, "throughput": queue.throughput(self.db)}
 
     def retry_failed(self, p: Principal) -> int:
         require(p, "ingest:write")
         from .pipeline import plan_all
 
-        self.db.x("DELETE FROM analysis_runs WHERE status='failed'")
-        self.db.x("UPDATE jobs SET status='queued', attempts=0, run_after=0, error=NULL WHERE status='failed'")
+        with self.db.tx() as c:
+            c.execute("UPDATE jobs SET status='queued', attempts=0, run_after=0, error=NULL "
+                      f"WHERE status='failed' AND {queue.CURRENT_JOBS}")
+            c.execute("DELETE FROM analysis_runs WHERE status='failed'")
         n = plan_all(self.db, self.settings)
         self._log(p, "retry_failed", write=True)
         return n

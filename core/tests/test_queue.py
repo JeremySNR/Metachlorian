@@ -42,6 +42,27 @@ def test_enqueue_is_idempotent(q):
     assert db.q1("SELECT COUNT(*) n FROM jobs")["n"] == 2
 
 
+def test_stats_hides_superseded_failures_but_keeps_current_failures(q):
+    db, aid, _ = q
+    queue.enqueue(db, aid, 'keyframes', 'old', 5)
+    queue.enqueue(db, aid, 'speech', 'current', 5)
+    db.x("UPDATE jobs SET status='failed',error='failed'")
+    for analyser, key, status in [('keyframes', 'new', 'done'), ('speech', 'current', 'failed')]:
+        db.x("INSERT INTO analysis_runs(asset_id,analyser,version,input_key,status,output) VALUES(?,?,?,?,?,?)",
+             (aid, analyser, '1', key, status, '{}'))
+    stats = queue.stats(db)
+    assert stats['by_status']['failed'] == 1
+    assert 'keyframes' not in stats['by_analyser']
+    assert [j['analyser'] for j in stats['failed']] == ['speech']
+    # The historical failure remains available for diagnostics.
+    assert db.q1("SELECT COUNT(*) FROM jobs WHERE status='failed'")[0] == 2
+    # Retry-all clears a failed run record: the newer queued job still supersedes
+    # the old version's failed job while that run record is absent.
+    queue.enqueue(db, aid, 'keyframes', 'new', 5)
+    db.x("DELETE FROM analysis_runs WHERE analyser='keyframes'")
+    assert queue.stats(db)['by_status']['failed'] == 1
+
+
 def test_claim_takes_the_highest_priority_and_leases_it(q):
     db, aid, clock = q
     queue.enqueue(db, aid, "technical", "k", 1)

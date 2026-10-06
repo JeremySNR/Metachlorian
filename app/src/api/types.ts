@@ -731,6 +731,8 @@ export interface Processing {
     failed: QueueJob[]
   }
   assets: ProcessingAsset[]
+  /** Counts over the entire non-deleted library, independent of the row limit. */
+  asset_counts: Record<string, number>
   analysers: AnalyserInfo[]
   throughput: Throughput
 }
