@@ -6,6 +6,7 @@ text in the bottom band across keyframes)."""
 from __future__ import annotations
 
 import re
+import os
 from functools import lru_cache
 from typing import Any
 
@@ -14,13 +15,20 @@ import numpy as np
 
 from .base import AnalysisContext, Analyser, Moment
 from .embed import load_keyframe
+from .. import models
 
 
 @lru_cache(maxsize=1)
 def _engine():
     from rapidocr_onnxruntime import RapidOCR
 
-    return RapidOCR(use_cls=False)
+    providers = models.ort_providers()
+    cuda = "CUDAExecutionProvider" in providers
+    dml = not cuda and "DmlExecutionProvider" in providers
+    return RapidOCR(use_cls=False, det_use_cuda=cuda, rec_use_cuda=cuda,
+                    det_use_dml=dml, rec_use_dml=dml,
+                    intra_op_num_threads=int(os.environ.get("METACHLORIAN_THREADS", "0") or 0) or -1,
+                    inter_op_num_threads=1)
 
 
 def _norm(t: str) -> str:

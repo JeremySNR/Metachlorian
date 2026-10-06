@@ -79,6 +79,22 @@ so competing camera-original reads do not overload a hard drive. With three
 or more workers, model work has its own lane and can overlap local analysis
 and decoding. A single CLI worker still handles all resource types.
 
+For NVIDIA inference on Windows, use a separate Python environment with a
+compatible driver. Install the application's dependencies first, then replace
+the CPU ONNX Runtime distribution (do not keep both distributions installed):
+
+```sh
+python -m pip uninstall onnxruntime
+python -m pip install "onnxruntime-gpu[cuda,cudnn]"
+```
+
+The model loader preloads the optional CUDA runtime DLLs before inference.
+SigLIP and RapidOCR use available GPU providers, with CPU fallback. Inspect
+each session's `get_providers()` and benchmark actual inference; listing CUDA
+as available is not proof that a model ran on it. CUDA acceleration does not
+accelerate remote model requests or imply hardware decode support for every
+camera codec. Keep the CPU environment as a rollback option.
+
 If the SigLIP release asset is unavailable, its export is reproducible using
 `scripts/export_siglip.py` with the original Google weights. Install torch,
 transformers, onnx and sentencepiece in an export environment and follow that
