@@ -354,6 +354,7 @@ export interface TranscriptSegment {
 }
 
 export interface RecognisedPlace {
+  relationship?: 'recording_location' | 'visible_landmark' | 'unclear'
   value: string
   confidence?: number
   method?: 'direct' | 'inherited'

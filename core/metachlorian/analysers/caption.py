@@ -28,9 +28,10 @@ PLACE_LEVELS = ("destination", "venue", "area", "attraction_or_show")
 
 
 def recognition_schema() -> dict[str, Any]:
-    item = {"type": "object", "additionalProperties": False, "required": ["name", "confidence", "evidence"],
+    item = {"type": "object", "additionalProperties": False, "required": ["name", "confidence", "relationship", "evidence"],
             "properties": {"name": {"type": "string", "maxLength": 120},
                            "confidence": {"enum": ["high", "probable", "unknown"]},
+                           "relationship": {"enum": ["recording_location", "visible_landmark", "unclear"]},
                            "evidence": {"type": "array", "items": {"type": "string", "maxLength": 200}, "maxItems": 3}}}
     return {"type": "object", "additionalProperties": False, "required": list(PLACE_LEVELS),
             "properties": {level: item for level in PLACE_LEVELS}}
@@ -73,6 +74,10 @@ SYSTEM = ("You are a meticulous footage logger for a professional video library.
           "Identify distinctive parks, resorts, neighbourhoods, attractions and shows in place_recognition. "
           "Evaluate each level independently: destination is the wider resort/city; venue is the park/hotel; "
           "area is the themed land/neighbourhood; attraction_or_show is the specific ride or production. "
+          "For each name specify its relationship: recording_location when evidence places the camera there "
+          "(e.g. on a ride, inside its queue, watching a live show, or within the named park/land); "
+          "visible_landmark when the named attraction is merely seen from somewhere else; unclear otherwise. "
+          "An attraction seen in the distance from another ride is a visible landmark, not the camera's location. "
           "Give high confidence only with distinguishing visible or audible evidence (readable signs, unique sets, "
           "landmarks or dialogue), and record that evidence. Use probable for a specific plausible hypothesis and "
           "unknown with an empty name for ambiguity. Generic characters, audience shots or themed clothing alone "
@@ -130,7 +135,7 @@ def batch_schema(n: int) -> dict[str, Any]:
 
 class CaptionAnalyser(Analyser):
     name = "caption"
-    version = "1.2.1"
+    version = "1.2.2"
     requires = ("keyframes", "motion", "people", "ocr", "speech")
     priority = 20
     resource = "model"
@@ -139,7 +144,7 @@ class CaptionAnalyser(Analyser):
     def config(self, settings) -> dict[str, Any]:
         ep = settings.vlm
         return {"provider": ep.provider, "base_url": ep.url, "model": ep.model, "batch": ep.effective_batch,
-                "vocab": registry().summary(), "prompt": 2, "tile_width": 640,
+                "vocab": registry().summary(), "prompt": 3, "tile_width": 640,
                 "logging_context": settings.logging_context, "references": reference_key(settings)}
 
     def check(self, settings) -> str | None:

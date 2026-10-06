@@ -21,6 +21,7 @@ export function PlaceRecognition({ shot }: { shot: ShotDoc }) {
         <div key={key} className={s.section}>
           <strong>{label}: {place.value}</strong>
           <p>{corrected ? 'Confirmed by a reviewer' : place.method === 'inherited' ? 'Inferred from a nearby clip' :
+            place.relationship === 'visible_landmark' ? 'Visible landmark; camera location not established' :
             (place.confidence ?? 0) >= 0.85 ? 'Direct recognition · high confidence' : 'Direct recognition · probable'}</p>
           {!corrected && place.method === 'inherited' && place.anchor_shot_uid ? (
             <p><Link to="/shot/$shotId" params={{ shotId: place.anchor_shot_uid }}>View supporting shot</Link>

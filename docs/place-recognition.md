@@ -50,6 +50,11 @@ seconds; confidence decays with the gap. Only immediate neighbouring files
 are considered. Long take-to-shot distances, overlaps, intervening conflicting
 places and conflicting neighbouring anchors prevent inheritance. Inherited
 labels never become anchors, so a guess cannot spread through a chain.
+Specific attraction/show labels can anchor only when evidence places the
+camera there (on the ride, in its queue, or watching the show). A landmark
+merely seen from elsewhere remains a direct observation and cannot lend a
+ride/show location to nearby family shots. Older unscoped attraction records
+also cannot act as anchors. Each observation retains this relationship.
 Within a confirmed camera take, nearby shots can share evidence even if a
 camera timestamp is missing.
 

@@ -12,7 +12,8 @@ def shot(sid, aid=None, capture=100, duration=10, start=0, end=10, recognition=N
 
 
 def place(name="Mickey Mouse Clubhouse Live!", confidence="high", evidence=None):
-    return {"name": name, "confidence": confidence, "evidence": ["Distinctive stage and readable title"] if evidence is None else evidence}
+    return {"name": name, "confidence": confidence, "relationship": "recording_location",
+            "evidence": ["Distinctive stage and readable title"] if evidence is None else evidence}
 
 
 def test_five_second_gap_uses_end_of_take_and_keeps_provenance():
@@ -47,6 +48,22 @@ def test_conflicting_neighbours_remain_unresolved():
     rows = [shot(1, recognition={"venue": place("Magic Kingdom")}), shot(2, capture=115),
             shot(3, capture=130, recognition={"venue": place("Hollywood Studios")})]
     assert infer_places(rows)[2] == {}
+
+
+@pytest.mark.parametrize('relationship', ['visible_landmark', 'unclear', None])
+def test_visible_or_unscoped_attraction_does_not_label_nearby_family_shots(relationship):
+    landmark = place('Space Mountain')
+    if relationship is None:
+        landmark.pop('relationship')  # compatibility with older scan records
+    else:
+        landmark['relationship'] = relationship
+    rows = [shot(1, recognition={'venue':place('Magic Kingdom'),'attraction_or_show':landmark}),
+            shot(2, capture=115)]
+    result = infer_places(rows)
+    assert result[1]['attraction_or_show']['value'] == 'Space Mountain'
+    assert not result[1]['attraction_or_show']['anchor_eligible']
+    assert result[2]['venue']['value'] == 'Magic Kingdom'
+    assert 'attraction_or_show' not in result[2]
 
 
 def test_conflicting_parent_blocks_show_and_direct_guess_is_preserved():

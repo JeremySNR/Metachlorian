@@ -20,7 +20,7 @@ from .db import dumps, loads, now
 from .records import assign_corrections
 
 LEVELS = ("destination", "venue", "area", "attraction_or_show")
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 
 
 def capture_seconds(value: str | None) -> tuple[float, bool] | None:
@@ -40,7 +40,7 @@ def _norm(name: str) -> str:
     return re.sub(r"\W+", "", name.casefold())
 
 
-def _direct(item: dict, row: dict) -> dict | None:
+def _direct(item: dict, row: dict, level: str) -> dict | None:
     name = str(item.get("name") or "").strip()
     confidence = item.get("confidence", "unknown")
     evidence = [str(e) for e in item.get("evidence", []) if e]
@@ -48,9 +48,11 @@ def _direct(item: dict, row: dict) -> dict | None:
         return None
     # A bare high-confidence assertion is a candidate, not an inference anchor.
     high = confidence == "high" and bool(evidence)
+    relationship = item.get("relationship", "unclear")
+    eligible = high and (level != "attraction_or_show" or relationship == "recording_location")
     return {"value": name, "confidence": 0.9 if high else 0.55, "method": "direct",
             "evidence": evidence, "anchor_shot_uid": row["uid"], "anchor_asset_uid": row["asset_uid"],
-            "gap_seconds": 0.0, "anchor_eligible": high}
+            "gap_seconds": 0.0, "anchor_eligible": eligible, "relationship": relationship}
 
 
 def infer_places(rows: list[dict], max_gap_s: float = 30.0) -> dict[int, dict[str, dict]]:
@@ -62,7 +64,7 @@ def infer_places(rows: list[dict], max_gap_s: float = 30.0) -> dict[int, dict[st
     nearby shots. Probable identifications are kept but never propagated.
     """
     direct = {r["id"]: {level: value for level in LEVELS
-                        if (value := _direct((r.get("recognition") or {}).get(level, {}), r))}
+                        if (value := _direct((r.get("recognition") or {}).get(level, {}), r, level))}
               for r in rows}
     output = {sid: dict(values) for sid, values in direct.items()}
     by_asset: dict[int, list[dict]] = defaultdict(list)
@@ -167,6 +169,7 @@ def refresh_places(db, settings, max_gap_s: float = 30.0) -> dict[str, int]:
                 if level in LEVELS and c["op"] == "set":
                     name = loads(c["value"], "")
                     row["recognition"][level] = {"name": name, "confidence": "high",
+                                               "relationship": "recording_location",
                                                "evidence": [f"Confirmed by {c['actor']}: {c['note'] or 'manual correction'}"]}
                     if not name:
                         row["blocked_levels"].append(level)
