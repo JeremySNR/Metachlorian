@@ -381,6 +381,8 @@ def frame_at(src: str | Path, t: float, width: int | None = None) -> np.ndarray:
     args = [ffmpeg_bin(), "-v", "error", "-ss", f"{max(0.0, t):.3f}", "-i", str(src), "-frames:v", "1", "-vf", vf,
             "-f", "image2pipe", "-vcodec", "png", "-"]
     p = run(args)
+    if not p.stdout:
+        raise RuntimeError(f"could not decode frame at {t}s from {src}")
     import cv2
 
     img = cv2.imdecode(np.frombuffer(p.stdout, np.uint8), cv2.IMREAD_COLOR)

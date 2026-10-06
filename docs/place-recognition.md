@@ -106,3 +106,5 @@ transformers, onnx and sentencepiece in an export environment and follow that
 script's instructions. Place its four required output files in the library's
 `models/siglip-base-multilingual` folder; analysis then resumes. No weights or
 personal media should be committed to the source repository.
+
+Shot segmentation 1.1.1 enforces the configured minimum length at both ends of a clip. A final single-frame camera glitch is folded into the preceding shot rather than becoming an unextractable segment. Frame requests beyond the decoder's last frame report a controlled decode error. Existing libraries automatically refresh segmentation and its dependent analysis when upgraded.
