@@ -104,10 +104,12 @@ def contact_sheet(ctx: AnalysisContext, kfs: list[dict[str, Any]], tile_w: int =
 
 
 def facts_for(ctx: AnalysisContext, shot) -> str:
-    def first(name: str, default=None):
-        return ctx.signals_of(name).get(shot.id, default)
+    def first(name: str, source: str, default=None):
+        # Never feed a previous fusion of our own caption back as a measurement.
+        # Stable upstream evidence also lets unchanged requests reuse the cache.
+        return ctx.signals_of(name, source=source).get(shot.id, default)
 
-    mv = first("camera.movement", []) or []
+    mv = first("camera.movement", "motion", []) or []
     lines = [f"Duration: {shot.duration:.1f} s."]
     if ctx.tech.get("capture_date"):
         lines.append(f"Camera capture timestamp: {ctx.tech['capture_date']}.")
@@ -115,13 +117,13 @@ def facts_for(ctx: AnalysisContext, shot) -> str:
         lines.append(f"Collection context (a clue, not proof): {ctx.settings.logging_context[:600]}.")
     if mv:
         lines.append("Measured camera movement (optical flow): " + ", ".join(m["term"] for m in mv) + ".")
-    pc = first("people.count")
+    pc = first("people.count", "people")
     if pc is not None:
         lines.append(f"Person detector count: {pc}.")
-    tr = first("audio.transcript")
+    tr = first("audio.transcript", "speech")
     if tr:
         lines.append(f"Speech in this shot: \"{tr[:300]}\"")
-    ocr = first("content.ocr_text")
+    ocr = first("content.ocr_text", "ocr")
     if ocr:
         lines.append(f"On-screen text read by OCR: \"{ocr[:200]}\"")
     return " ".join(lines)
@@ -135,7 +137,7 @@ def batch_schema(n: int) -> dict[str, Any]:
 
 class CaptionAnalyser(Analyser):
     name = "caption"
-    version = "1.2.2"
+    version = "1.2.3"
     requires = ("keyframes", "motion", "people", "ocr", "speech")
     priority = 20
     resource = "model"

@@ -112,3 +112,5 @@ Shot segmentation 1.1.1 enforces the configured minimum length at both ends of a
 After proxies are prepared, an optional second recognition worker can consume model jobs with `metachlorian --data LIBRARY process --resources model`. It exits when its lane is idle and shares the same leases and Codex daily request ledger. This overlaps remote recognition without adding an original-decoding lane; it does not reduce the total requests or bypass account limits. Start conservatively and check available RAM because speech models are loaded per process.
 
 Audio analysis 1.0.1 retains FFmpeg's 100 ms EBU R128 momentary curve. Frame log verbosity matches the command's log level, so per-shot loudness is measured rather than returning empty values while the asset-level integrated summary succeeds.
+
+Caption analysis 1.2.3 reads detector count, optical flow, transcript and OCR from their original analyser sources. A prior fused interpretation can no longer feed back into measured facts or change otherwise identical request cache keys on re-analysis.
