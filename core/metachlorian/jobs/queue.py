@@ -42,8 +42,17 @@ def claim(db: Database, worker: str, resources: tuple[str, ...] | None = None, a
     """Atomically take the highest-priority runnable job."""
     with db.tx() as c:
         c.execute("UPDATE jobs SET status='queued', worker=NULL, lease_until=NULL WHERE status='running' AND lease_until < ?", (now(),))
-        rows = c.execute("SELECT id, analyser FROM jobs WHERE status='queued' AND run_after <= ? ORDER BY priority DESC, id LIMIT 50",
-                         (now(),)).fetchall()
+        eligible = ""
+        params: list[Any] = [now()]
+        if resources is not None and analysers is not None:
+            names = [name for name, a in analysers.items() if a.resource in resources]
+            if not names:
+                return None
+            # Filter before the limit: a model backlog must not hide CPU work.
+            eligible = " AND analyser IN (" + ",".join("?" for _ in names) + ")"
+            params.extend(names)
+        rows = c.execute("SELECT id, analyser FROM jobs WHERE status='queued' AND run_after <= ?" + eligible +
+                         " ORDER BY priority DESC, id LIMIT 50", params).fetchall()
         for r in rows:
             if resources is not None and analysers is not None:
                 a = analysers.get(r["analyser"])

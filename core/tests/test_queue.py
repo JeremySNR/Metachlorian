@@ -75,6 +75,19 @@ def test_claim_skips_jobs_waiting_on_back_off(q):
     assert queue.claim(db, "w")["analyser"] == "shots"
 
 
+def test_resource_backlog_does_not_hide_runnable_jobs(q):
+    db, aid, _ = q
+    analysers = registry.all_analysers()
+    model = next(n for n, a in analysers.items() if a.resource == "model")
+    cpu = next(n for n, a in analysers.items() if a.resource == "cpu")
+    for i in range(60):
+        queue.enqueue(db, aid, model, f"model-{i}", 100)
+    queue.enqueue(db, aid, cpu, "cpu", 1)
+    job = queue.claim(db, "cpu-worker", resources=("cpu",), analysers=analysers)
+    assert job is not None and job["analyser"] == cpu
+    assert queue.claim(db, "unsupported-worker", resources=("unsupported",), analysers=analysers) is None
+
+
 def test_heartbeat_extends_only_a_running_lease(q):
     db, aid, clock = q
     queue.enqueue(db, aid, "shots", "k", 1)
