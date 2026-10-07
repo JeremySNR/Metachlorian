@@ -27,6 +27,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release view models-v1 >/dev/null 2>&1 || gh release create models-v1 --title "Model weights v1" \
+          gh release view models-v1 >/dev/null 2>&1 || gh release create models-v1 --latest=false --title "Model weights v1" \
             --notes "ONNX exports that Metachlorian downloads with \`metachlorian models fetch\`. SigLIP weights by Google, Apache-2.0. Reproduce with scripts/export_siglip.py."
           gh release upload models-v1 siglip-base-multilingual.tar.bz2 siglip-base-multilingual.tar.bz2.sha256 --clobber
