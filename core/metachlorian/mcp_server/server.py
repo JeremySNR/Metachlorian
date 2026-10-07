@@ -62,7 +62,7 @@ def _err(e: Exception) -> NoReturn:
 
 
 def build_server(lib: Library) -> MCPServer:
-    server = MCPServer(name="metachlorian", title="Metachlorian video library", instructions=INSTRUCTIONS,
+    server = MCPServer(name="metachlorian", title="Metachlorian: footage search for AI video editors", instructions=INSTRUCTIONS,
                        version=__import__("metachlorian").__version__)
 
     def call(ctx: Context | None, fn, *a, **kw):
