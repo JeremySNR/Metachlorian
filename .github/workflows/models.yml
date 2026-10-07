@@ -1,0 +1,32 @@
+name: Publish models
+# Builds the SigLIP ONNX export that `metachlorian models fetch` downloads (models.py MC_RELEASE) and uploads it to the
+# models-v1 release. Run by hand from the Actions tab; re-running replaces the asset. See OPEN_QUESTIONS Q4.
+on:
+  workflow_dispatch:
+jobs:
+  siglip:
+    runs-on: ubuntu-latest
+    permissions: { contents: write }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Export environment (not runtime dependencies of Metachlorian)
+        run: |
+          uv venv -p 3.11 .export
+          uv pip install -p .export/bin/python --index-url https://download.pytorch.org/whl/cpu "torch==2.8.*"
+          uv pip install -p .export/bin/python "transformers>=4.45,<5" sentencepiece protobuf onnx onnxruntime numpy
+      - name: Export and check parity with PyTorch
+        run: .export/bin/python scripts/export_siglip.py google/siglip-base-patch16-256-multilingual out/siglip-base-multilingual
+      - name: Package
+        run: |
+          ls -la out/siglip-base-multilingual
+          for f in vision.onnx text.q.onnx spiece.model config.json; do test -s "out/siglip-base-multilingual/$f"; done
+          tar -C out -cjf siglip-base-multilingual.tar.bz2 siglip-base-multilingual
+          sha256sum siglip-base-multilingual.tar.bz2 | tee siglip-base-multilingual.tar.bz2.sha256
+      - name: Upload to the models-v1 release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view models-v1 >/dev/null 2>&1 || gh release create models-v1 --title "Model weights v1" \
+            --notes "ONNX exports that Metachlorian downloads with \`metachlorian models fetch\`. SigLIP weights by Google, Apache-2.0. Reproduce with scripts/export_siglip.py."
+          gh release upload models-v1 siglip-base-multilingual.tar.bz2 siglip-base-multilingual.tar.bz2.sha256 --clobber
