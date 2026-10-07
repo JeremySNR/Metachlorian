@@ -1,45 +1,98 @@
-# Metachlorian
+# Metachlorian: footage search for AI video editors
 
-**A self-hostable video library that understands every shot.** Point it at a folder or bucket of footage and it works out
-what every shot shows, how it was filmed, how it is paced, what role it plays, how usable it is and whether you can legally use
-it. Then people and AI agents can find exactly the footage they need in seconds.
+**AI can edit video. It can't watch every frame of every file each time it needs a shot.** Metachlorian watches your
+footage once, on your own hardware, and builds a shot-by-shot index that AI agents can search in milliseconds over MCP or
+a REST API.
 
+> "A two-second cutaway of a yellow cab, camera panning left, no faces."
+> "B-roll that works under the line *we nearly missed the ferry*."
 > "Slow, wide drone shots of a coastline at golden hour, no people, at least 8 seconds, 4K."
-> "Which of these files are raw single takes and which are finished edits?"
-> "Three B-roll cutaways that would work under this interview line about family holidays."
-> "What do we have from Lisbon that we're actually cleared to use on paid social?"
+> "Wide shots of Lisbon we're cleared to use on paid social."
 
-Metachlorian is the *knowing* half of a pair: [Cutawan](https://github.com/JeremySNR/cutawan) edits video. Metachlorian
-indexes, describes and retrieves it, then hands selected shots to Cutawan or any editing software (OpenTimelineIO, FCPXML,
-CMX 3600 EDL).
+Every result comes back as a shot with exact in and out points, the signals that matched and how confident each one is,
+and a rights verdict for the use you stated. Your agent decides the edit. Metachlorian finds the footage.
 
-## What it does
+- **Built for agents.** An MCP server and REST API that work with Claude, Codex, Cursor and any MCP client. Read-only by
+  default, scoped tokens for anything more, every call audited.
+- **Measured, not guessed.** Shot boundaries, camera motion, pace, loudness and image quality are computed. Models are
+  used for meaning: what's in the shot, what's said and when, what's written on screen, who is in it.
+- **Straight to the timeline.** Hand selected shots to [Cutawan](https://github.com/JeremySNR/cutawan), or to any editor
+  that reads OpenTimelineIO, FCPXML or CMX 3600 EDL.
+- **Self-hosted and open source (Apache-2.0).** Runs on a CPU, faster with a GPU. Footage, frames and faces stay on your
+  machine unless an admin chooses a hosted model. One exception is on by default: new YouTube imports share machine
+  metadata with a public community index ([details and opt-out](#community-sharing)).
+- **A web and desktop app for people too.** Search, review what the index says about each shot, and correct it.
 
-- **Shot-level index.** Every file is split into shots (hard cuts, dissolves, fades) and long takes into segments.
-  Each shot gets a structured record, and every signal has a value, a source, a confidence and a model version.
-- **Measured, not guessed.** Shot boundaries, durations, cuts per minute, technical metadata, camera motion (optical flow),
-  loudness (EBU R128) and image quality are computed deterministically. Models are used for meaning: SigLIP embeddings and
-  zero-shot labels, speech with word timings (Parakeet), speaker turns, audio events, OCR, people and objects,
-  and optional captions from a vision-language model.
-- **Hybrid search.** Natural language is parsed into filters and vocabulary preferences; results blend semantic similarity,
-  keywords in transcripts and on-screen text, and label matches, and every result says *why* it matched. Query by example
-  with a shot, a still or a clip.
-- **Rights-aware.** Record source, licence, permitted uses, channels, territories, expiry and releases per file (overridable per
-  shot). State an intended use and you only get shots cleared for it.
-- **Import from the web.** Paste YouTube, Vimeo or other video links (or a whole playlist) and they are downloaded into
-  a folder of your choice and analysed like everything else, remembering where they came from. Rights start as unknown
-  until someone checks them. Uses yt-dlp, the same importer as Cutawan.
-- **Community search.** Find matching moments in analysed YouTube videos through the [community index](https://metachlorian-community.vercel.app).
-  New YouTube downloads contribute machine metadata by default. Settings → Community sharing turns this off.
-  Local and personal files, local duplicates, human notes and face identities are excluded. Turn sharing off before importing private or unlisted YouTube videos. Full local records stay local.
-- **People you can name.** Faces are recognised across shots and files (locally; embeddings never leave the library).
-  Name someone once and "Maria laughing in the kitchen" finds them. Merge, split or forget people at any time.
-- **Corrections stick.** Fix a tag and it is stored separately from machine output and wins over it, even after re-processing.
-- **Agents are first-class.** An MCP server and a REST API expose everything the app can do. Agents are read-only by default,
-  need explicit scopes to write or export, and every agent action is audited.
-- **Runs on your hardware, or faster with a provider.** Default models run locally on CPU; a consumer GPU makes it faster.
-  For richer captions and much higher throughput, plug in an OpenAI API key, OpenRouter, or your ChatGPT subscription via
-  the Codex CLI. Hosted model analysis requires an admin to enable a provider. Separately, new YouTube imports contribute machine metadata to the community index by default; opt out in Settings → Community sharing. Local and personal files are excluded. For private or unlisted YouTube imports, turn sharing off first if you want their metadata to stay private.
+<!-- TODO: replace with a short GIF of an agent building an edit from search results (docs/media/demo.gif). -->
+![Search with parsed query chips, results and why each shot matched](review/m4/screens/01-search-results--desktop-light.jpg)
+
+## Why not just give the model the video?
+
+Vision models can describe footage, but asking one to watch hours of video for every editing decision is slow, expensive
+and imprecise. An edit makes hundreds of small decisions. Metachlorian does the watching once, at import, so each
+decision becomes a query.
+
+| | Model watches the footage | Metachlorian |
+|---|---|---|
+| Each question | Re-reads hours of video | Queries an index: median 325 ms at 1.6 million shots ([eval](eval/README.md)) |
+| Cost | Grows with every question | Paid once, at import |
+| Precision | "Somewhere around four minutes in" | Shot boundaries and word-timed speech, down to the frame |
+| Evidence | Take the model's word for it | Every signal has a value, a source, a confidence and a model version |
+| Your footage | Uploaded to a provider | Analysed locally by default |
+
+## Connect your agent (MCP)
+
+Start the server, create a token in **Settings → Agents** (or `metachlorian token my-agent`), then add it to your MCP
+client:
+
+```json
+{
+  "mcpServers": {
+    "metachlorian": {
+      "type": "http",
+      "url": "http://127.0.0.1:8765/mcp/",
+      "headers": { "Authorization": "Bearer mc_xxxxxx_..." }
+    }
+  }
+}
+```
+
+On the same machine, `metachlorian mcp` runs over stdio instead (read-only without a token).
+
+A 60-second edit of the kids on rides from a folder of holiday footage takes four calls:
+
+1. `list_folders(query="disney")` → `Holidays/Disney 2026` (41 files, 2.3 h)
+2. `search_shots(query="kids on a ride, smiling", folder="Disney 2026", filters={"min_duration": 2})`
+3. `find_similar(shot_id=<best one>, folder="Disney 2026")` for more like it
+4. `build_package(items=[...], name="Disney rides 60s")` → a package Cutawan or any editor can open
+
+Tools for search, shot and file records, similar shots, rights checks, clip export, packages, folders, collections,
+people and vocabularies are listed with their scopes in [docs/agents.md](docs/agents.md).
+
+## What it knows about every shot
+
+- **Shots, not files.** Every file is split into shots (hard cuts, dissolves, fades) and long takes into segments, each
+  with its own record.
+- **How it was filmed.** Shot size, camera angle and movement (from optical flow), lens, depth of field, lighting, colour
+  grade, speed effects, resolution, frame rate, HDR and log.
+- **What it shows.** SigLIP embeddings and zero-shot labels for setting, time of day, weather, season and mood; objects,
+  people and on-screen text (OCR); optional dense captions from a vision-language model.
+- **What is said.** Speech with word timings (Parakeet), speaker turns, audio events and loudness (EBU R128).
+- **What it's for.** Shot role, pace, cuts per minute, usability, and whether a file is a raw take, selects or a finished
+  edit.
+- **Who is in it.** Faces are recognised across shots and files, locally. Name someone once and "Maria laughing in the
+  kitchen" finds them. Merge, split or forget people at any time.
+- **Whether you can use it.** Source, licence, permitted uses, channels, territories, expiry and releases per file
+  (overridable per shot). State an intended use and you only get shots cleared for it.
+
+Search blends semantic similarity, keywords in transcripts and on-screen text, and label matches. Natural language is
+parsed into filters you can see and edit, and every result says *why* it matched. Query by example with a shot, a still
+or a clip. Corrections are stored separately from machine output and win over it, even after re-processing.
+
+Footage can come from folders, S3 buckets, or web links: paste YouTube, Vimeo or other links (or a whole playlist) and
+they are downloaded with yt-dlp and analysed like everything else, with rights starting as unknown. Hosted models
+(an OpenAI API key, OpenRouter, or a ChatGPT subscription via the Codex CLI) add richer captions and much higher throughput
+once an admin enables one.
 
 ## Screenshots
 
@@ -82,15 +135,15 @@ cd ../app && npm ci && npm run build           # the web app the core serves
 mode it connects to a shared one. It adds native drag-out of real clip files and one-click hand-off to Cutawan. Installers are
 built with `npm run package` (unsigned until signing certificates are provided, see [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md)).
 
-**Agents (MCP):** create a token in Settings → Agents (or `metachlorian token my-agent`), then point your MCP client at
-`http://<host>:8765/mcp/` with `Authorization: Bearer <token>`, or run `metachlorian mcp` over stdio (read-only by default).
-See [docs/agents.md](docs/agents.md).
-
 ## Community sharing
+
+Metachlorian can also search a public [community index](https://metachlorian-community.vercel.app) of analysed YouTube
+videos and open results at the matching timestamp.
 
 YouTube imports have a separate, default-on sharing setting from hosted model analysis. After analysis finishes,
 the app sends only the machine metadata allowlist and download title/channel/licence/duration to the community service.
-Videos, frames, audio files and complete library records are never contributed.
+Videos, frames, audio files and complete library records are never contributed. Local and personal files, local
+duplicates, human notes and face identities are excluded.
 
 **Warning: video visibility is not checked.** Private, unlisted or sensitive YouTube imports can publish their titles,
 descriptions, transcripts and on-screen text. Turn off **Settings → Community sharing** before importing them if you
