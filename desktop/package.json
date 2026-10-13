@@ -18,6 +18,7 @@
   "build": {
     "appId": "org.metachlorian.app",
     "productName": "Metachlorian",
+    "afterPack": "./scripts/adhoc-sign-mac.mjs",
     "directories": {
       "output": "release"
     },
@@ -46,6 +47,9 @@
     },
     "win": {
       "target": "nsis"
+    },
+    "nsis": {
+      "artifactName": "${productName}-Setup-${version}.${ext}"
     },
     "linux": {
       "target": "AppImage",
