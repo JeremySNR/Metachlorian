@@ -10,7 +10,7 @@
  * Needs uv on PATH and app/dist built (`cd app && npm run build`).
  * Usage: node scripts/bundle.mjs        (from desktop/; `npm run bundle`)
  */
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { chmodSync, cpSync, createWriteStream, existsSync, mkdirSync, readdirSync, realpathSync, rmSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { pipeline } from 'node:stream/promises'
@@ -46,8 +46,13 @@ rmSync(join(pythonHome, win ? 'Lib' : `lib/python${PYTHON}`, 'EXTERNALLY-MANAGED
 
 step('Metachlorian core and analysis dependencies')
 run('uv', ['pip', 'install', '--python', python, '--no-cache', `${join(repo, 'core')}[analysis]`])
-// Precompile so the read-only (and, on macOS, signed) bundle is never written to at runtime.
-run(python, ['-m', 'compileall', '-q', '-j', '0', pythonHome], { stdio: ['ignore', 'ignore', 'inherit'] })
+// Precompile so the read-only (and, on macOS, signed) bundle is never written to at runtime. A few files in the
+// standard library and in dependencies' test data aren't valid Python 3.11 and fail to compile; that is expected,
+// so list them rather than failing the build.
+const compiled = spawnSync(python, ['-m', 'compileall', '-q', '-j', '0', pythonHome], { encoding: 'utf8' })
+if (compiled.error) throw compiled.error
+const failed = (compiled.stdout || '').split(/\r?\n/).filter((l) => /^\*\*\* Error compiling/.test(l))
+if (failed.length) console.log(`  (${failed.length} file(s) not precompiled: ${failed.slice(0, 5).map((l) => l.replace(/^\*\*\* Error compiling /, '')).join(', ')}${failed.length > 5 ? ', …' : ''})`)
 run(python, ['-c', 'import metachlorian, onnxruntime, cv2, sherpa_onnx, usearch; print("core", metachlorian.__version__, "imports ok")'])
 
 // ---------------------------------------------------------------- web app
