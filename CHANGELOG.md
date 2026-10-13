@@ -6,7 +6,9 @@ image tags are on the [releases page](https://github.com/JeremySNR/Metachlorian/
 This project uses [semantic versioning](https://semver.org/), loosely: while
 still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
 
-## [Unreleased]
+## [0.1.0] - 2026-10-13
+
+First release. Metachlorian watches your footage once, on your own computer, and builds a shot-by-shot index that you and AI agents can search: by what's in a shot, what's said, how it was filmed and whether you're cleared to use it. Download the desktop app below for Windows, macOS (Apple Silicon) or Linux, or run the server with Docker (`ghcr.io/jeremysnr/metachlorian:0.1.0`).
 
 ### Added
 
@@ -17,5 +19,4 @@ still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
 
 - Metachlorian now runs on Windows. It previously stopped at start-up there, because it used a file lock that only exists on macOS and Linux.
 - Semantic search and zero-shot labels now work on Apple Silicon Macs. Embedding shots failed when analysis used Apple's Core ML accelerator; it now runs on the CPU unless `METACHLORIAN_COREML=1` is set.
-
 - The macOS desktop download no longer opens with "Metachlorian is damaged and can't be opened". The app is now ad-hoc signed, so macOS shows its usual unidentified-developer prompt and **System Settings → Privacy & Security → Open Anyway** works. It is still not signed with an Apple Developer ID or notarised.
