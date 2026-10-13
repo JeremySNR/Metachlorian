@@ -64,9 +64,14 @@ jobs:
             echo "Tag $GITHUB_REF_NAME does not match version $version"; exit 1
           fi
           node scripts/changelog-section.mjs "$version" --require > /dev/null
+      - uses: astral-sh/setup-uv@v6
       - name: Build web app
         working-directory: app
         run: npm ci && npm run build
+      # Installers carry their own Python, core, web app and FFmpeg so they work with nothing else installed.
+      - name: Bundle Python, core, web app and FFmpeg
+        working-directory: desktop
+        run: npm ci && npm test && npm run bundle
       - name: Build installers (unsigned until certificates are configured, see OPEN_QUESTIONS Q3)
         working-directory: desktop
         shell: bash
@@ -75,10 +80,11 @@ jobs:
           # APPLE_TEAM_ID (notarisation) as repository secrets, then remove "identity": null from package.json.
           # Until then macOS builds are ad-hoc signed by desktop/scripts/adhoc-sign-mac.mjs.
           CSC_IDENTITY_AUTO_DISCOVERY: false
-        run: |
-          npm ci
-          npm test
-          npx electron-builder --publish never ${{ runner.os == 'macOS' && '--arm64' || '' }}
+        run: npx electron-builder --publish never ${{ runner.os == 'macOS' && '--arm64' || '' }}
+      - name: Check the packaged app works on its own
+        working-directory: desktop
+        shell: bash
+        run: ${{ runner.os == 'Linux' && 'xvfb-run -a --server-args="-screen 0 1600x1000x24"' || '' }} node scripts/check-package.mjs
       - uses: actions/upload-artifact@v4
         with:
           name: installers-${{ runner.os }}

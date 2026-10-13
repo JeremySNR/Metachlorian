@@ -181,6 +181,28 @@ def cmd_models(args) -> None:
             print(f"{'✓' if m['installed'] else '·'} {m['name']:28s} {m['licence']:12s} {m['size_mb']:>6} MB  {m['purpose']}")
     elif args.action == "fetch":
         names = args.names or [n for n, sp in models.SPECS.items() if sp.default]
+        if args.json:
+            # One JSON object per line, for the desktop app's first-run setup screen.
+            def emit(**event):
+                print(json.dumps(event), flush=True)
+            missing = [n for n in names if not models.installed(root, n)]
+            emit(event="plan", models=[{"name": n, "size_mb": models.SPECS[n].size_mb} for n in missing])
+            for n in missing:
+                last = [0.0]
+
+                def on_bytes(done, total, n=n, last=last):
+                    if done - last[0] >= 4 << 20 or done == total:
+                        last[0] = done
+                        emit(event="progress", model=n, done=done, total=total)
+                emit(event="start", model=n)
+                try:
+                    models.fetch(root, n, progress=lambda _m: None, on_bytes=on_bytes)
+                except Exception as e:  # noqa: BLE001 - reported to the caller, which offers a retry
+                    emit(event="error", model=n, message=str(e)[:300])
+                    sys.exit(1)
+                emit(event="done", model=n)
+            emit(event="complete")
+            return
         for n in names:
             print(f"fetching {n} …", flush=True)
             models.fetch(root, n)
@@ -247,6 +269,7 @@ def main(argv: list[str] | None = None) -> None:
     sp = sub.add_parser("models")
     sp.add_argument("action", choices=["list", "fetch", "install-from"])
     sp.add_argument("names", nargs="*")
+    sp.add_argument("--json", action="store_true", help="fetch: report progress as JSON lines")
     sp.set_defaults(fn=cmd_models)
     args = ap.parse_args(argv)
     logging.basicConfig(level=os.environ.get("METACHLORIAN_LOG", "WARNING"))

@@ -9,7 +9,9 @@
     "start": "electron .",
     "test": "node --test src/*.test.js",
     "package": "electron-builder",
-    "package:dir": "electron-builder --dir"
+    "package:dir": "electron-builder --dir",
+    "bundle": "node scripts/bundle.mjs",
+    "check-package": "node scripts/check-package.mjs"
   },
   "devDependencies": {
     "electron": "^39.0.0",
@@ -28,13 +30,16 @@
     ],
     "extraResources": [
       {
-        "from": "../core",
-        "to": "core",
-        "filter": [
-          "metachlorian/**",
-          "pyproject.toml",
-          "README.md"
-        ]
+        "from": "bundle/python",
+        "to": "python"
+      },
+      {
+        "from": "bundle/app",
+        "to": "app"
+      },
+      {
+        "from": "bundle/ffmpeg",
+        "to": "ffmpeg"
       }
     ],
     "mac": {
