@@ -9,6 +9,9 @@ COPY app/ ./
 RUN npm run build
 
 FROM python:3.11-slim-bookworm
+LABEL org.opencontainers.image.source=https://github.com/JeremySNR/Metachlorian \
+      org.opencontainers.image.description="Self-hosted, shot-level video search for AI agents and editors" \
+      org.opencontainers.image.licenses=Apache-2.0
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
     METACHLORIAN_DATA=/data METACHLORIAN_MODELS=/models METACHLORIAN_APP_DIST=/opt/metachlorian/app/dist \
     METACHLORIAN_HOST=0.0.0.0 METACHLORIAN_REQUIRE_AUTH=true
