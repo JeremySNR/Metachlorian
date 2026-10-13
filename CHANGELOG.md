@@ -15,6 +15,7 @@ still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
 
 ### Fixed
 
+- Metachlorian now runs on Windows. It previously stopped at start-up there, because it used a file lock that only exists on macOS and Linux.
 - Semantic search and zero-shot labels now work on Apple Silicon Macs. Embedding shots failed when analysis used Apple's Core ML accelerator; it now runs on the CPU unless `METACHLORIAN_COREML=1` is set.
 
 - The macOS desktop download no longer opens with "Metachlorian is damaged and can't be opened". The app is now ad-hoc signed, so macOS shows its usual unidentified-developer prompt and **System Settings → Privacy & Security → Open Anyway** works. It is still not signed with an Apple Developer ID or notarised.

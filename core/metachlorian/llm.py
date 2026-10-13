@@ -15,7 +15,6 @@ from __future__ import annotations
 import base64
 import copy
 import datetime as dt
-import fcntl
 import hashlib
 import json
 import os
@@ -28,6 +27,26 @@ import threading
 import time
 from pathlib import Path
 from typing import Any
+
+try:
+    import fcntl
+except ImportError:  # Windows
+    fcntl = None
+    import msvcrt
+
+
+def _lock_exclusive(f) -> None:
+    """Block until this process holds an exclusive lock on the open file (released when it is closed)."""
+    if fcntl:
+        fcntl.flock(f, fcntl.LOCK_EX)
+    else:
+        f.seek(0)
+        while True:
+            try:
+                msvcrt.locking(f.fileno(), msvcrt.LK_LOCK, 1)  # retries for ~10 s, then raises
+                return
+            except OSError:
+                continue
 
 import httpx
 import jsonschema
@@ -276,7 +295,7 @@ class _Ledger:
     def _locked(self, fn):
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with open(self.path.with_suffix(".lock"), "w") as lk:
-            fcntl.flock(lk, fcntl.LOCK_EX)
+            _lock_exclusive(lk)
             try:
                 data = json.loads(self.path.read_text()) if self.path.exists() else {}
             except json.JSONDecodeError:
