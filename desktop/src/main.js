@@ -5,7 +5,7 @@
 const { app, BrowserWindow, ipcMain, shell, dialog, nativeImage } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
-const { startSoloCore, health } = require('./core');
+const { startSoloCore, ensureModels, health } = require('./core');
 
 const settingsFile = () => path.join(app.getPath('userData'), 'settings.json');
 function loadSettings() {
@@ -27,7 +27,11 @@ async function connect() {
     if (!h) throw new Error(`Cannot reach the Metachlorian server at ${s.serverUrl}.`);
     return s.serverUrl;
   }
-  core = await startSoloCore({ resourcesPath: process.resourcesPath, dataDir: process.env.METACHLORIAN_DATA, onLog: (l) => process.stdout.write(l) });
+  const opts = { resourcesPath: process.resourcesPath, dataDir: process.env.METACHLORIAN_DATA, onLog: (l) => process.stdout.write(l) };
+  // First launch downloads the analysis models (~1.9 GB, once); later launches find them and continue at once.
+  if (!process.env.METACHLORIAN_SKIP_MODEL_SETUP) await ensureModels({ ...opts, onEvent: showSetupProgress });
+  setStatus({ title: 'Starting Metachlorian…' });
+  core = await startSoloCore(opts);
   return core.baseUrl;
 }
 
@@ -44,14 +48,87 @@ function createWindow() {
   return win;
 }
 
-function startupPage(message) {
+// The window shows this page until the library is ready: starting up, first-run model download, or an error.
+function startupPage() {
   const html = `<!doctype html><meta charset="utf-8"><title>Metachlorian</title>
-  <body style="background:#141414;color:#e8e8e8;font:15px system-ui;display:grid;place-items:center;height:100vh;margin:0">
-  <div style="max-width:520px"><h1 style="font-weight:600;font-size:20px">Metachlorian</h1><p>${message}</p></div></body>`;
+  <style>
+    body{background:#141414;color:#e8e8e8;font:15px/1.5 system-ui;display:grid;place-items:center;height:100vh;margin:0}
+    main{width:min(520px,calc(100vw - 48px))} h1{font-weight:600;font-size:20px;margin:0 0 8px}
+    p{color:#b4b4b4;margin:0 0 16px} .bar{height:6px;background:#2a2a2a;border-radius:3px;overflow:hidden}
+    .bar i{display:block;height:100%;width:0;background:#e8e8e8;transition:width .3s} small{color:#8a8a8a}
+    button{font:inherit;background:#e8e8e8;color:#141414;border:0;border-radius:6px;padding:8px 16px;cursor:pointer}
+    [hidden]{display:none!important}
+  </style>
+  <main><h1 id="t">Starting Metachlorian…</h1><p id="d"></p>
+  <div id="p" hidden><div class="bar"><i id="b"></i></div><small id="n"></small></div>
+  <div id="e" hidden><p id="m"></p><button onclick="window.metachlorian.retry()">Try again</button></div></main>
+  <script>window.setState=(s)=>{t.textContent=s.title||'';d.textContent=s.detail||'';d.hidden=!s.detail;
+    p.hidden=s.progress==null;if(s.progress!=null){b.style.width=(s.progress*100).toFixed(1)+'%';n.textContent=s.note||''}
+    e.hidden=!s.error;m.textContent=s.error||''}</script>`;
   return 'data:text/html;charset=utf-8,' + encodeURIComponent(html);
+}
+let pageReady = null;
+function setStatus(state) {
+  if (!win || win.isDestroyed()) return;
+  (pageReady || Promise.resolve()).then(() => win.webContents.executeJavaScript(`window.setState && window.setState(${JSON.stringify(state)})`).catch(() => {}));
+}
+const gb = (bytes) => (bytes / 1e9).toFixed(bytes < 1e9 ? 2 : 1) + ' GB';
+let setup = null;
+function showSetupProgress(ev) {
+  if (ev.event === 'plan') {
+    setup = { sizes: Object.fromEntries(ev.models.map((m) => [m.name, m.size_mb * 1e6])), done: {}, current: {} };
+    setup.total = Object.values(setup.sizes).reduce((a, b) => a + b, 0);
+    if (!ev.models.length) setup = null;
+  }
+  if (!setup) return;
+  if (ev.event === 'progress') {
+    if (ev.total) setup.sizes[ev.model] = ev.total;
+    setup.current[ev.model] = ev.done;
+  }
+  if (ev.event === 'done') setup.done[ev.model] = true;
+  const total = Object.values(setup.sizes).reduce((a, b) => a + b, 0);
+  const got = Object.keys(setup.sizes).reduce((a, n) => a + (setup.done[n] ? setup.sizes[n] : setup.current[n] || 0), 0);
+  // Test hook: screenshot the setup screen part-way through (METACHLORIAN_SETUP_SHOT=<png path>).
+  if (process.env.METACHLORIAN_SETUP_SHOT && !setup.shot && total && got / total > 0.2) {
+    setup.shot = true;
+    setTimeout(() => win.webContents.capturePage().then((img) => fs.writeFileSync(process.env.METACHLORIAN_SETUP_SHOT, img.toPNG())), 500);
+  }
+  setStatus({
+    title: 'Setting up Metachlorian',
+    detail: 'Downloading the models that watch and listen to your footage. This happens once and everything then runs on this computer.',
+    progress: total ? Math.min(1, got / total) : 0,
+    note: `${gb(got)} of ${gb(total)}`,
+  });
+}
+
+async function start() {
+  pageReady = win.loadURL(startupPage()).catch(() => {});
+  try {
+    baseUrl = await connect();
+    await win.loadURL(baseUrl);
+    if (process.env.METACHLORIAN_DESKTOP_SMOKE) {
+      // Headless check: wait for the UI to render, save a screenshot, report the bridge, exit.
+      await new Promise((r) => setTimeout(r, Number(process.env.METACHLORIAN_SMOKE_WAIT || 6000)));
+      const img = await win.webContents.capturePage();
+      fs.writeFileSync(process.env.METACHLORIAN_DESKTOP_SMOKE, img.toPNG());
+      const bridge = await win.webContents.executeJavaScript('typeof window.metachlorian === "object" && window.metachlorian.desktop === true');
+      process.stdout.write(JSON.stringify({ smoke: 'ok', baseUrl, bridge }) + '\n');
+      app.quit();
+    }
+  } catch (err) {
+    const team = loadSettings().mode === 'team';
+    setStatus({
+      title: team ? 'Can\'t reach your team server' : (setup ? 'Setup couldn\'t finish' : 'Metachlorian couldn\'t start'),
+      detail: team ? 'Check the server is running and this computer is on the same network.'
+        : setup ? 'Check your internet connection, then try again. Anything already downloaded is kept.' : '',
+      error: String(err.message || err),
+    });
+    if (process.env.METACHLORIAN_DESKTOP_SMOKE) { process.stdout.write(JSON.stringify({ smoke: 'failed', error: String(err.message || err) }) + '\n'); app.exit(1); }
+  }
 }
 
 // ---------------------------------------------------------------- bridge
+ipcMain.handle('mc:retry', () => { if (!baseUrl) start(); return true; });
 ipcMain.handle('mc:info', () => ({ desktop: true, platform: process.platform, mode: loadSettings().mode, baseUrl, version: app.getVersion() }));
 ipcMain.handle('mc:setServer', async (_e, { mode, serverUrl }) => {
   if (mode === 'team') {
@@ -92,24 +169,9 @@ ipcMain.handle('mc:openInCutawan', async (_e, packagePath) => {
   return { ok: false, error: 'Cutawan was not found. Install it from https://github.com/JeremySNR/cutawan/releases' };
 });
 
-app.whenReady().then(async () => {
+app.whenReady().then(() => {
   createWindow();
-  win.loadURL(startupPage('Starting the library…'));
-  try {
-    baseUrl = await connect();
-    await win.loadURL(baseUrl);
-    if (process.env.METACHLORIAN_DESKTOP_SMOKE) {
-      // Headless check: wait for the UI to render, save a screenshot, report the bridge, exit.
-      await new Promise((r) => setTimeout(r, Number(process.env.METACHLORIAN_SMOKE_WAIT || 6000)));
-      const img = await win.webContents.capturePage();
-      fs.writeFileSync(process.env.METACHLORIAN_DESKTOP_SMOKE, img.toPNG());
-      const bridge = await win.webContents.executeJavaScript('typeof window.metachlorian === "object" && window.metachlorian.desktop === true');
-      process.stdout.write(JSON.stringify({ smoke: 'ok', baseUrl, bridge }) + '\n');
-      app.quit();
-    }
-  } catch (err) {
-    win.loadURL(startupPage(String(err.message || err) + '<br><br>Install the core with <code>scripts/install.sh</code>, or switch to a team server in settings.'));
-  }
+  start();
 });
 
 app.on('window-all-closed', () => app.quit());

@@ -19,6 +19,44 @@ jobs:
         run: node scripts/check-release-notes.mjs
       - name: One version across core, app and desktop
         run: node scripts/version.mjs
+  desktop:
+    # Builds the self-contained desktop app for each platform and checks it runs with nothing else installed.
+    # Pull requests only: it takes several minutes per platform.
+    name: desktop app (${{ matrix.os }})
+    if: github.event_name == 'pull_request'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            app/package-lock.json
+            desktop/package-lock.json
+      - uses: astral-sh/setup-uv@v6
+      - name: Build web app
+        working-directory: app
+        run: npm ci && npm run build
+      - name: Bundle and package
+        working-directory: desktop
+        shell: bash
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+        run: |
+          npm ci
+          npm test
+          npm run bundle
+          npx electron-builder --dir ${{ runner.os == 'macOS' && '--arm64' || '' }}
+      - name: Check the packaged app works on its own
+        working-directory: desktop
+        shell: bash
+        run: ${{ runner.os == 'Linux' && 'xvfb-run -a --server-args="-screen 0 1600x1000x24"' || '' }} node scripts/check-package.mjs
   core:
     runs-on: ubuntu-latest
     steps:

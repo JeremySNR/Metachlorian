@@ -101,7 +101,8 @@ def require(models_root: Path, name: str) -> Path:
     return model_dir(models_root, name)
 
 
-def fetch(models_root: Path, name: str, progress=print) -> Path:
+def fetch(models_root: Path, name: str, progress=print, on_bytes=None) -> Path:
+    """Download a model. ``on_bytes(done, total)`` is called as each archive downloads (total is 0 if unknown)."""
     spec = SPECS[name]
     d = model_dir(models_root, name)
     if installed(models_root, name):
@@ -111,7 +112,12 @@ def fetch(models_root: Path, name: str, progress=print) -> Path:
         tmp = d / (".download-" + hashlib.sha1(url.encode()).hexdigest()[:8])
         progress(f"downloading {url}")
         with urllib.request.urlopen(url) as r, open(tmp, "wb") as f:
-            shutil.copyfileobj(r, f, 1 << 20)
+            total, done = int(r.headers.get("Content-Length") or 0), 0
+            while chunk := r.read(1 << 20):
+                f.write(chunk)
+                done += len(chunk)
+                if on_bytes:
+                    on_bytes(done, total)
         if url.endswith((".tar.bz2", ".tar.gz", ".tgz")):
             with tarfile.open(tmp) as tf:
                 for m in tf.getmembers():
@@ -156,7 +162,12 @@ def ort_session(path: Path, threads: int | None = None):
     so.intra_op_num_threads = threads or int(os.environ.get("METACHLORIAN_THREADS", "0") or 0) or max(1, (os.cpu_count() or 2) // 2)
     so.inter_op_num_threads = 1
     so.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
-    providers = [p for p in ("CUDAExecutionProvider", "CoreMLExecutionProvider", "DmlExecutionProvider") if p in ort.get_available_providers()]
+    # CoreML is opt-in (METACHLORIAN_COREML=1): it fails at inference on SigLIP's vision head on Apple Silicon.
+    wanted = ("CUDAExecutionProvider", "DmlExecutionProvider") + (("CoreMLExecutionProvider",) if os.environ.get("METACHLORIAN_COREML") == "1" else ())
+    providers = [p for p in wanted if p in ort.get_available_providers()]
+    # METACHLORIAN_ACCELERATORS=false forces CPU everywhere.
+    if os.environ.get("METACHLORIAN_ACCELERATORS", "").lower() in ("0", "false", "no", "off"):
+        providers = []
     return ort.InferenceSession(str(path), sess_options=so, providers=providers + ["CPUExecutionProvider"])
 
 

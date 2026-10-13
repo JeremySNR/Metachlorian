@@ -29,3 +29,7 @@ app/playwright-report/
 .coverage
 coverage.xml
 ci-gates.json
+
+# Desktop bundle (desktop/scripts/bundle.mjs) and its download cache
+desktop/bundle/
+desktop/.cache/

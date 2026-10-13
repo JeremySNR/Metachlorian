@@ -131,9 +131,12 @@ cd core && uv venv -p 3.11 && uv pip install -e ".[analysis]"
 cd ../app && npm ci && npm run build           # the web app the core serves
 ```
 
-**Desktop app:** `cd desktop && npm ci && npm start` runs the web app in Electron. In solo mode it starts a local core; in team
-mode it connects to a shared one. It adds native drag-out of real clip files and one-click hand-off to Cutawan. Installers are
-built with `npm run package` (unsigned until signing certificates are provided, see [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md)).
+**Desktop app (Windows, macOS, Linux):** download the installer from the [releases page](https://github.com/JeremySNR/Metachlorian/releases)
+and open it. It includes everything (its own Python, the core, FFmpeg and the web app), so nothing else needs installing. The
+first launch downloads the analysis models (about 1.7 GB, once). In solo mode it runs the library on your computer; in team
+mode it connects to a shared server. It adds native drag-out of real clip files and one-click hand-off to Cutawan. Installers
+are not yet signed (see [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md)): on macOS use **System Settings → Privacy & Security → Open
+Anyway** the first time; on Windows choose **More info → Run anyway**. From source: `cd desktop && npm ci && npm start`.
 
 ## Community sharing
 
