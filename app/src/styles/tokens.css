@@ -28,6 +28,8 @@
 
 :root {
   color-scheme: dark;
+  --brand-mark-width: var(--family-size-brand-mark-width);
+  --brand-mark-height: var(--family-size-brand-mark-height);
 
   /* ---------------------------------------------------------------- Colour */
   /*                         light-dark(LIGHT,   DARK) */
@@ -123,17 +125,17 @@
   /* --------------------------------------------------------------- Spacing */
   --space-0: 0;
   --space-0_5: 2px;
-  --space-1: 4px;
+  --space-1: var(--family-space-1);
   --space-1_5: 6px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 20px;
-  --space-6: 24px;
-  --space-8: 32px;
-  --space-10: 40px;
-  --space-12: 48px;
-  --space-16: 64px;
+  --space-2: var(--family-space-2);
+  --space-3: var(--family-space-3);
+  --space-4: var(--family-space-4);
+  --space-5: var(--family-space-5);
+  --space-6: var(--family-space-6);
+  --space-8: var(--family-space-8);
+  --space-10: var(--family-space-10);
+  --space-12: var(--family-space-12);
+  --space-16: var(--family-space-16);
 
   /* ----------------------------------------------------------------- Sizes */
   --control-sm: 24px;
@@ -175,9 +177,9 @@
   /* ----------------------------------------------------------------- Radii */
   --radius-none: 0;
   --radius-xs: 2px;
-  --radius-sm: 4px;            /* default: controls, chips, frames */
-  --radius-md: 6px;            /* menus, popovers, toasts */
-  --radius-lg: 8px;            /* dialogs */
+  --radius-sm: var(--family-radius-control);            /* default: controls, chips, frames */
+  --radius-md: var(--family-radius-popover);            /* menus, popovers, toasts */
+  --radius-lg: var(--family-radius-dialog);            /* dialogs */
   --radius-full: 9999px;       /* switch track, avatar only */
 
   /* --------------------------------------------------------------- Borders */
@@ -209,10 +211,10 @@
 
   /* ---------------------------------------------------------------- Motion */
   --dur-0: 0ms;
-  --dur-1: 80ms;               /* hover colour, focus ring */
-  --dur-2: 120ms;              /* press, chips, selection, exits */
-  --dur-3: 180ms;              /* popovers, panels, card → inspector flight */
-  --dur-4: 240ms;              /* dialogs, sheets */
+  --dur-1: var(--family-motion-feedback);               /* hover colour, focus ring */
+  --dur-2: var(--family-motion-control);              /* press, chips, selection, exits */
+  --dur-3: var(--family-motion-panel);              /* popovers, panels, card → inspector flight */
+  --dur-4: var(--family-motion-dialog);              /* dialogs, sheets */
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ease-enter: cubic-bezier(0, 0, 0, 1);
   --ease-exit: cubic-bezier(0.3, 0, 1, 1);

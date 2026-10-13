@@ -61,26 +61,11 @@
 }
 
 .mark {
-  display: grid;
-  grid-template-columns: 5px 3px 7px;
-  grid-template-rows: 10px 2px;
-  gap: 2px 2px;
-  inline-size: 19px;
-}
-
-.mark span:nth-child(1) {
-  grid-column: 1 / 4;
-  border: 1.5px solid var(--fg-1);
-  border-radius: 1px;
-}
-
-.mark span:nth-child(2) {
-  background: var(--key);
-}
-
-.mark span:nth-child(3),
-.mark span:nth-child(4) {
-  background: var(--fg-3);
+  display: block;
+  inline-size: var(--brand-mark-width);
+  block-size: var(--brand-mark-height);
+  object-fit: contain;
+  flex: none;
 }
 
 .wordmark {
