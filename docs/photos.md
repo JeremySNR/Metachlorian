@@ -77,6 +77,14 @@ The agent should report the chosen filename, edited virtual copy/session, actual
 
 Reuse the **same idempotency key and arguments** when retrying an uncertain request. A `waiting` job can be resumed after reconnecting Lightroom. A `conflict` means a new context/review is necessary. If a connector operation stopped partway through, its receipt prevents replay; context lists the recovery snapshot. Restore explicitly after inspecting the changed copy. Cancellation stops at an operation boundary and retains created copies/snapshots. Partial batch outcomes remain in the job result.
 
+## What runs automatically versus what the agent judges
+
+The photo inspector has Overview, Analysis, People and Metadata views. Its content scrolls independently of the library, with previous/next and close controls kept visible. Analysis shows the resolution and source of the measured rendition, near-white/near-black pixels, detail energy, face/eye-region measurements, framing hints and the models actually used for that analysis. Missing models and unavailable previews are not presented as successful visual understanding.
+
+Photos currently has a narrower pipeline than video: no automatic VLM scene caption, OCR, structured photographic critique, colour-harmony/skin-tone assessment or learned aesthetic ranking is generated during indexing. Video has separate captioning, visual tags, OCR, place, motion, speech/audio and fusion stages, depending on configuration. Photo expression, composition and editing decisions rely on the connected vision-capable agent inspecting previews. SigLIP embeddings supply retrieval, not a written understanding of every photograph.
+
+A future richer photo analysis should cache compact descriptions and critiques against the image/develop revision and model version, reuse the existing configured vision provider, and make remote analysis opt-in. That would add textual evidence without duplicating originals. It is not implemented by the inspector improvements.
+
 ## What it measures and edits
 
 Local measurements include rendered clipping, luminance distribution, scale-qualified gradient/Laplacian sharpness, face and eye-region detail, perceptual hashes, short capture bursts, possible near-horizontal lines and conservative framing suggestions. The shared SigLIP model retrieves image content. YuNet/SFace provide face detection and local matching when enabled. None of these measurements is a calibrated aesthetic, emotional or original-resolution focus judgement.

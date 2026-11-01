@@ -19,7 +19,16 @@ export type Photo = {
 export type PhotoDetail = Photo & {
   metadata: Record<string, unknown>
   keywords: string[]
-  evidence: { uncertainty?: string[]; exposure?: { render_highlights_fraction: number; render_shadows_fraction: number } }
+  evidence: {
+    uncertainty?: string[]; width?: number; height?: number
+    provenance?: { source?: string; native_resolution?: boolean }
+    exposure?: { render_highlights_fraction: number; render_shadows_fraction: number }
+    global_sharpness?: { gradient_energy?: number }
+    composition?: { bright_border_fraction?: number; horizontal_line_angles?: number[] }
+    crop_candidates?: { reason: string }[]
+    models?: Record<string, string>
+    faces?: { evidence?: { eyes?: { available: boolean }[] } }[]
+  }
   faces: { id: number; box: number[]; name: string | null; identity_id: number | null; stale?: boolean }[]
   variants: { uid: string; is_virtual: boolean; copy_name: string }[]
 }

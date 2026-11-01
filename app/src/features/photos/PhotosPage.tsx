@@ -43,6 +43,7 @@ export function PhotosPage() {
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const photoTrigger = useRef<HTMLButtonElement | null>(null)
   const requests = useRef(new Map<string, string>())
   const enqueue = async (path: string, body: Record<string, unknown> = {}) => {
     const signature = JSON.stringify([path, body])
@@ -137,11 +138,11 @@ export function PhotosPage() {
         <div className={s.workspace}>
           <div className={compare ? s.comparisonGrid : s.grid}>
             {items.filter((photo) => !compare || selected.has(photo.uid)).map((photo) => <article className={s.card} data-selected={selected.has(photo.uid) || undefined} key={photo.uid}>
-              <button className={s.imageButton} onClick={() => setInspected(photo.uid)} aria-label={`Inspect ${photo.filename}`}><PhotoImage key={`${photo.uid}-${photo.revision}`} uid={photo.uid} label={photo.filename} edge={compare ? 1600 : 600} retry={false} /></button>
+              <button className={s.imageButton} onClick={(event) => { photoTrigger.current = event.currentTarget; setInspected(photo.uid) }} aria-label={`Inspect ${photo.filename}`}><PhotoImage key={`${photo.uid}-${photo.revision}`} uid={photo.uid} label={photo.filename} edge={compare ? 1600 : 600} retry={false} /></button>
               <div className={s.cardInfo}><Checkbox isSelected={selected.has(photo.uid)} onChange={() => toggle(photo.uid)} aria-label={`Select ${photo.filename}`} /><div><strong>{photo.filename}</strong><span>{photo.copy_name || photo.capture_time?.slice(0, 10) || 'Capture date unknown'}</span></div><span className={s.badge}>{photo.availability === 'original' ? 'Original' : photo.availability.replaceAll('_', ' ')}</span></div>
             </article>)}
           </div>
-          {inspected ? <PhotoInspector key={inspected} uid={inspected} canName={scopes.includes('tags:write') && me.data?.role !== 'agent'} onClose={() => setInspected(null)} onBurst={(id) => { setFilters({ burst_id: id }); setDiverse(false); setInspected(null); setQuery('') }} /> : null}
+
         </div>
         {search.hasNextPage && !compare ? <Button isDisabled={search.isFetchingNextPage} onPress={() => void search.fetchNextPage()}>Load more photographs</Button> : null}
         </> : null}
@@ -163,6 +164,7 @@ export function PhotosPage() {
       {message ? <div role="status" className={s.notice}><span>{message}</span><IconButton icon={X} label="Dismiss notification" onPress={() => setMessage('')} /></div> : null}
       {error ? <div role="alert" className={s.notice}><span>{error}</span><IconButton icon={X} label="Dismiss error" onPress={() => setError('')} /></div> : null}
     </div>
+    {inspected && view === 'library' ? <PhotoInspector key={inspected} uid={inspected} position={`${items.findIndex(p => p.uid === inspected) + 1} of ${items.length} loaded photos`} onPrevious={items.findIndex(p => p.uid === inspected) > 0 ? () => setInspected(items[items.findIndex(p => p.uid === inspected) - 1].uid) : undefined} onNext={items.findIndex(p => p.uid === inspected) < items.length - 1 ? () => setInspected(items[items.findIndex(p => p.uid === inspected) + 1].uid) : undefined} canName={scopes.includes('tags:write') && me.data?.role !== 'agent'} onClose={() => { setInspected(null); photoTrigger.current?.focus() }} onBurst={(id) => { setFilters({ burst_id: id }); setDiverse(false); setInspected(null); setQuery('') }} /> : null}
   </main>
 }
 
