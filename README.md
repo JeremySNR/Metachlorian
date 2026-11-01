@@ -1,16 +1,47 @@
-# Metachlorian: footage search for AI video editors
+# Metachlorian: open-source video search
 
-**AI can edit video. It can't watch every frame of every file each time it needs a shot.** Metachlorian watches your
-footage once, on your own hardware, and builds a shot-by-shot index that AI agents can search in milliseconds over MCP or
-a REST API.
+**Find the exact shot in your video library.** Metachlorian indexes footage on your own computer so you can find B-roll
+by what a shot shows, search words in transcripts and on-screen text, and send selected shots to your editor.
+Use the desktop or web app yourself, or connect an AI agent through MCP or the REST API.
 
-> "A two-second cutaway of a yellow cab, camera panning left, no faces."
-> "B-roll that works under the line *we nearly missed the ferry*."
+[Website](https://www.metachlorian.xyz) · [Try it on one folder](#try-it-on-one-folder) · [Connect an AI agent](#connect-your-agent-mcp) · [Documentation](docs/architecture.md)
+
+## Download
+
+Free and open source under Apache-2.0. The desktop app includes Python, the Metachlorian engine, FFmpeg and the web app.
+
+| Platform | Download v0.1.0 |
+|---|---|
+| Windows (x64) | [Windows installer (.exe)](https://github.com/JeremySNR/Metachlorian/releases/download/v0.1.0/Metachlorian-Setup-0.1.0.exe) |
+| macOS (Apple Silicon) | [Mac disk image (.dmg)](https://github.com/JeremySNR/Metachlorian/releases/download/v0.1.0/Metachlorian-0.1.0-arm64.dmg) |
+| Linux (x64) | [Linux AppImage](https://github.com/JeremySNR/Metachlorian/releases/download/v0.1.0/Metachlorian-0.1.0.AppImage) |
+
+[Release notes and all downloads](https://github.com/JeremySNR/Metachlorian/releases/latest) · [Docker and source installation](#quick-start)
+
+The first launch downloads about **1.7 GB of analysis models**, once. Local analysis needs no paid API key; processing
+time depends on your hardware and footage. Windows builds are unsigned; macOS builds are ad-hoc signed and not notarised.
+See the [desktop setup notes](#quick-start) for first-launch prompts.
+
+## Try it on one folder
+
+1. **Add a small folder of footage you know.** Open the app and choose **Add a folder**, or use **Ingest and processing**.
+   Start with a few short clips; originals stay where they are.
+2. **Let analysis run, then search.** Check progress in **Ingest and processing**. Try a visual description such as
+   `wide coastline at sunset`, or words spoken in an interview. Results improve as analysis finishes.
+3. **Preview the matching shots.** Review their timecodes and match explanations, save a collection, and export selected
+   shots as clips or an OTIO, FCPXML or EDL timeline. Record the footage's rights before a rights-checked export.
+
+Local and personal files are excluded from community contributions. **New YouTube imports share machine metadata
+with a public community index by default**; turn off **Settings → Community sharing** before importing private or unlisted
+videos. [Sharing details and opt-out](#community-sharing).
+
 > "Slow, wide drone shots of a coastline at golden hour, no people, at least 8 seconds, 4K."
 > "Wide shots of Lisbon we're cleared to use on paid social."
 
-Every result comes back as a shot with exact in and out points, the signals that matched and how confident each one is,
-and a rights verdict for the use you stated. Your agent decides the edit. Metachlorian finds the footage.
+Results include shot in/out points and match explanations. When you specify an intended use, rights filtering uses the
+licence and clearance information recorded in your library.
+
+## What you can do
 
 - **Built for agents.** An MCP server and REST API that work with Claude, Codex, Cursor and any MCP client. Read-only by
   default, scoped tokens for anything more, every call audited.
@@ -23,22 +54,24 @@ and a rights verdict for the use you stated. Your agent decides the edit. Metach
   metadata with a public community index ([details and opt-out](#community-sharing)).
 - **A web and desktop app for people too.** Search, review what the index says about each shot, and correct it.
 
-<!-- TODO: replace with a short GIF of an agent building an edit from search results (docs/media/demo.gif). -->
-![Search with parsed query chips, results and why each shot matched](review/m4/screens/01-search-results--desktop-light.jpg)
+[![Search with parsed query chips, results and why each shot matched](review/m4/screens/01-search-results--desktop-light.jpg)](review/m4/screens/01-search-results--desktop-light.jpg)
 
-## Why not just give the model the video?
+If Metachlorian helps you find footage, [star the repository](https://github.com/JeremySNR/Metachlorian) to help other
+editors and developers discover it. [Report a problem](https://github.com/JeremySNR/Metachlorian/issues) if something gets
+in the way.
 
-Vision models can describe footage, but asking one to watch hours of video for every editing decision is slow, expensive
-and imprecise. An edit makes hundreds of small decisions. Metachlorian does the watching once, at import, so each
-decision becomes a query.
+## Why index video before searching?
 
-| | Model watches the footage | Metachlorian |
-|---|---|---|
-| Each question | Re-reads hours of video | Queries an index: median 325 ms at 1.6 million shots ([eval](eval/README.md)) |
-| Cost | Grows with every question | Paid once, at import |
-| Precision | "Somewhere around four minutes in" | Shot boundaries and word-timed speech, down to the frame |
-| Evidence | Take the model's word for it | Every signal has a value, a source, a confidence and a model version |
-| Your footage | Uploaded to a provider | Analysed locally by default |
+Metachlorian analyses footage at import and stores the results. People and agents can then query that index instead of
+running video analysis again for each search. Reprocessing is available when models, settings or your corrections change.
+
+| Capability | What you get |
+|---|---|
+| Search an existing index | Median 325 ms at 1.6 million shots in the [reference benchmark](eval/README.md); performance varies by library and hardware |
+| Local analysis | No paid model API required; hosted providers are optional |
+| Shot-level results | Shot boundaries and word-timed speech help you locate the matching moment |
+| Inspectable records | Signals include their source, confidence and model version; human corrections take precedence |
+| Recorded rights | Filter for an intended use using the clearance information you supply |
 
 ## Connect your agent (MCP)
 
@@ -59,17 +92,18 @@ client:
 
 On the same machine, `metachlorian mcp` runs over stdio instead (read-only without a token).
 
-A 60-second edit of the kids on rides from a folder of holiday footage takes four calls:
+An illustrative agent workflow for selecting holiday footage looks like this (folder names and results depend on your library):
 
 1. `list_folders(query="disney")` → `Holidays/Disney 2026` (41 files, 2.3 h)
 2. `search_shots(query="kids on a ride, smiling", folder="Disney 2026", filters={"min_duration": 2})`
 3. `find_similar(shot_id=<best one>, folder="Disney 2026")` for more like it
 4. `build_package(items=[...], name="Disney rides 60s")` → a package Cutawan or any editor can open
 
-Tools for search, shot and file records, similar shots, rights checks, clip export, packages, folders, collections,
-people and vocabularies are listed with their scopes in [docs/agents.md](docs/agents.md).
+Exporting requires the `media:export` scope and recorded rights that permit the intended use. A package is a hand-off for
+editing, not a finished video. Tools for search, shot and file records, similar shots, rights checks, clip export, packages,
+folders, collections, people and vocabularies are listed with their scopes in [docs/agents.md](docs/agents.md).
 
-## What it knows about every shot
+## What it indexes
 
 - **Shots, not files.** Every file is split into shots (hard cuts, dissolves, fades) and long takes into segments, each
   with its own record.
@@ -82,17 +116,19 @@ people and vocabularies are listed with their scopes in [docs/agents.md](docs/ag
   edit.
 - **Who is in it.** Faces are recognised across shots and files, locally. Name someone once and "Maria laughing in the
   kitchen" finds them. Merge, split or forget people at any time.
-- **Whether you can use it.** Source, licence, permitted uses, channels, territories, expiry and releases per file
-  (overridable per shot). State an intended use and you only get shots cleared for it.
+- **Rights you record.** Source, licence, permitted uses, channels, territories, expiry and releases per file
+  (overridable per shot). State an intended use to filter against those records. Metachlorian does not independently
+  verify ownership or establish permission to reuse footage.
 
-Search blends semantic similarity, keywords in transcripts and on-screen text, and label matches. Natural language is
+Search blends visual semantic similarity, keywords in transcripts and on-screen text, and label matches. Speech and OCR
+search match words; they do not currently offer meaning-level retrieval of paraphrases. Natural language is
 parsed into filters you can see and edit, and every result says *why* it matched. Query by example with a shot, a still
 or a clip. Corrections are stored separately from machine output and win over it, even after re-processing.
 
 Footage can come from folders, S3 buckets, or web links: paste YouTube, Vimeo or other links (or a whole playlist) and
 they are downloaded with yt-dlp and analysed like everything else, with rights starting as unknown. Hosted models
-(an OpenAI API key, OpenRouter, or a ChatGPT subscription via the Codex CLI) add richer captions and much higher throughput
-once an admin enables one.
+(an OpenAI API key, OpenRouter, or a ChatGPT subscription via the Codex CLI) can add richer captions once an admin enables
+one; provider charges or subscription limits may apply.
 
 ## Screenshots
 
@@ -124,18 +160,21 @@ curl -fsSL https://raw.githubusercontent.com/JeremySNR/Metachlorian/main/scripts
 
 **From source (solo mode on your machine):**
 
+On Linux or macOS, install Git, FFmpeg, Node.js/npm and uv, then create a source checkout and build it:
+
 ```bash
-cd core && uv venv -p 3.11 && uv pip install -e ".[analysis]"
-.venv/bin/metachlorian models fetch            # local models, ~1.9 GB
-.venv/bin/metachlorian serve --add ~/Footage   # http://127.0.0.1:8765
-cd ../app && npm ci && npm run build           # the web app the core serves
+git clone https://github.com/JeremySNR/Metachlorian && cd Metachlorian
+cd app && npm ci && npm run build
+cd ../core && uv venv -p 3.11 && uv pip install -e ".[analysis]"
+.venv/bin/metachlorian models fetch            # downloads the local analysis models
+.venv/bin/metachlorian serve --add ~/Footage   # keep running; open http://127.0.0.1:8765
 ```
 
-**Desktop app (Windows, macOS, Linux):** download the installer from the [releases page](https://github.com/JeremySNR/Metachlorian/releases)
+**Desktop app (Windows x64, macOS Apple Silicon, Linux x64):** download the installer from the [releases page](https://github.com/JeremySNR/Metachlorian/releases)
 and open it. It includes everything (its own Python, the core, FFmpeg and the web app), so nothing else needs installing. The
 first launch downloads the analysis models (about 1.7 GB, once). In solo mode it runs the library on your computer; in team
 mode it connects to a shared server. It adds native drag-out of real clip files and one-click hand-off to Cutawan. Installers
-are not yet signed (see [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md)): on macOS use **System Settings → Privacy & Security → Open
+are unsigned on Windows and ad-hoc signed, without notarisation, on macOS (see [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md)): on macOS use **System Settings → Privacy & Security → Open
 Anyway** the first time; on Windows choose **More info → Run anyway**. From source: `cd desktop && npm ci && npm start`.
 
 ## Community sharing
