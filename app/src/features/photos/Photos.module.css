@@ -108,3 +108,32 @@
 .image .previewPlaceholder { color: var(--fg-3); font-size: var(--text-xs); }
 .steps button:focus-visible, .views button:focus-visible, .sourceChoice:focus-visible { outline: 2px solid var(--key); outline-offset: 3px; }
 @media (width < 760px) { .sourceChoices, .agentSetup { grid-template-columns: 1fr; } .onboarding { padding: var(--space-4); } .steps { gap: 0; } .steps button { flex-direction: column; align-items: start; padding: var(--space-2); } .searchMain { flex-wrap: wrap; } .searchMain > :first-child { flex-basis: 100%; } .setupFooter { flex-wrap: wrap; } }
+
+/* Sibling scroll panes: the inspector never inherits the gallery's scroll position. */
+.page { display: flex; overflow: hidden; position: relative; }
+.inner { flex: 1; min-inline-size: 0; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-gutter: stable; }
+.inspector { position: static; flex: 0 0 clamp(360px, 36vw, 480px); inline-size: auto; min-block-size: 0; max-block-size: none; overflow: hidden; padding: 0; gap: 0; border-radius: 0; border-width: 0 0 0 1px; }
+.inspectorHeader { flex: 0 0 auto; padding: var(--space-4); border-block-end: 1px solid var(--border-default); }
+.inspectorHeader h2 { overflow-wrap: anywhere; font-size: var(--text-lg); margin-block-start: var(--space-2); }
+.inspectorHeader .row { color: var(--fg-2); font-size: var(--text-xs); }
+.inspectorBody { flex: 1 1 0; min-block-size: 0; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-gutter: stable; padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-4); }
+.inspectorBody > * { flex-shrink: 0; }
+.inspectorTabs { display: flex; border-block-end: 1px solid var(--border-default); gap: var(--space-3); }
+.inspectorTabs button { padding: var(--space-2) 0; border: 0; border-block-end: 2px solid transparent; color: var(--fg-2); background: transparent; font: inherit; font-size: var(--text-sm); cursor: pointer; }
+.inspectorTabs button[aria-pressed=true] { color: var(--fg-1); border-block-end-color: var(--key); }
+.inspectorBody:focus-visible, .inspectorTabs button:focus-visible { outline: 2px solid var(--key); outline-offset: -2px; }
+.analysisContent { display: flex; flex-direction: column; gap: var(--space-4); }
+.analysisSection { padding-block-end: var(--space-4); border-block-end: 1px solid var(--border-default); font-size: var(--text-sm); line-height: 1.6; }
+.analysisSection h3 { color: var(--fg-1); margin-block: 0 var(--space-2); }
+.analysisSection p { color: var(--fg-2); margin-block: var(--space-2); }
+.measurements { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
+.measurements > div { display: flex; flex-direction: column; padding: var(--space-3); background: var(--bg-raised); border-radius: var(--radius-sm); }
+.measurements strong { font-size: var(--text-xl); }
+.measurements span { color: var(--fg-2); font-size: var(--text-xs); }
+@media (width < 760px) { .page:has(.inspector) > .inner { display: none; } .inspector { flex: 1; inline-size: 100%; border: 0; } }
+.page { overflow: clip; }
+.inner { min-block-size: 0; }
+.inner > * { flex-shrink: 0; }
+.modelNotice > .grow { min-inline-size: min(100%, 22rem); }
+.searchMain { flex-wrap: wrap; }
+.searchMain > :first-child { min-inline-size: min(100%, 20rem); }
