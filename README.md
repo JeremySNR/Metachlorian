@@ -138,7 +138,7 @@ Read the [setup and Codex configuration](docs/photos.md), [supported controls an
 
 ## Connect your agent (MCP)
 
-Start the server, create a token in **Settings → Agents** (or `metachlorian token my-agent`), then add it to your MCP
+Start the server, create a token in **Settings → API tokens for agents** (or `metachlorian token my-agent`), then add it to your MCP
 client:
 
 ```json
@@ -257,7 +257,7 @@ Capture metadata preserves named Log profiles (including LogC3/4 and S-Log2/3), 
 when available. File and shot records expose the profile and its metadata evidence for grading tools.
 An image-based Log/flat estimate is labelled separately and must not be treated as a confirmed input transform.
 
-**Agents (MCP):** create a token in Settings → Agents (or `metachlorian token my-agent`), then point your MCP client at
+**Agents (MCP):** create a token in Settings → API tokens for agents (or `metachlorian token my-agent`), then point your MCP client at
 `http://<host>:8765/mcp/` with `Authorization: Bearer <token>`, or run `metachlorian mcp` over stdio (read-only by default).
 See [docs/agents.md](docs/agents.md).
 

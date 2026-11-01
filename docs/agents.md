@@ -19,7 +19,7 @@ never get more than a person with the same scopes would.
 }
 ```
 
-Create the token in **Settings → Agents** or with `metachlorian token my-agent --scopes library:read,media:export`.
+Create the token in **Settings → API tokens for agents** or with `metachlorian token my-agent --scopes library:read,media:export`.
 
 **stdio (same machine):**
 
