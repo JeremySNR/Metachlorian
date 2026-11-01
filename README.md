@@ -42,9 +42,9 @@ The desktop app bundles Python, the Metachlorian engine, FFmpeg and the web app.
 | Windows | macOS | Linux |
 | :---: | :---: | :---: |
 | **x64** | **Apple Silicon** | **x64** |
-| [**Download .exe**](https://github.com/JeremySNR/Metachlorian/releases/download/v0.1.0/Metachlorian-Setup-0.1.0.exe) | [**Download .dmg**](https://github.com/JeremySNR/Metachlorian/releases/download/v0.1.0/Metachlorian-0.1.0-arm64.dmg) | [**Download AppImage**](https://github.com/JeremySNR/Metachlorian/releases/download/v0.1.0/Metachlorian-0.1.0.AppImage) |
+| [**Download .exe**](https://github.com/JeremySNR/Metachlorian/releases/download/v0.2.0/Metachlorian-Setup-0.2.0.exe) | [**Download .dmg**](https://github.com/JeremySNR/Metachlorian/releases/download/v0.2.0/Metachlorian-0.2.0-arm64.dmg) | [**Download AppImage**](https://github.com/JeremySNR/Metachlorian/releases/download/v0.2.0/Metachlorian-0.2.0.AppImage) |
 
-**Current installers: v0.1.0.** [Release notes and all downloads](https://github.com/JeremySNR/Metachlorian/releases/latest)
+**Current installers: v0.2.0.** [Release notes and all downloads](https://github.com/JeremySNR/Metachlorian/releases/latest)
 · [Docker and source installation](#quick-start)
 
 The first launch downloads about **1.7 GB of analysis models**, once. Local analysis needs no paid API key; processing
