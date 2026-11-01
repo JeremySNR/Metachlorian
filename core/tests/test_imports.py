@@ -108,7 +108,7 @@ def test_playlist_expands_into_one_import_per_video(fake):
     parent = rows[pid]
     kids = [r for r in rows.values() if r["parent_id"] == pid]
     assert parent["status"] == "expanded" and parent["folder"] == "YouTube/Disney 2026" and "2 videos" in parent["message"]
-    assert sorted(k["title"] for k in kids) == ["Video aaa", "Video bbb"] and all(k["status"] == "done" for k in kids)
+    assert sorted(k["title"] for k in kids) == ["Video aaa", "Video bbb"] and all(k["status"] == "done" for k in kids), kids
     assert all("/imports/YouTube/Disney 2026/" in k["path"].replace('\\', '/') for k in kids)
     assert len(lib.import_status(LOCAL_ADMIN, pid)["children"]) == 2
 
