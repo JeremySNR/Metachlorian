@@ -1,22 +1,51 @@
-# Metachlorian: open-source video search
+<p align="center">
+  <a href="https://www.metachlorian.xyz">
+    <img src=".github/assets/metachlorian-hero.svg" alt="Metachlorian — Find the exact shot in your video library. Local video search, desktop app and MCP server." width="1280">
+  </a>
+</p>
 
-**Find the exact shot in your video library.** Metachlorian indexes footage on your own computer so you can find B-roll
-by what a shot shows, search words in transcripts and on-screen text, and send selected shots to your editor.
-Use the desktop or web app yourself, or connect an AI agent through MCP or the REST API.
+<p align="center">
+  <strong>Free, open-source video search for your own footage.</strong><br>
+  Find B-roll by what it shows, search spoken words, and send the matching shots to your editor.
+</p>
 
-[Website](https://www.metachlorian.xyz) · [Try it on one folder](#try-it-on-one-folder) · [Connect an AI agent](#connect-your-agent-mcp) · [Documentation](docs/architecture.md)
+<p align="center">
+  <a href="https://github.com/JeremySNR/Metachlorian/releases/latest"><img alt="Latest app release" src="https://img.shields.io/github/v/release/JeremySNR/Metachlorian?filter=v*&amp;sort=semver&amp;style=flat-square&amp;label=release&amp;color=6d4aff"></a>
+  <a href="https://github.com/JeremySNR/Metachlorian/actions/workflows/ci.yml"><img alt="CI status on main" src="https://img.shields.io/github/actions/workflow/status/JeremySNR/Metachlorian/ci.yml?branch=main&amp;event=push&amp;style=flat-square&amp;label=CI"></a>
+  <a href="https://github.com/JeremySNR/Metachlorian/commits/main/"><img alt="Last commit to main" src="https://img.shields.io/github/last-commit/JeremySNR/Metachlorian/main?style=flat-square&amp;label=updated&amp;color=6d4aff"></a>
+  <a href="https://github.com/JeremySNR/Metachlorian/commits/main/"><img alt="Commits since the latest app release" src="https://img.shields.io/github/commits-since/JeremySNR/Metachlorian/latest/main?filter=v*&amp;sort=semver&amp;style=flat-square&amp;label=since%20release&amp;color=6d4aff"></a>
+  <a href="LICENSE"><img alt="Apache-2.0 license" src="https://img.shields.io/github/license/JeremySNR/Metachlorian?style=flat-square&amp;color=6d4aff"></a>
+</p>
+
+<p align="center">
+  <a href="#download"><strong>Download</strong></a> &nbsp; · &nbsp;
+  <a href="https://www.metachlorian.xyz">Website</a> &nbsp; · &nbsp;
+  <a href="#try-it-on-one-folder">Quick tour</a> &nbsp; · &nbsp;
+  <a href="#connect-your-agent-mcp">Connect an AI agent</a> &nbsp; · &nbsp;
+  <a href="docs/roadmap.md">Roadmap</a>
+</p>
+
+---
+
+| Find the moment | Keep your workflow | Connect your agent |
+| :--- | :--- | :--- |
+| Describe a scene or search spoken words. Jump to matching shots with exact timecodes. | Analyse locally. Export selected clips and OTIO, FCPXML or EDL timelines to your editor. | Connect through MCP or REST. Scoped access and audit logs keep agent actions inspectable. |
+
+[![Metachlorian search: editable query filters, shot previews, timecodes and match explanations](review/m4/screens/01-search-results--desktop-light.jpg)](review/m4/screens/01-search-results--desktop-light.jpg)
+
+<p align="center"><sub>Search your footage, review the matching shots, then send a selection to <a href="https://github.com/JeremySNR/cutawan">Cutawan</a> or your editor.</sub></p>
 
 ## Download
 
-Free and open source under Apache-2.0. The desktop app includes Python, the Metachlorian engine, FFmpeg and the web app.
+The desktop app bundles Python, the Metachlorian engine, FFmpeg and the web app. Choose your platform:
 
-| Platform | Download v0.1.0 |
-|---|---|
-| Windows (x64) | [Windows installer (.exe)](https://github.com/JeremySNR/Metachlorian/releases/download/v0.1.0/Metachlorian-Setup-0.1.0.exe) |
-| macOS (Apple Silicon) | [Mac disk image (.dmg)](https://github.com/JeremySNR/Metachlorian/releases/download/v0.1.0/Metachlorian-0.1.0-arm64.dmg) |
-| Linux (x64) | [Linux AppImage](https://github.com/JeremySNR/Metachlorian/releases/download/v0.1.0/Metachlorian-0.1.0.AppImage) |
+| Windows | macOS | Linux |
+| :---: | :---: | :---: |
+| **x64** | **Apple Silicon** | **x64** |
+| [**Download .exe**](https://github.com/JeremySNR/Metachlorian/releases/download/v0.1.0/Metachlorian-Setup-0.1.0.exe) | [**Download .dmg**](https://github.com/JeremySNR/Metachlorian/releases/download/v0.1.0/Metachlorian-0.1.0-arm64.dmg) | [**Download AppImage**](https://github.com/JeremySNR/Metachlorian/releases/download/v0.1.0/Metachlorian-0.1.0.AppImage) |
 
-[Release notes and all downloads](https://github.com/JeremySNR/Metachlorian/releases/latest) · [Docker and source installation](#quick-start)
+**Current installers: v0.1.0.** [Release notes and all downloads](https://github.com/JeremySNR/Metachlorian/releases/latest)
+· [Docker and source installation](#quick-start)
 
 The first launch downloads about **1.7 GB of analysis models**, once. Local analysis needs no paid API key; processing
 time depends on your hardware and footage. Windows builds are unsigned; macOS builds are ad-hoc signed and not notarised.
@@ -41,24 +70,15 @@ videos. [Sharing details and opt-out](#community-sharing).
 Results include shot in/out points and match explanations. When you specify an intended use, rights filtering uses the
 licence and clearance information recorded in your library.
 
-## What you can do
+## Follow development
 
-- **Built for agents.** An MCP server and REST API that work with Claude, Codex, Cursor and any MCP client. Read-only by
-  default, scoped tokens for anything more, every call audited.
-- **Measured, not guessed.** Shot boundaries, camera motion, pace, loudness and image quality are computed. Models are
-  used for meaning: what's in the shot, what's said and when, what's written on screen, who is in it.
-- **Straight to the timeline.** Hand selected shots to [Cutawan](https://github.com/JeremySNR/cutawan), or to any editor
-  that reads OpenTimelineIO, FCPXML or CMX 3600 EDL.
-- **Self-hosted and open source (Apache-2.0).** Runs on a CPU, faster with a GPU. Footage, frames and faces stay on your
-  machine unless an admin chooses a hosted model. One exception is on by default: new YouTube imports share machine
-  metadata with a public community index ([details and opt-out](#community-sharing)).
-- **A web and desktop app for people too.** Search, review what the index says about each shot, and correct it.
+The badges above track the published release, CI on `main`, the latest commit and commits since the latest app release.
+For work in progress, see the [roadmap](docs/roadmap.md), [open pull requests](https://github.com/JeremySNR/Metachlorian/pulls)
+and [commit history](https://github.com/JeremySNR/Metachlorian/commits/main/).
 
-[![Search with parsed query chips, results and why each shot matched](review/m4/screens/01-search-results--desktop-light.jpg)](review/m4/screens/01-search-results--desktop-light.jpg)
-
-If Metachlorian helps you find footage, [star the repository](https://github.com/JeremySNR/Metachlorian) to help other
-editors and developers discover it. [Report a problem](https://github.com/JeremySNR/Metachlorian/issues) if something gets
-in the way.
+If Metachlorian helps you find footage, [star the repository](https://github.com/JeremySNR/Metachlorian) to help other editors
+and developers discover it. [Report a problem](https://github.com/JeremySNR/Metachlorian/issues) with your platform and the step
+that failed, or [contribute a fix](https://github.com/JeremySNR/Metachlorian/pulls).
 
 ## Why index video before searching?
 
@@ -149,7 +169,9 @@ All journeys, at desktop, laptop and tablet sizes in light and dark: [review/m4]
 git clone https://github.com/JeremySNR/Metachlorian && cd Metachlorian
 METACHLORIAN_ADMIN_PASSWORD='choose-a-long-password' FOOTAGE_DIR=/path/to/footage \
   docker compose -f deploy/docker-compose.yml up -d
-# open http://<host>:8765 and sign in as admin
+# First startup downloads the analysis models before accepting connections.
+# Follow progress: docker compose -f deploy/docker-compose.yml logs -f
+# When ready, open http://<host>:8765 and sign in as admin
 ```
 
 **One command (Linux/macOS, Docker or native):**
@@ -262,3 +284,4 @@ Read more: [architecture](docs/architecture.md) · [decision records](docs/decis
 
 Apache-2.0. Model weights have their own licences (all permit commercial use); see [docs/licences.md](docs/licences.md) and
 [NOTICE](NOTICE).
+
