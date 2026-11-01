@@ -26,6 +26,7 @@ Photos and the Lightroom Classic editing preview are now included in the desktop
 
 ### Fixed
 
+- Concurrent playlist downloads now share their source folder reliably, avoiding intermittent import failures when two videos finish together.
 - Folder-indexed files match existing Lightroom masters by path for current settings and previews, including RAWs without a local decoder. Already-indexed originals do not need to be copied or re-indexed.
 - Connection and preview failures explain the next step. Copied connector files are no longer treated as proof of a working Lightroom connection, and the plug-in shows its last authenticated request.
 - The setup guide keeps its current step when the first photos arrive.
