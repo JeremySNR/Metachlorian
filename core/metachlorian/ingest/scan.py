@@ -184,8 +184,13 @@ def add_source(db: Database, uri: str, watch: bool = True, priority: int = 0, op
     kind = "s3" if uri.startswith("s3://") else "folder"
     if kind == "folder":
         uri = str(Path(uri).expanduser().resolve())
-    row = db.q1("SELECT id FROM sources WHERE uri=?", (uri,))
+    row = db.q1("SELECT id,kind FROM sources WHERE uri=?", (uri,))
     if row:
+        if row["kind"] == "photos" and kind == "folder":
+            # A folder can contain both photographs and videos. An explicit
+            # video import enables video watching without replacing photo records.
+            db.x("UPDATE sources SET kind='folder',watch=?,priority=? WHERE id=?",
+                 (int(watch), priority, row["id"]))
         if options is not None:
             existing = loads(db.q1("SELECT options FROM sources WHERE id=?", (row["id"],))["options"], {})
             db.x("UPDATE sources SET options=? WHERE id=?", (dumps({**existing, **options}), row["id"]))
@@ -308,7 +313,7 @@ def _scan_source(db: Database, source_id: int, cache_dir: Path | None, on_asset)
         raise
     # Files that disappeared from this source.
     if src["kind"] == "folder" and not state["errors"]:
-        for r in db.q("SELECT p.path, p.asset_id FROM asset_paths p JOIN assets a ON a.id=p.asset_id WHERE a.source_id=? AND a.deleted_at IS NULL", (source_id,)):
+        for r in db.q("SELECT p.path, p.asset_id FROM asset_paths p JOIN assets a ON a.id=p.asset_id WHERE a.source_id=? AND a.deleted_at IS NULL AND a.media_kind='video'", (source_id,)):
             if r["path"] not in seen and not Path(r["path"]).exists():
                 with db.tx() as c:
                     c.execute("DELETE FROM asset_paths WHERE path=?", (r["path"],))

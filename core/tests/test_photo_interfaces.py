@@ -194,3 +194,41 @@ def test_folder_ingest_incremental_and_no_video_jobs(photos, tmp_path, monkeypat
     assert readiness['state'] == 'empty'
     assert readiness['files']['total'] == 0
     assert not readiness['sources']
+
+
+@pytest.mark.parametrize('photos_first', [True, False])
+def test_mixed_folder_keeps_photo_and_video_lifecycles_separate(photos, tmp_path, photos_first):
+    from metachlorian.ingest import scan
+
+    service, _, _ = photos
+    folder = tmp_path / 'family'; folder.mkdir()
+    photo = folder / 'family.jpg'
+    Image.new('RGB', (64, 48), 'blue').save(photo)
+    (folder / 'family.mp4').write_bytes(b'video fixture')
+
+    if not photos_first:
+        scan.add_source(service.db, str(folder), watch=True)
+    result = run(service, service.scan_folder(auth.LOCAL_ADMIN, str(folder), 'mixed-folder'))
+    assert result['status'] == 'done'
+    sid = scan.add_source(service.db, str(folder), watch=True)
+    source = service.db.q1('SELECT kind,watch FROM sources WHERE id=?', (sid,))
+    assert tuple(source) == ('folder', 1)
+    assert scan.scan_source(service.db, sid).added == 1
+    lib = Library(service.db, service.settings)
+    assert lib.sources(auth.LOCAL_ADMIN)[0]['assets'] == 1
+    assert lib.library_readiness(auth.LOCAL_ADMIN)['files']['total'] == 1
+
+    # Video rescans must not remove a missing photo's path or change its state.
+    asset = service.db.q1("SELECT id FROM assets WHERE source_id=? AND media_kind='photo'", (sid,))['id']
+    away = tmp_path / 'away.jpg'
+    photo.rename(away)
+    assert scan.scan_source(service.db, sid).missing == 0
+    assert service.db.q1('SELECT status FROM assets WHERE id=?', (asset,))[0] != 'missing'
+    assert service.db.q1('SELECT path FROM asset_paths WHERE asset_id=?', (asset,))
+    away.rename(photo)
+
+    # Removing a folder from the video library leaves its photo index intact.
+    assert lib.exclude_folder(auth.LOCAL_ADMIN, str(folder))['removed'] == 1
+    assert service.db.q1('SELECT deleted_at FROM assets WHERE id=?', (asset,))[0] is None
+    assert lib.list_assets(auth.LOCAL_ADMIN)['total'] == 0
+    assert photo.is_file()

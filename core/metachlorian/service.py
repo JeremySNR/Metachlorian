@@ -783,8 +783,8 @@ class Library:
                 exclusions = [existing for existing in exclusions if not path_within(existing, folder)]
                 self.db.set_meta("ingest:excluded_folders", dumps([*exclusions, folder]))
             ids = {r["id"] for r in c.execute(
-                "SELECT a.id, a.path FROM assets a WHERE a.deleted_at IS NULL UNION "
-                "SELECT a.id, p.path FROM asset_paths p JOIN assets a ON a.id=p.asset_id WHERE a.deleted_at IS NULL"
+                "SELECT a.id, a.path FROM assets a WHERE a.deleted_at IS NULL AND a.media_kind='video' UNION "
+                "SELECT a.id, p.path FROM asset_paths p JOIN assets a ON a.id=p.asset_id WHERE a.deleted_at IS NULL AND a.media_kind='video'"
             ) if path_within(r["path"], folder)}
             for aid in ids:
                 c.execute("UPDATE assets SET deleted_at=? WHERE id=?", (now(), aid))
