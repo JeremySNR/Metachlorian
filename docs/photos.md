@@ -2,16 +2,21 @@
 
 Metachlorian can index photographs in place, help an MCP agent compare a shortlist, and send recoverable edits to Lightroom Classic. Codex or another vision-capable agent makes the photographic decisions. The small Lightroom plug-in is the local connection to Adobe's catalogue and renderer; it does not run another agent.
 
-This is a **source preview**, not included in the published **v0.2.0 installers**. Automated tests exercise the Python service, actual Lua handler with SDK doubles, TCP transport, REST and MCP. Real Lightroom rendering and UI interaction still need the Mac/Windows certification described below. Editing is explicitly limited to Classic **15.6** in this version; other versions can be indexed but are not silently declared compatible.
+This is a **source preview**, not included in the published **v0.2.0 installers**. Automated tests exercise the Python service, actual Lua handler with SDK doubles, TCP transport, REST and MCP. Real Lightroom rendering and UI interaction still need the Mac/Windows certification described below. Global editing is enabled for Classic **14.2–15.6**, with controls checked per photograph. AI subject, sky and background masks remain restricted to **15.6**. This is an adapter compatibility range, not a claim of live platform certification.
 
 ## Start
 
 1. Build the current source and run Metachlorian on the **same computer and OS account as Lightroom Classic**. Use a desktop build from that checkout or a native Python installation. A NAS/container cannot control desktop Classic through this adapter.
-2. Open **Photos → Enable Photos**. Install the photo models when prompted, or keep metadata-only search. Existing video model downloads are reused. New desktop installations can choose Photos without downloading speech/audio models.
-3. Select **Install connector files**. In Lightroom, choose **File → Plug-in Manager → Add**, select the displayed `MetachlorianPhotos.lrplugin` directory and enable it. Restart Lightroom if the connector has not started. Its status is available under **Library → Plug-in Extras**.
-4. Select **Sync catalogue**, or index a folder. Synchronisation indexes metadata first, then analyses available renditions locally. Existing Smart Previews are used through Lightroom. Metachlorian does not create Smart Previews for the whole catalogue or parse/write `.lrcat` internals.
-5. Name people in the photo inspector or People screen. Correct a wrong match with **Not this person**, or merge groups in People. Children, unusual poses and small faces still need human verification.
-6. Connect your agent to the running core's `/mcp/` endpoint and ask it to select and edit photographs. Jobs and reviewed copies appear in Photos → Activity. Finished selections appear in Lightroom under the **Metachlorian** collection set and can also be found through Metachlorian Collections.
+2. Open **Photos → Enable Photos**. The setup walks through **Choose your photos → Connect Lightroom → Use your agent**. Choose **Lightroom catalogue** if your pictures are already in Lightroom, or **Photo folder** to index a folder in place. Adding files does not establish a Lightroom connection.
+3. In **Connect Lightroom**, select **Copy connector files**. In Lightroom, open **File → Plug-in Manager → Add**, select the displayed `MetachlorianPhotos.lrplugin` folder and enable it. Keep that folder in place. If it is already installed, copy the updated files and use **Reload Plug-in**. Select **Start connection** in its panel if needed.
+4. Select **Check connection** in Metachlorian. A successful response shows the actual Lightroom version, catalogue and connector version. The Lightroom panel separately shows its last authenticated request and action; **Refresh status** updates it. Copied files alone are never treated as proof of a connection. Errors explain the next step.
+5. Select **Sync catalogue**, or finish indexing your folder. Metadata appears first; image understanding follows in **Activity**. Existing Smart Previews are accessed through Lightroom. Metachlorian does not create them for the whole catalogue or parse/write `.lrcat` internals. Install the local photo models for visual search, or keep metadata-only search. Existing video model downloads are reused.
+6. Open **Use your agent** for the actual MCP endpoint, Codex configuration, required token scopes and a sample brief. Your agent chooses and edits photographs. The plug-in carries out requests; it does not choose a look by itself. **Prepare virtual copies** creates recoverable copies for an agent to edit; it does not apply the brief automatically.
+7. Browse, search and compare in **Library**. Name people in the inspector or People screen; correct a wrong match with **Not this person**. Follow jobs and review rendered copies in **Activity**. Finished selections appear in Lightroom under the **Metachlorian** collection set and in Metachlorian Collections.
+
+**Already indexed a folder?** You do not need to re-index everything or duplicate your originals. After connecting Lightroom, opening a preview or editing context matches the exact file path to an existing catalogue master. Its current Lightroom settings and rendered preview then become available, including for RAW files without a local decoder. Only selected files not already in the open catalogue are imported in place when an edit begins. If the file is elsewhere or the wrong catalogue is open, reconnect the correct original/catalogue first.
+
+**Connection troubleshooting:** keep both applications open under the same OS account; check that local ports match (defaults **58773 / 58774**); update and reload the connector if prompted. The connection panel remains visible after indexing. It distinguishes a missing token, refused connection, timeout, incompatible connector and missing edit permission. Use **Activity → Refresh analysis** to retry photographs that could not be analysed before connecting. For an interrupted edit, resume its existing job rather than submitting the write again with a new key.
 
 For a native install on macOS, with Git, Node.js 22+, FFmpeg and uv installed:
 
@@ -34,7 +39,7 @@ JPEG, PNG, TIFF and WebP use Pillow; RAW uses rawpy/LibRaw and HEIC uses the dec
 
 ## Connect Codex
 
-Create an agent token in Settings → Agents with `library:read`, `photos:edit` and `collections:write`. Read-only tokens can search and inspect but cannot edit. The equivalent CLI is:
+Create an agent token in Settings → API tokens for agents with `library:read`, `photos:edit` and `collections:write`. Read-only tokens can search and inspect but cannot edit. The equivalent CLI is:
 
 ```sh
 metachlorian token codex-photos --scopes library:read,photos:edit,collections:write
@@ -58,14 +63,17 @@ The MCP instructions and `metachlorian://photos/editing-guide` resource teach th
 
 | Step | Tool | Contract |
 | --- | --- | --- |
+| Verify readiness | `get_photo_workflow_status` | Actively checks the connector, Lightroom version, catalogue, editing permissions, RAW/HEIC decoders and setup state. Fix blockers before selecting or editing. |
 | Find candidates | `search_photos` | Text/visual retrieval plus person, date, camera, lens, folder, catalogue, rating, collection and availability filters. Expand a burst using `filters.burst_id` and `diverse=false`. |
 | Inspect | `get_photo`, `get_photo_previews` | Metadata, face boxes, evidence, uncertainty and **actual JPEG image content**. Up to eight previews per call. Native detail requires a region and accessible original. |
 | Read editing context | `get_photo_edit_context` | Exact current develop revision, available controls/units, guidance and recovery snapshots. |
-| Establish baseline | `begin_photo_edits` | 1–100 selected photos; expected revisions and idempotency key required. Creates owned virtual copies and fresh baselines. Folder files are imported in place only when selected for editing. |
+| Establish baseline | `begin_photo_edits` | 1–100 selected photos; expected revisions and idempotency key required. Creates owned virtual copies and fresh baselines. Existing catalogue masters are matched by path; other folder files are imported in place only when selected for editing. |
 | Edit and render | `apply_photo_edit` | Validated settings, supported AI masks or Auto operations. Returns a job. Maximum three refinement rounds per session. |
 | Review | `get_photo_job`, `get_photo_previews` | Wait for completion, inspect full-frame images and relevant details; settings readback alone is insufficient. |
 | Recover | `resume_photo_job`, `restore_photo_edit` | Reconcile a lost response or restore an owned snapshot against a newly read revision. No global Undo. |
 | Deliver | `finish_photo_edits` | Supply each visually reviewed revision and a collection name. Freshness is rechecked before adding copies. |
+
+The agent should report the chosen filename, edited virtual copy/session, actual changes, rendered review and any unverified fine detail. If it falls back to manual Lightroom interaction, it must say so; search results alone are not visual selection or proof of an edit.
 
 Reuse the **same idempotency key and arguments** when retrying an uncertain request. A `waiting` job can be resumed after reconnecting Lightroom. A `conflict` means a new context/review is necessary. If a connector operation stopped partway through, its receipt prevents replay; context lists the recovery snapshot. Restore explicitly after inspecting the changed copy. Cancellation stops at an operation boundary and retains created copies/snapshots. Partial batch outcomes remain in the job result.
 
@@ -75,7 +83,7 @@ Local measurements include rendered clipping, luminance distribution, scale-qual
 
 For portraits/family, preserve expression, gesture, believable skin and the moment. Closed eyes in laughter or sleep can be desirable. For travel, consider context, light, perspective and variety. Aperture, shutter speed and ISO explain capture conditions; they are not ranking rules. A Smart Preview cannot establish native eye focus or RAW highlight recoverability.
 
-The connector intersects the allowlist with settings actually present on each photograph and exposes units/ranges. RAW temperature is Kelvin; JPEG temperature is relative. Operations are validated before writing and read back afterward. Supported families include exposure and tone, white balance, RGB/parametric curves, HSL, colour grading, crop/straightening, perspective, lens controls, sharpening/noise reduction, vignette/grain and simple subject/sky/background masks. Natural sessions reject automatic black-and-white conversion; creative sessions opt in. Profile changes require an installed profile and successful readback.
+The connector intersects the allowlist with settings actually present on each photograph and exposes units/ranges. RAW temperature is Kelvin; JPEG temperature is relative. Operations are validated before writing and read back afterward. Supported families include exposure and tone, white balance, RGB/parametric curves, HSL, colour grading, crop/straightening, perspective, lens controls, sharpening/noise reduction, vignette/grain and, on 15.6, simple subject/sky/background masks. Natural sessions reject automatic black-and-white conversion; creative sessions opt in. Profile changes require an installed profile and successful readback.
 
 **Manual/capability-gated in this release:** Point Color, people/part/range/gradient-mask geometry, guided perspective, healing/Generative Remove/reflection removal, Lens Blur, Enhance/Denoise, HDR/panorama merges, HDR output and Assisted Culling internals. The agent gets a manual handoff instead of an unverified success. The guide covers these families, but documentation does not make their APIs writable.
 

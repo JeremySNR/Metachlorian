@@ -108,13 +108,19 @@ local function capabilities(photo)
         if available.Tint then available.Tint = { type = 'number', min = -100, max = 100, family = 'white_balance', units = 'relative' } end
     end
     local version = LrApplication.versionTable()
-    local supported = version.major == 15 and version.minor == 6
+    local major, minor = tonumber(version.major), tonumber(version.minor)
+    local supported = (major == 14 and minor and minor >= 2) or (major == 15 and minor and minor <= 6)
+    if photo and (type(photo.getDevelopSettings) ~= 'function' or type(photo.applyDevelopSettings) ~= 'function') then supported = false end
+    local reason = not supported and 'This connector supports Lightroom Classic 14.2–15.6 with per-photo control checks. This version or photo does not expose the required develop API.' or nil
     local masks = {}
-    if supported and type(LrDevelopController.createNewMask) == 'function' then
+    -- Mask automation stays on the narrower adapter target; basic develop
+    -- settings, virtual copies, snapshots and exports use the older public SDK.
+    if supported and major == 15 and minor == 6 and type(LrDevelopController.createNewMask) == 'function' then
         masks = { 'subject', 'sky', 'background' }
     end
     return { controls = supported and available or {}, mask_types = masks,
-        auto = supported, editing = supported, certification = 'pending_live_validation',
+        auto = supported and type(LrDevelopController.setAutoTone) == 'function' and type(LrDevelopController.setAutoWhiteBalance) == 'function',
+        editing = supported == true, reason = reason, supported_versions = '14.2–15.6', certification = 'pending_live_validation',
         unsupported = { 'point_color', 'people_masks', 'range_masks', 'gradient_geometry', 'generative_remove',
             'lens_blur', 'enhance', 'hdr_merge', 'panorama', 'hdr_output' },
         coordinate_space = 'oriented_render', raw_recovery_known = false }
@@ -176,7 +182,17 @@ end
 
 function Handler.status()
     local _, info = catalogInfo()
-    return { protocol = 1, catalog = info, capabilities = capabilities(nil) }
+    return { protocol = 1, connector_version = '0.2.0', features = { find_by_path = true },
+        catalog = info, capabilities = capabilities(nil) }
+end
+
+function Handler.findPhoto(args)
+    local catalog, info = catalogInfo()
+    if args.catalog_uid ~= info.uid then error('CONFLICT: Catalogue changed while matching a file') end
+    if type(args.path) ~= 'string' or #args.path == 0 then error('A file path is required') end
+    local photo = catalog:findPhotoByPath(args.path)
+    if photo and raw(photo, 'isVirtualCopy') then photo = raw(photo, 'masterPhoto') end
+    return { catalog = info, photo = photo and describe(photo, true) or nil }
 end
 
 function Handler.catalogPage(args)
@@ -247,7 +263,7 @@ end
 
 function Handler.begin(args)
     local catalog, photo = resolve(args)
-    if not capabilities(photo).editing then error('Editing is currently limited to Lightroom Classic 15.6') end
+    if not capabilities(photo).editing then error(capabilities(photo).reason) end
     if type(args.session_id) ~= 'string' or not args.session_id:match('^pe[%w]+$') then error('Invalid edit session') end
     local copyName = 'Metachlorian ' .. args.session_id
     local master = raw(photo, 'isVirtualCopy') and raw(photo, 'masterPhoto') or photo
@@ -309,6 +325,7 @@ function Handler.apply(args)
             validateValues(operation.values, caps.controls)
             for key, value in pairs(operation.values) do combined[key] = value end
         elseif operation.op == 'mask' then
+            if #caps.mask_types == 0 then error('AI mask creation is unavailable in this Lightroom version; use supported global settings or a manual mask handoff') end
             if operation.type ~= 'subject' and operation.type ~= 'sky' and operation.type ~= 'background' then error('Unsupported mask') end
             local adjustments = {}
             for key, value in pairs(operation.adjustments or {}) do
@@ -318,7 +335,9 @@ function Handler.apply(args)
             end
             Masks.validateAdjustments(adjustments)
             Masks.requireCreateApi()
-        elseif operation.op ~= 'auto' then error('Unsupported edit operation') end
+        elseif operation.op == 'auto' then
+            if not caps.auto then error('Auto tone/white balance is unavailable in this Lightroom version') end
+        else error('Unsupported edit operation') end
     end
     if (combined.CropLeft or 0) >= (combined.CropRight or 1) or (combined.CropTop or 0) >= (combined.CropBottom or 1) then error('Crop must have positive area') end
     local before = snapshot(photo, args.session_id .. ' before ' .. args.operation_id)
@@ -426,7 +445,7 @@ end
 
 Handler.dispatch = {
     ping = function() return { pong = true } end,
-    mc_status = serial(Handler.status), mc_catalog_page = serial(Handler.catalogPage),
+    mc_status = serial(Handler.status), mc_find_photo = serial(Handler.findPhoto), mc_catalog_page = serial(Handler.catalogPage),
     mc_context = serial(Handler.context), mc_preview = serial(Handler.preview), mc_render = serial(Handler.render),
     mc_begin = serial(Handler.begin), mc_apply = serial(Handler.apply), mc_restore = serial(Handler.restore),
     mc_finish = serial(Handler.finish), mc_import = serial(Handler.importPhoto),

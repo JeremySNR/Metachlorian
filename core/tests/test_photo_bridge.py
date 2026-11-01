@@ -64,6 +64,30 @@ def test_transport_does_not_replay_a_lost_write(connector):
 
 def test_missing_token_and_bad_token_are_offline(tmp_path):
     bridge = LightroomBridge(token_path=tmp_path/'token')
-    assert bridge.status()['connected'] is False
+    assert bridge.status()['code'] == 'connector_not_started'
     bridge.token_path.write_text('short')
-    assert bridge.status()['connected'] is False
+    assert bridge.status(force=True)['code'] == 'invalid_token'
+
+
+@pytest.mark.parametrize('invalid', [{'protocol': 99, 'catalog': {'uid': 'family'}}, {'protocol': 1, 'catalog': None}, {'protocol': 1, 'catalog': {'uid': 'family'}, 'capabilities': []}])
+def test_status_verifies_protocol_and_caches_success(connector, invalid):
+    bridge, handlers = connector
+    handlers.extend([lambda p: {'result': {'protocol': 1, 'catalog': {'uid': 'family'}, 'connector_version': '0.2.0'}},
+                     lambda p: {'result': invalid}])
+    first = bridge.status()
+    assert first['connected'] and first['checked_at'] == first['last_connected_at']
+    assert bridge.status() == first and len(handlers) == 1
+    assert bridge.status(force=True)['code'] == 'protocol_mismatch'
+
+
+def test_status_does_not_block_on_inflight_render(tmp_path):
+    bridge = LightroomBridge(token_path=tmp_path/'token')
+    entered, release = threading.Event(), threading.Event()
+    def render():
+        with bridge._lock:
+            entered.set(); release.wait(3)
+    thread = threading.Thread(target=render); thread.start(); entered.wait(1)
+    try:
+        assert bridge.status(force=True)['busy']
+    finally:
+        release.set(); thread.join()

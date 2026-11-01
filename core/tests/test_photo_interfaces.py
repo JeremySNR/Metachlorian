@@ -25,6 +25,9 @@ def test_api_contract_images_permissions_and_workflow(photos):
     app.state.lib._photos = service
     with TestClient(app, base_url='http://127.0.0.1', client=('127.0.0.1', 5010)) as client:
         headers = {'X-Metachlorian': '1'}
+        connection = client.post('/api/photos/connector/check', headers=headers).json()
+        assert connection['lightroom']['connected'] and connection['lightroom']['can_edit']
+        assert connection['connector']['bundled_version'] == '0.2.0'
         assert client.post('/api/photos/search', json={}).status_code == 403
         assert client.post('/api/photos/search', json={'query': 'holiday'}, headers=headers).json()['results'][0]['uid'] == uid
         assert client.post('/api/photos/search', json={'unknown': True}, headers=headers).status_code == 422
@@ -60,6 +63,11 @@ def test_mcp_returns_real_image_blocks_and_scoped_jobs(photos, mcp_client):
 
     async def workflow():
         async with mcp_client(lib, readonly) as client:
+            connection = await client.call_tool('get_photo_workflow_status', {})
+            assert not connection.is_error
+            state = json.loads(connection.content[0].text)
+            assert state['lightroom']['connected'] and not state['lightroom']['can_edit']
+            assert 'photos:edit' in state['lightroom']['message']
             preview = await client.call_tool('get_photo_previews', {'photo_ids': [uid]})
             assert not preview.is_error
             assert [block.type for block in preview.content] == ['text', 'image']

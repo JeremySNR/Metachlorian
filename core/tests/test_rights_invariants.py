@@ -362,6 +362,7 @@ def _tool_args(m) -> dict[str, dict]:
         "remove_from_collection": {"collection_id": "nope", "item_id": 1},
         "correct_tag": {"shot_id": shot, "field": "camera.movement", "note": "test", "add": ["handheld"]},
         "search_photos": {"query": ""},
+        "get_photo_workflow_status": {},
         "get_photo": {"photo_id": "photo"},
         "get_photo_previews": {"photo_ids": ["photo"]},
         "get_photo_edit_context": {"photo_id": "photo"},

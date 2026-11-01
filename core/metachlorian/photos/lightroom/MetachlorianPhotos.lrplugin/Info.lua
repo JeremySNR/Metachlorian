@@ -7,7 +7,7 @@ return {
 
     LrPluginInfoUrl = "https://github.com/JeremySNR/Metachlorian",
 
-    VERSION = { major=0, minor=1, revision=0, build=0 },
+    VERSION = { major=0, minor=2, revision=0, build=0 },
 
     LrPluginInfoProvider = 'PluginInfoProvider.lua',
     LrInitPlugin = 'PluginInit.lua',

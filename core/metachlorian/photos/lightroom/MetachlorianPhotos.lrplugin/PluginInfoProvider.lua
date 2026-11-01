@@ -1,3 +1,4 @@
+local LrApplication = import 'LrApplication'
 local LrTasks = import 'LrTasks'
 local LrProgressScope = import 'LrProgressScope'
 local LrDialogs = import 'LrDialogs'
@@ -338,7 +339,7 @@ local function consumeMessage(message)
 
     local parsedOk, request = pcall(function() return JSON:decode(message) end)
     if not parsedOk or type(request) ~= "table" then
-        addLog("JSON decode failed: " .. tostring(message))
+        addLog("JSON decode failed; request content omitted")
         -- A client that cannot be decoded still deserves an answer, or it sits
         -- there until its own 30s timeout with no clue why. Salvage id+token by
         -- pattern: only an authenticated caller gets the error back, so
@@ -359,6 +360,8 @@ local function consumeMessage(message)
         return nil
     end
 
+    pluginState.lastAuthenticatedAt = os.time()
+    pluginState.lastAction = request.action
     if request.action == "cancel" then
         local target = request.params and request.params.request_id
         if target and activeRequests[target] then activeRequests[target].cancelled = true end
@@ -730,6 +733,8 @@ local function resetForReload()
     pluginState.requestPort = nil
     pluginState.responsePort = nil
     pluginState.lastRequestTime = nil
+    pluginState.lastAuthenticatedAt = nil
+    pluginState.lastAction = nil
     pluginState.lastConnectedTime = nil
     pluginState.needsFullRestart = false
     pluginState.freshRestart = false
@@ -769,131 +774,55 @@ local PluginInfoProvider = {
     STALE_RESTART_HARD_CAP_SECONDS = STALE_RESTART_HARD_CAP_SECONDS,
 }
 
+function PluginInfoProvider.connectionSummary()
+    local version = LrApplication.versionTable()
+    local connected = pluginState.running and pluginState.receiveConnected and pluginState.sendConnected and pluginState.lastAuthenticatedAt
+    local state = not pluginState.running and "Connection stopped" or connected and "Metachlorian connected" or "Waiting for Metachlorian"
+    local nextStep = not pluginState.running and "Choose Start connection below, then check the connection in Metachlorian → Photos."
+        or "Open Metachlorian → Photos → Check connection to verify the catalogue and editing capabilities."
+    return "Metachlorian Photos connector 0.2.0\nLightroom Classic " .. tostring(version.major) .. "." .. tostring(version.minor)
+        .. "\n\n" .. state .. "\n" .. nextStep
+        .. "\n\nThis plug-in lets Metachlorian read catalogue metadata and previews, and lets your AI agent edit virtual copies. It does not choose or edit pictures by itself."
+        .. "\n\nLast authenticated request: " .. (pluginState.lastAuthenticatedAt and os.date("%H:%M:%S", pluginState.lastAuthenticatedAt) or "None yet")
+        .. "\nLast action: " .. (pluginState.lastAction or "None")
+        .. "\nResponses sent: " .. tostring(pluginState.requestsProcessed or 0)
+end
+
 function PluginInfoProvider.sectionsForTopOfDialog(f, propertyTable)
     local prefs = LrPrefs.prefsForPlugin()
-    if prefs.autoStartServer == nil then
-        prefs.autoStartServer = true
-    end
+    if prefs.autoStartServer == nil then prefs.autoStartServer = true end
     propertyTable.autoStartServer = prefs.autoStartServer
-    propertyTable:addObserver('autoStartServer', function(_, _, value)
-        prefs.autoStartServer = value
-    end)
-
-    local cfgRequestPort, cfgResponsePort = readPortPrefs()
-    propertyTable.requestPort = cfgRequestPort
-    propertyTable.responsePort = cfgResponsePort
-    propertyTable:addObserver('requestPort', function(_, _, value)
-        local n = tonumber(value)
-        if validPort(n) then prefs.requestPort = n end
-    end)
-    propertyTable:addObserver('responsePort', function(_, _, value)
-        local n = tonumber(value)
-        if validPort(n) then prefs.responsePort = n end
-    end)
-
-    local activeRequest = pluginState.requestPort or cfgRequestPort
-    local activeResponse = pluginState.responsePort or cfgResponsePort
-
-    local statusText = "=== Metachlorian Photos Status ===\n\n"
-    statusText = statusText .. "Running: " .. tostring(pluginState.running) .. "\n"
-    statusText = statusText .. "Request socket connected: " .. tostring(pluginState.receiveConnected) .. "\n"
-    statusText = statusText .. "Response socket connected: " .. tostring(pluginState.sendConnected) .. "\n"
-    statusText = statusText .. "Last event: " .. (pluginState.lastEvent or "Never") .. "\n"
-    statusText = statusText .. "Requests processed: " .. pluginState.requestsProcessed .. "\n"
-    statusText = statusText .. "Request port: " .. activeRequest .. " (mode=receive)\n"
-    statusText = statusText .. "Response port: " .. activeResponse .. " (mode=send)\n"
-    statusText = statusText .. "Log file: " .. (Log.filePath() or "(unavailable)") .. "\n"
-    statusText = statusText .. "\nRecent logs:\n"
-    local startIdx = math.max(1, #pluginState.log - 15)
-    for i = startIdx, #pluginState.log do
-        statusText = statusText .. "  " .. pluginState.log[i] .. "\n"
+    propertyTable:addObserver('autoStartServer', function(_, _, value) prefs.autoStartServer = value end)
+    local req, res = readPortPrefs()
+    propertyTable.requestPort, propertyTable.responsePort = req, res
+    for _, key in ipairs({'requestPort', 'responsePort'}) do
+        propertyTable:addObserver(key, function(_, _, value)
+            local n = tonumber(value)
+            if validPort(n) then prefs[key] = n end
+        end)
     end
-
+    local function refresh() propertyTable.connectionSummary = PluginInfoProvider.connectionSummary() end
+    refresh()
     return {
-        {
-            title = "Metachlorian Photos Server Status",
-            f:static_text {
-                title = statusText,
-                fill_horizontal = 1,
-                width_in_chars = 70,
-                height_in_lines = 25,
-            },
-            f:checkbox {
-                title = "Auto-start server on Lightroom launch",
-                value = LrView.bind('autoStartServer'),
-            },
+        { title = "Connect Lightroom to Metachlorian",
+            f:static_text { title = LrView.bind('connectionSummary'), fill_horizontal = 1, width_in_chars = 70, height_in_lines = 15 },
+            f:checkbox { title = "Start the connection when Lightroom opens", value = LrView.bind('autoStartServer') },
             f:row {
-                f:static_text { title = "Request port:", width = 110 },
-                f:edit_field {
-                    value = LrView.bind('requestPort'),
-                    width_in_chars = 7,
-                    precision = 0,
-                    min = 1,
-                    max = 65535,
-                },
-                f:static_text { title = "(default 58763)" },
+                f:push_button { title = "Start connection", action = function() if not pluginState.running then startServerFromPanel() end; refresh() end },
+                f:push_button { title = "Stop connection", action = function() stopServer(); refresh() end },
+                f:push_button { title = "Refresh status", action = refresh },
             },
-            f:row {
-                f:static_text { title = "Response port:", width = 110 },
-                f:edit_field {
-                    value = LrView.bind('responsePort'),
-                    width_in_chars = 7,
-                    precision = 0,
-                    min = 1,
-                    max = 65535,
-                },
-                f:static_text { title = "(default 58764)" },
-            },
-            f:static_text {
-                title = "Port changes apply on next Start. Server env vars must match: LIGHTROOM_MCP_REQUEST_PORT / LIGHTROOM_MCP_RESPONSE_PORT.",
-                fill_horizontal = 1,
-                width_in_chars = 70,
-                height_in_lines = 2,
-            },
-            f:row {
-                -- Two buttons rather than one toggle. The toggle's title was
-                -- computed once at render, so after Stop it still read "Stop
-                -- Server" and clicking it only logged "Not running" -- there was
-                -- no way to start again without closing and reopening the
-                -- dialog. A bound title does not work here: Lightroom ignores a
-                -- binding on a push_button title.
-                f:push_button {
-                    title = "Start Server",
-                    action = function()
-                        if pluginState.running then
-                            addLog("Start ignored (already running)")
-                            return
-                        end
-                        startServerFromPanel()
-                    end,
-                },
-                f:push_button {
-                    title = "Stop Server",
-                    action = function()
-                        stopServer()
-                    end,
-                },
-                f:push_button {
-                    title = "Show Status",
-                    action = function()
-                        local lines = {
-                            "Running: " .. tostring(pluginState.running),
-                            "Request socket connected: " .. tostring(pluginState.receiveConnected),
-                            "Response socket connected: " .. tostring(pluginState.sendConnected),
-                            "Last event: " .. (pluginState.lastEvent or "Never"),
-                            "Requests processed: " .. pluginState.requestsProcessed,
-                            "Log file: " .. (Log.filePath() or "(unavailable)"),
-                            "",
-                            "Recent logs:",
-                        }
-                        local logStart = math.max(1, #pluginState.log - 30)
-                        for i = logStart, #pluginState.log do
-                            table.insert(lines, "  " .. pluginState.log[i])
-                        end
-                        LrDialogs.message("Metachlorian Photos Status", table.concat(lines, "\n"), "info")
-                    end,
-                },
-            },
+            f:static_text { title = "After updating connector files, use Reload Plug-in in Lightroom, then check the connection in Metachlorian.", width_in_chars = 70, height_in_lines = 2 },
+        },
+        { title = "Connection details and troubleshooting",
+            f:row { f:static_text { title = "Request port:", width = 110 },
+                f:edit_field { value = LrView.bind('requestPort'), width_in_chars = 7, precision = 0, min = 1024, max = 65535 },
+                f:static_text { title = "(default 58773)" } },
+            f:row { f:static_text { title = "Response port:", width = 110 },
+                f:edit_field { value = LrView.bind('responsePort'), width_in_chars = 7, precision = 0, min = 1024, max = 65535 },
+                f:static_text { title = "(default 58774)" } },
+            f:static_text { title = "Both ports must match Metachlorian's lightroom_request_port and lightroom_response_port settings. Stop and start the connection after changing ports. Run both apps under the same OS account.", width_in_chars = 70, height_in_lines = 3 },
+            f:static_text { title = "Log file: " .. (Log.filePath() or "Unavailable"), width_in_chars = 70, height_in_lines = 2 },
         },
     }
 end
