@@ -5,6 +5,7 @@ import base64
 import hashlib
 import io
 import json
+import os
 import shutil
 import time
 from pathlib import Path
@@ -22,6 +23,7 @@ from .controls import guidance, validate_operations
 from .errors import LightroomUnavailable, PhotoConflict, PhotoError
 from .jobs import PhotoJobs, YieldToEdits, job_scope
 from .search import PhotoSearch
+from .readiness import connector_files, connection_details, decoders
 
 
 class PhotoLibrary:
@@ -52,19 +54,56 @@ class PhotoLibrary:
         if p.is_agent and verdict.blocked:
             raise Forbidden('This photograph is blocked or its rights have expired')
 
-    def status(self, p: Principal) -> dict:
+    def status(self, p: Principal, *, check: bool = False) -> dict:
         require(p, 'library:read')
         counts = {r['status']: r['n'] for r in self.db.q('SELECT status,COUNT(*) n FROM photos WHERE deleted_at IS NULL GROUP BY status')}
+        connection = self.bridge.status(force=check) if self.settings.photos_enabled else {'connected': False, 'code': 'photos_disabled'}
+        linked = self.db.q1('SELECT COUNT(*) n FROM photos WHERE deleted_at IS NULL AND catalog_uid IS NOT NULL')['n']
+        state = connection_details(connection, p.can('photos:edit'))
         return {'enabled': self.settings.photos_enabled, 'counts': counts,
+                'coverage': {'total': sum(counts.values()), 'analysed': counts.get('ready', 0),
+                             'needs_attention': counts.get('unavailable', 0), 'linked': linked,
+                             'folder_only': sum(counts.values()) - linked},
+                'connector': {**connector_files(self.settings.data_dir),
+                              'ports': [self.settings.lightroom_request_port, self.settings.lightroom_response_port]}, 'decoders': decoders(),
+                'agent': {'endpoint': f'http://127.0.0.1:{self.settings.port}/mcp/', 'can_edit': p.can('photos:edit'),
+                          'can_save_collection': p.can('collections:write'), 'required_scopes': ['library:read', 'photos:edit', 'collections:write']},
                 'catalogs': [dict(r) for r in self.db.q('SELECT * FROM photo_catalogs')],
                 'folders': [dict(r) for r in self.db.q("SELECT s.uri,s.last_scan,COUNT(a.id) photos FROM sources s JOIN assets a ON a.source_id=s.id WHERE a.media_kind='photo' GROUP BY s.id")],
                 'cache': self.cache.stats(), 'index_target_bytes': 2*1024**3,
                 'database_bytes': sum(path.stat().st_size for path in (Path(self.db.path), Path(str(self.db.path)+'-wal')) if path.is_file()),
                 'vector_cache_bytes': sum(path.stat().st_size for path in (self.settings.data_dir/'photo-index').glob('*') if path.is_file()),
                 'models': [m for m in models.status(self.settings.resolved_models_dir) if m['name'] in models.PHOTO_MODELS],
-                'lightroom': self.bridge.status() if self.settings.photos_enabled else {'connected': False},
+                'lightroom': state,
                 'storage_note': 'Originals stay in place. The database includes videos too. Model downloads and Lightroom preview/AI data are separate.',
                 'validation': 'Preview release: real Lightroom Mac/Windows certification and preference benchmarks are pending.'}
+
+    def check_connection(self, p: Principal) -> dict:
+        result = self.status(p, check=True)
+        audit(self.db, p, 'check_photo_connection', detail={'code': result['lightroom'].get('code'), 'connected': result['lightroom']['connected']})
+        return result
+
+    def _link_existing(self, p: Principal, row: dict, connection: dict | None = None) -> dict:
+        """Match an indexed file to an existing Lightroom master; never import here."""
+        if row['catalog_uid']:
+            return row
+        self._media(p, row)
+        connection = connection if connection is not None else self.bridge.status()
+        if not connection.get('connected') or not connection.get('features', {}).get('find_by_path'):
+            return row
+        result = self.bridge.call('mc_find_photo', {'catalog_uid': connection['catalog']['uid'], 'path': row['path']})
+        if result.get('catalog', {}).get('uid') != connection['catalog']['uid']:
+            raise PhotoConflict('The active Lightroom catalogue changed while matching this file')
+        photo = result.get('photo')
+        if not photo:
+            return row
+        norm = lambda value: os.path.normcase(str(Path(value).expanduser().resolve()))
+        if photo.get('is_virtual') or norm(photo.get('path', '')) != norm(row['path']):
+            raise PhotoConflict('Lightroom returned a different photograph for this file')
+        store.catalog(self.db, result['catalog'])
+        linked = store.register(self.db, row['path'], photo, catalog_uid=result['catalog']['uid'])
+        audit(self.db, p, 'link_photo_to_lightroom', row['uid'], {'catalog_uid': result['catalog']['uid'], 'lr_id': photo['lr_id']})
+        return self._row(linked['uid'])
 
     def install_connector(self, p: Principal) -> dict:
         self._allow(p, 'admin')
@@ -99,8 +138,17 @@ class PhotoLibrary:
         self._allow(p)
         row = self._row(uid)
         if not row['catalog_uid']:
+            connection = connection_details(self.bridge.status(), p.can('photos:edit'))
+            row = self._link_existing(p, row, connection)
+        if not row['catalog_uid']:
             revision = images.fingerprint(Path(row['path'])) if Path(row['path']).is_file() else ''
-            return {'photo_id': uid, 'revision': revision, 'import_on_edit': True, 'capabilities': {},
+            can_import = bool(connection.get('can_edit') and revision)
+            blocked_reason = 'The original file is unavailable and was not found in the open Lightroom catalogue. Reconnect the original or open its catalogue, then retry.' if not revision else connection['message']
+            return {'photo_id': uid, 'revision': revision, 'import_on_edit': True,
+                    'capabilities': {'editing': can_import, 'controls': {}, 'controls_after_import': True,
+                                     'reason': 'Begin an edit to import this selected file in place and create a virtual copy; then read the copy’s context for its exact controls.' if can_import else blocked_reason},
+                    'workflow': {'state': 'import_required' if can_import else 'blocked', 'connection': connection,
+                                 'next_step': 'begin_photo_edits' if can_import else 'get_photo_workflow_status'},
                     'guidance': guidance(families), 'availability': row['availability']}
         result = self.bridge.call('mc_context', {'catalog_uid': row['catalog_uid'], 'photo_id': row['lr_id']})
         meta = result['photo']
@@ -110,6 +158,8 @@ class PhotoLibrary:
         audit(self.db, p, 'get_photo_edit_context', uid)
         return {'photo_id': uid, 'revision': meta['revision'], 'settings': meta.get('settings', {}),
                 'availability': meta.get('availability'), 'capabilities': result['capabilities'],
+                'workflow': {'state': 'ready' if result['capabilities'].get('editing') and p.can('photos:edit') else 'blocked',
+                             'reason': result['capabilities'].get('reason') if p.can('photos:edit') else 'The agent token needs photos:edit.'},
                 'process_version': meta.get('process_version'), 'recovery_snapshots': result.get('recovery_snapshots', []), 'guidance': guidance(families)}
 
     def preview(self, p: Principal, uid: str, edge: int = 1600, region: list[float] | None = None,
@@ -117,6 +167,10 @@ class PhotoLibrary:
         self._allow(p)
         row = self._row(uid)
         self._media(p, row)
+        # Folder ingestion should still discover Adobe's existing rendition.
+        # This is a read-only catalogue lookup, not an import or a bulk sync.
+        if not row['catalog_uid']:
+            row = self._link_existing(p, row)
         edge = max(64, min(int(edge), 2048))
         if native and region is None:
             raise PhotoError('Request a detail region for native-resolution inspection')

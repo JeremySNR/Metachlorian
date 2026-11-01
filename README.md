@@ -109,6 +109,7 @@ Lightroom plug-in connects to Adobe's catalogue and renderer; your chosen agent 
 
 | Stage | What it does |
 |---|---|
+| Get connected | Guided source, Lightroom and agent setup. **Check connection** verifies the running plug-in and shows the catalogue, version, available editing and next steps. |
 | Index your images | Read folders in place, or sync catalogue metadata and available renditions through Lightroom, including existing Smart Previews. No duplicate originals or bulk Smart Preview generation. |
 | Find a shortlist | Combine visual search with people, dates, camera, lens, folder, catalogue and ratings. Compare similar frames and capture bursts. |
 | Judge the photograph | Give the agent actual previews, detail crops, capture metadata and qualified evidence about sharpness, clipping, framing and faces. Expression, composition, light, colour and your preferences guide selection; there is no universal beauty score. |
@@ -123,10 +124,14 @@ Adobe AI data can grow Lightroom's catalogue. This avoids copying your photo lib
 Photo analysis runs locally. Previews requested through MCP are sent to your chosen agent, which may be hosted.
 Editing needs the `photos:edit` token scope; read-only agents can search and inspect.
 
-**Availability:** enable Photos in a current source build. Lightroom editing targets **Classic 15.6**, on the same
-computer and OS account as Metachlorian. Live macOS/Windows Lightroom certification and real-photo preference evaluation
+**Availability:** enable Photos in a current source build. Global Lightroom edits are enabled for **Classic 14.2–15.6**, on the same
+computer and OS account as Metachlorian; AI masks require 15.6. Live macOS/Windows Lightroom certification and real-photo preference evaluation
 are still pending. Advanced operations such as Generative Remove, Lens Blur, Enhance/Denoise and complex mask geometry
 require a manual handoff. Smart Previews cannot establish original-resolution eye focus or RAW highlight recovery.
+
+**Folder-first workflow:** matching files automatically link to existing Lightroom masters when previewed or inspected.
+RAW photos already in Lightroom can use Adobe’s previews without a local RAW decoder. After updating, copy the connector
+files again and **Reload Plug-in** in Lightroom, then **Check connection** in Photos.
 
 Read the [setup and Codex configuration](docs/photos.md), [supported controls and limitations](docs/photos.md#what-it-measures-and-edits),
 [storage measurements](docs/photos.md#storage-and-privacy) and [research and Lightroom learning resources](docs/research/lightroom-classic.md).
@@ -161,7 +166,7 @@ Exporting requires the `media:export` scope and recorded rights that permit the 
 editing, not a finished video. Tools for search, shot and file records, similar shots, rights checks, clip export, packages,
 folders, collections, people and vocabularies are listed with their scopes in [docs/agents.md](docs/agents.md).
 
-For photographs, the same MCP server exposes `search_photos`, `get_photo_previews`, `get_photo_edit_context`,
+For photographs, the same MCP server exposes `get_photo_workflow_status`, `search_photos`, `get_photo_previews`, `get_photo_edit_context`,
 `begin_photo_edits`, `apply_photo_edit` and `finish_photo_edits`, plus job and recovery tools. Follow the
 [photo agent workflow](docs/photos.md#connect-codex) to review actual images before delivering edits.
 

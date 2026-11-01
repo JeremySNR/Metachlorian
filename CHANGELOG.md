@@ -10,8 +10,10 @@ still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
 
 ### Added
 
+- Guided Photos setup with verified Lightroom connection status, actionable errors, Codex configuration, selection briefs and a dedicated Activity view. The plug-in shows authenticated requests and its version; copied files are distinguished from a working connection.
+- Folder-indexed files now match existing Lightroom masters by path for current settings and previews, including RAWs without a local decoder. Agents can check readiness with `get_photo_workflow_status`.
 - Photos preview: index folders or Lightroom Classic catalogues in place, search image content and named people, compare bursts, and inspect image/detail previews through the app and MCP. Preview storage is bounded at 256 MiB by default.
-- A bundled Lightroom Classic connector for recoverable virtual-copy editing, fresh render review and saved selections. Scoped jobs use revisions, idempotency receipts and recovery snapshots. Initial editing target: Classic 15.6; real Mac/Windows certification remains pending.
+- A bundled Lightroom Classic connector for recoverable virtual-copy editing, fresh render review and saved selections. Scoped jobs use revisions, idempotency receipts and recovery snapshots. Global editing range: Classic 14.2–15.6; AI masks require 15.6; real Mac/Windows certification remains pending.
 - Photo-only model setup, local RAW/HEIC decoders, shared photo/video people and collections, and reproducible storage/retrieval and blind-preference benchmark tools.
 
 ## [0.2.0] - 2026-11-01

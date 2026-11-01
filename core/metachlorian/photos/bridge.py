@@ -21,6 +21,9 @@ class LightroomBridge:
         self._request = self._response = None
         self._buffer = b''
         self._last_used = 0.0
+        self._status = None
+        self._status_at = 0.0
+        self._last_success = None
 
     def close(self):
         with self._lock:
@@ -42,13 +45,13 @@ class LightroomBridge:
             raise
 
     def call(self, action: str, params: dict | None = None, *, timeout: float = 120) -> dict:
-        if action not in {'mc_status', 'mc_catalog_page', 'mc_context', 'mc_preview', 'mc_render', 'mc_begin', 'mc_apply', 'mc_finish', 'mc_restore', 'mc_import', 'ping'}:
+        if action not in {'mc_status', 'mc_find_photo', 'mc_catalog_page', 'mc_context', 'mc_preview', 'mc_render', 'mc_begin', 'mc_apply', 'mc_finish', 'mc_restore', 'mc_import', 'ping'}:
             raise PhotoError('Unsupported connector action')
         with self._lock:
             try:
                 token = self.token_path.read_text().strip()
                 if not 32 <= len(token) <= 256:
-                    raise OSError('invalid connector token')
+                    raise LightroomUnavailable('The Lightroom connector token is incomplete. Restart the Metachlorian Photos plug-in in Lightroom, then check the connection again.', 'invalid_token')
                 if self._request is None or time.monotonic() - self._last_used > 60:
                     self._connect()
                 request_id = uuid.uuid4().hex
@@ -70,6 +73,8 @@ class LightroomBridge:
                     if not line:
                         continue
                     response = json.loads(line)
+                    if not isinstance(response, dict):
+                        raise LightroomUnavailable('The service on the Lightroom ports returned an invalid response. Check that the Metachlorian Photos connector uses the same ports.', 'invalid_response')
                     if response.get('id') != request_id:
                         continue
                     self._last_used = time.monotonic()
@@ -78,17 +83,54 @@ class LightroomBridge:
                         if 'CONFLICT:' in message:
                             raise PhotoConflict(message)
                         raise PhotoError(message)
-                    return response.get('result') or {}
+                    result = response.get('result') or {}
+                    if not isinstance(result, dict):
+                        raise LightroomUnavailable('The Lightroom connector returned an invalid result. Update the connector files and reload the plug-in.', 'invalid_response')
+                    return result
                 raise TimeoutError('Lightroom operation timed out')
+            except LightroomUnavailable:
+                self.close()
+                self._status = None
+                raise
             except (OSError, TimeoutError, json.JSONDecodeError) as exc:
                 self.close()
+                self._status = None
                 # Never replay a mutation here: the durable job and connector
                 # receipt determine whether a lost response can be recovered.
-                raise LightroomUnavailable('Open Lightroom Classic and enable the Metachlorian Photos connector. '
-                                           'If a write was interrupted, resume its job to reconcile the result.') from exc
+                if isinstance(exc, FileNotFoundError):
+                    code, message = 'connector_not_started', 'Lightroom has not started the Metachlorian Photos connector for this OS account. Add it in File → Plug-in Manager, enable it, then use Start connection or restart Lightroom.'
+                elif isinstance(exc, PermissionError):
+                    code, message = 'token_unreadable', 'Metachlorian cannot read the Lightroom connector token. Run both applications under the same OS account and check the token file permissions.'
+                elif isinstance(exc, (TimeoutError, socket.timeout)):
+                    code, message = 'response_timeout', 'Lightroom did not answer. It may be busy, the plug-in may need restarting, or the connection ports may differ. Check Metachlorian Photos in Lightroom’s Plug-in Manager.'
+                elif isinstance(exc, json.JSONDecodeError):
+                    code, message = 'invalid_response', 'The connection returned invalid data. Update and reload the Metachlorian Photos connector; confirm its ports match this library.'
+                else:
+                    code, message = 'connection_refused', f'No Lightroom connector is answering on ports {self.request_port}/{self.response_port}. Open Lightroom Classic, start the Metachlorian Photos connector and check its port settings.'
+                if action in {'mc_begin', 'mc_apply', 'mc_finish', 'mc_restore', 'mc_import'}:
+                    message += ' Resume the interrupted job in Activity after reconnecting.'
+                raise LightroomUnavailable(message, code) from exc
 
-    def status(self) -> dict:
+    def status(self, *, force: bool = False) -> dict:
+        # Status polling must never wait behind a multi-minute Lightroom render.
+        if not self._lock.acquire(blocking=False):
+            return {**(self._status or {'connected': False}), 'busy': True,
+                    'message': 'Lightroom is processing a request. Connection details will refresh when it finishes.'}
         try:
-            return {'connected': True, **self.call('mc_status', timeout=5)}
-        except (LightroomUnavailable, PhotoError) as exc:
-            return {'connected': False, 'message': str(exc)}
+            if not force and self._status is not None and time.monotonic() - self._status_at < 5:
+                return self._status.copy()
+            checked = time.time()
+            try:
+                result = self.call('mc_status', timeout=5)
+                if (result.get('protocol') != 1 or not isinstance(result.get('catalog'), dict)
+                        or not result['catalog'].get('uid') or not isinstance(result.get('capabilities', {}), dict)):
+                    raise LightroomUnavailable('The connected service is not a compatible Metachlorian Photos connector. Copy the current connector files and reload them in Lightroom.', 'protocol_mismatch')
+                self._last_success = checked
+                state = {**result, 'connected': True, 'code': 'connected', 'checked_at': checked}
+            except (LightroomUnavailable, PhotoError) as exc:
+                state = {'connected': False, 'code': getattr(exc, 'code', 'connector_error'), 'message': str(exc), 'checked_at': checked}
+            state['last_connected_at'] = self._last_success
+            self._status, self._status_at = state, time.monotonic()
+            return state.copy()
+        finally:
+            self._lock.release()

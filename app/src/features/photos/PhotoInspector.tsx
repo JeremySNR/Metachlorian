@@ -1,7 +1,7 @@
-import { useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useEffect, useRef, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { X } from 'lucide-react'
-import { api } from '../../api/client'
+import { api, ApiError } from '../../api/client'
 import { photoPreview, usePhoto } from '../../api/photos'
 import { Button, IconButton } from '../../components/Button'
 import { TextField } from '../../components/Field'
@@ -63,9 +63,43 @@ export function PhotoInspector({ uid, canName, onClose, onBurst }: { uid: string
 export function PhotoImage({ uid, label, edge = 600, revision, region, native = false, retry = true }: {
   uid: string; label: string; edge?: number; revision?: string; region?: number[]; native?: boolean; retry?: boolean
 }) {
-  const [failed, setFailed] = useState(false)
-  return <div className={s.image}>
-    {failed ? <div><p>Preview unavailable. Open Lightroom or reconnect the original.</p>{retry ? <Button size="sm" onPress={() => setFailed(false)}>Retry preview</Button> : null}</div> :
-      <img src={photoPreview(uid, edge, revision, region, native)} alt={label} loading="lazy" decoding="async" onError={() => setFailed(true)} />}
+  const frame = useRef<HTMLDivElement>(null)
+  const img = useRef<HTMLImageElement>(null)
+  const [visible, setVisible] = useState(false)
+  const [decodeError, setDecodeError] = useState(false)
+  const url = photoPreview(uid, edge, revision, region, native)
+  useEffect(() => {
+    const element = frame.current
+    if (!element) return
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) { setVisible(true); observer.disconnect() }
+    }, { rootMargin: '200px' })
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
+  const preview = useQuery({
+    queryKey: ['photos', 'preview', url], enabled: visible, retry: false,
+    staleTime: 30_000, gcTime: 60_000, refetchOnWindowFocus: false,
+    queryFn: async ({ signal }) => {
+      const response = await fetch(url, { signal, credentials: 'same-origin' })
+      if (!response.ok) {
+        let message = `Preview unavailable (${response.status}). Check the Lightroom connection.`
+        try { const body = await response.json(); if (typeof body.detail === 'string') message = body.detail } catch { /* Keep a useful fallback for non-JSON failures. */ }
+        throw new ApiError(response.status, message)
+      }
+      return response.blob()
+    },
+  })
+  useEffect(() => {
+    const element = img.current
+    if (!preview.data || !element) return
+    const blobUrl = URL.createObjectURL(preview.data)
+    element.src = blobUrl
+    return () => { element.removeAttribute('src'); URL.revokeObjectURL(blobUrl) }
+  }, [preview.data])
+  const failed = preview.error || decodeError
+  return <div className={s.image} ref={frame}>
+    <img ref={img} alt={label} hidden={!preview.data || Boolean(failed)} decoding="async" onError={() => setDecodeError(true)} />
+    {failed ? <div className={s.previewError}><p>{retry ? preview.error?.message ?? 'This preview could not be displayed. Request it again.' : 'Preview unavailable · inspect for details'}</p>{retry ? <Button size="sm" isDisabled={preview.isFetching} onPress={() => { setDecodeError(false); void preview.refetch() }}>Retry preview</Button> : null}</div> : !preview.data ? <span className={s.previewPlaceholder}>Loading preview…</span> : null}
   </div>
 }
