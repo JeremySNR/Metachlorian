@@ -240,6 +240,10 @@ export function AssetPage() {
                 <dd>{colour.colour}</dd>
               </>
             )}
+            <dt>Capture profile</dt>
+            <dd>{tech.log_profile_name ? `${tech.log_profile_name} · recorded in metadata` : 'Unknown — no named Log profile recorded'}</dd>
+            {tech.gamma && <><dt>Capture gamma</dt><dd>{tech.gamma}</dd></>}
+            {tech.capture_color_gamut && <><dt>Capture colour gamut</dt><dd>{tech.capture_color_gamut}</dd></>}
             {colour.hdr && (
               <>
                 <dt>HDR</dt>

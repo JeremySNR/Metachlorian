@@ -11,7 +11,7 @@ export function techSummary(d: ShotDoc) {
     tt.video_codec?.toUpperCase(),
     tt.bit_depth ? `${tt.bit_depth}-bit` : null,
     tt.hdr ? 'HDR' : 'SDR',
-    tt.log_profile ? 'Log' : null,
+    tt.log_profile_name ? `${tt.log_profile_name} (metadata)` : tt.log_profile ? 'Log-like · profile unconfirmed' : null,
     aspectLabel(tt.aspect_ratio),
   ].filter(Boolean) as string[]
   return parts.map((p) => <span key={p}>{p}</span>)

@@ -552,7 +552,7 @@
 
 .mini {
   flex: none;
-  inline-size: 168px;
+  inline-size: var(--file-thumb-width, 168px);
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
@@ -564,7 +564,7 @@
 }
 
 .mini img {
-  inline-size: 168px;
+  inline-size: var(--file-thumb-width, 168px);
   aspect-ratio: 16 / 9;
   object-fit: contain;
   background: var(--bg-letterbox);

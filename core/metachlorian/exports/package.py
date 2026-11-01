@@ -57,6 +57,27 @@ def slug(s: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")[:40] or "package"
 
 
+def _finalize_package(staging: Path, final: Path) -> None:
+    """Atomically publish a finished package, tolerating brief Windows file locks.
+
+    Windows rename refuses an existing destination. Check it on every attempt
+    as well: a collision is never a reason to replace another export.
+    """
+    delays = (0.1, 0.2, 0.4, 0.8, 1.6)
+    for attempt in range(len(delays) + 1):
+        if os.path.lexists(final):
+            raise FileExistsError(f"package destination already exists: {final}")
+        try:
+            os.rename(staging, final)
+            return
+        except PermissionError as exc:
+            # Access denied, sharing violation and lock violation can come from
+            # a scanner briefly holding the newly written directory open.
+            if getattr(exc, "winerror", None) not in (5, 32, 33) or attempt == len(delays):
+                raise
+            time.sleep(delays[attempt])
+
+
 def schema() -> dict[str, Any] | None:
     for p in (SCHEMA_PATH, Path(os.environ.get("METACHLORIAN_HOME", "")) / "docs/integration/cutawan-package.schema.json"):
         if p.exists():
@@ -433,7 +454,7 @@ def _build_package(db, settings, items, name, brief, target, media_policy, mode,
             sums.append(f"{_sha(p)}  {p.relative_to(tmp).as_posix()}")
     (tmp / "checksums.sha256").write_text("\n".join(sums) + "\n")
     (tmp / "manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False))
-    os.replace(tmp, final)
+    _finalize_package(tmp, final)
     staged.clear()  # complete from here on
     result: dict[str, Any] = {"package_id": pid, "path": str(final), "manifest": manifest, "verdict": verdict, "counts": counts,
                               "ranges": [r["range"] for r in resolved], "intended": intended}

@@ -3,9 +3,9 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { DropZone, FileTrigger } from 'react-aria-components'
 import { Check, ChevronRight, CircleAlert, CircleCheck, CircleDashed, CircleX, Cloud, Cpu, FolderOpen, FolderSearch, FolderTree, HardDrive, LoaderCircle, RefreshCw, Trash2, Upload } from 'lucide-react'
-import type { QueueJob } from '../../api/types'
+import type { QueueJob, SourceScan } from '../../api/types'
 import { api, ApiError, upload } from '../../api/client'
-import { useAsset, useHealth, useProcessing, useSources } from '../../api/queries'
+import { useAsset, useHealth, useProcessing, useSources, useFolderExclusions } from '../../api/queries'
 import { Button } from '../../components/Button'
 import { Bar, EmptyState, StatusText } from '../../components/EmptyState'
 import { Checkbox, TextField } from '../../components/Field'
@@ -27,9 +27,12 @@ const STEP_ICON = { done: Check, active: LoaderCircle, waiting: CircleDashed, fa
 
 /** Ingest and processing (system.md §9.7, §3.23). Polls every 2.5 s while visible. */
 export function IngestPage() {
-  const proc = useProcessing()
+  const [offset, setOffset] = useState(0)
+  const [fileQuery, setFileQuery] = useState('')
+  const proc = useProcessing(true, { offset, q: fileQuery })
   useDocumentTitle('Ingest and processing')
   const sources = useSources()
+  const exclusions = useFolderExclusions()
   const health = useHealth()
   const navigate = useNavigate()
   const qc = useQueryClient()
@@ -42,9 +45,11 @@ export function IngestPage() {
   const lastAnnounce = useRef(0)
   const d = proc.data
   const assets = d?.assets ?? []
-  const ready = assets.filter((a) => a.status === 'ready' || a.status === 'updating').length
-  const processing = assets.filter((a) => a.status === 'processing').length
-  const updating = assets.filter((a) => a.status === 'updating').length
+  const counts = d?.asset_counts ?? {}
+  const total = Object.values(counts).reduce((sum, count) => sum + count, 0)
+  const ready = (counts.ready ?? 0) + (counts.updating ?? 0)
+  const processing = total - ready
+  const updating = counts.updating ?? 0
   // Magenta marks only the current item (§0 rule 2): the first row with a running step.
   const currentUid = assets.find((a) => a.running > 0)?.uid
   const remote = health.data?.egress.content_leaves_machine
@@ -54,16 +59,16 @@ export function IngestPage() {
     const now = Date.now()
     if (now - lastAnnounce.current < 10_000) return
     lastAnnounce.current = now
-    const t = window.setTimeout(() => setAnnounce(`Ingest: ${ready} of ${assets.length} files ready`), 0)
+    const t = window.setTimeout(() => setAnnounce(`Ingest: ${ready} of ${total} files searchable`), 0)
     return () => window.clearTimeout(t)
-  }, [d, ready, assets.length])
+  }, [d, ready, total])
 
   const addSource = async () => {
     if (!uri.trim()) return
     setAdding(true)
     try {
-      const res = await api.post<{ id: number; scan: { added?: number; new?: number } }>('/api/sources', { uri: uri.trim(), watch, scan: true })
-      toast({ title: `Added ${uri.trim()}`, description: `Scanning now. ${res.scan && typeof res.scan === 'object' ? 'New files appear in the queue below.' : ''}` })
+      await api.post('/api/sources', { uri: uri.trim(), watch, scan: true })
+      toast({ title: `Added ${uri.trim()}`, description: 'Scan requested, including all subfolders. Follow its progress below.' })
       setUri('')
       qc.invalidateQueries({ queryKey: ['sources'] })
       qc.invalidateQueries({ queryKey: ['processing'] })
@@ -104,13 +109,14 @@ export function IngestPage() {
             {remote ? 'Leaves this machine' : 'Local analysis'}
           </StatusText>
         </div>
+        {d?.library_path && <p className={s.path}>Current library: {d.library_path}</p>}
         <span className="visually-hidden" aria-live="polite">{announce}</span>
 
         <div className={s.summary} data-testid="processing-summary">
           <div className={l.figure}>
             <span className={l.figureLabel}>Searchable</span>
             <strong>{formatNumber(ready)}</strong>
-            <span className={l.figureSub}>of {plural(assets.length, 'file')}{updating ? ` · ${formatNumber(updating)} updating` : ''}</span>
+            <span className={l.figureSub}>of {plural(total, 'file')}{updating ? ` · ${formatNumber(updating)} updating` : ''}</span>
           </div>
           <div className={l.figure}>
             <span className={l.figureLabel}>Not yet searchable</span>
@@ -134,7 +140,7 @@ export function IngestPage() {
             <h2 id="src-h">Watched folders and sources</h2>
           </div>
           <div className={s.sources}>
-            {(sources.data ?? []).map((src) => (
+            {[...(sources.data ?? [])].sort((a, b) => Number(['queued', 'discovering', 'registering'].includes(b.scan?.state ?? '')) - Number(['queued', 'discovering', 'registering'].includes(a.scan?.state ?? '')) || b.id - a.id).map((src) => (
               <div key={src.id} className={s.card}>
                 <div className={s.cardHead}>
                   <Ic icon={src.kind === 's3' ? Cloud : HardDrive} />
@@ -143,8 +149,9 @@ export function IngestPage() {
                 <div className={s.cardMeta}>
                   <span>{plural(src.assets, 'file')}</span>
                   <span>{src.watch ? 'Watched' : 'Not watched'}</span>
-                  <span title={formatDateTime(src.last_scan)}>Scanned {formatRelative(src.last_scan)}</span>
+                  <span title={formatDateTime(src.last_scan)}>{src.last_scan ? `Last scan ${formatRelative(src.last_scan)}` : 'No completed scan yet'}</span>
                 </div>
+                <ScanProgress scan={src.scan} />
                 <div className={s.cardActions}>
                   {src.kind !== 's3' && src.assets > 0 && (
                     <>
@@ -160,9 +167,14 @@ export function IngestPage() {
                     variant="quiet"
                     size="sm"
                     icon={RefreshCw}
+                    isDisabled={['queued', 'discovering', 'registering'].includes(src.scan?.state ?? '')}
                     onPress={async () => {
-                      await api.post(`/api/sources/${src.id}/scan`, {})
-                      toast({ title: `Rescanned ${src.uri}`, tone: 'info' })
+                      try {
+                        await api.post(`/api/sources/${src.id}/scan`, {})
+                        toast({ title: `Scan requested for ${src.uri}`, tone: 'info' })
+                      } catch (e) {
+                        toast({ title: 'Could not start scan', description: String(e), tone: 'error' })
+                      }
                       qc.invalidateQueries({ queryKey: ['processing'] })
                       qc.invalidateQueries({ queryKey: ['sources'] })
                     }}
@@ -178,6 +190,7 @@ export function IngestPage() {
                     variant="quiet"
                     size="sm"
                     icon={Trash2}
+                    isDisabled={['queued', 'discovering', 'registering'].includes(src.scan?.state ?? '')}
                     onPress={async () => {
                       await api.del(`/api/sources/${src.id}`)
                       toast({ title: `Stopped watching ${src.uri}`, description: 'Files already in the library stay.', tone: 'info' })
@@ -190,6 +203,11 @@ export function IngestPage() {
               </div>
             ))}
           </div>
+          {!!exclusions.data?.length && <div>
+            <h3>Excluded folders</h3>
+            <p>These folders and their subfolders are skipped by every scan. Original files stay on disk.</p>
+            <ul>{exclusions.data.map((folder) => <li key={folder} className={s.path}>{folder}</li>)}</ul>
+          </div>}
           <form
             className={s.addForm}
             onSubmit={(e) => {
@@ -197,7 +215,7 @@ export function IngestPage() {
               addSource()
             }}
           >
-            <TextField label="Add a folder or S3 location" description="A path on the server running Metachlorian, or s3://bucket/prefix. Files stay where they are; Metachlorian only reads them." value={uri} onChange={setUri} placeholder="/Volumes/Shoot_04 or s3://bucket/footage" mono />
+            <TextField label="Add a folder or S3 location" description="Scans all subfolders for videos, skips duplicate content, and starts analysis as files are registered. Originals stay where they are. Use a path on this server or s3://bucket/prefix." value={uri} onChange={setUri} placeholder="D:\Photos and Videos or s3://bucket/footage" mono />
             {can('canChooseFolder') && (
               <Button
                 variant="secondary"
@@ -256,14 +274,16 @@ export function IngestPage() {
         <ImportsList />
 
         <section className={l.section} aria-labelledby="q-h">
+          {(d?.queue.running ?? []).map((job) => <p key={job.id} className={s.activity}><Ic icon={LoaderCircle} className="mc-spin" /> <strong>{job.filename}</strong> · {humanise(job.analyser)} running</p>)}
           <div className={l.sectionHead}>
-            <h2 id="q-h">Queue</h2>
+            <h2 id="q-h">Queue and file history</h2>
             <span className={s.pct}>Updates every few seconds</span>
           </div>
+          <TextField label="Find an ingested file" description="Includes completed files and earlier imports. Search by filename or folder path." value={fileQuery} onChange={(value) => { setFileQuery(value); setOffset(0) }} />
           {proc.isError ? (
             <EmptyState inline title="Couldn't read the queue" role="alert">{(proc.error as Error).message}</EmptyState>
           ) : !assets.length && !proc.isLoading ? (
-            <EmptyState inline title="Nothing to process">Add a folder or drop files above. Analysis starts straight away.</EmptyState>
+            <EmptyState inline title={fileQuery ? 'No matching files' : 'Nothing to process'}>{fileQuery ? 'Try another filename or folder path.' : 'Add a folder or drop files above. Analysis starts as files are registered.'}</EmptyState>
           ) : (
             <div style={{ overflowX: 'auto' }}>
               <table className={l.table} data-testid="queue-table">
@@ -279,15 +299,16 @@ export function IngestPage() {
                 <tbody>
                   {assets.map((a) => {
                     const steps = stepStates(a, d?.analysers ?? [], d?.queue.running ?? [], d?.queue.failed ?? [])
-                    const total = Math.max(1, a.done + a.queued + a.running + a.failed + a.unavailable)
+                    const total = Math.max(1, d?.analysers.length ?? 0, a.done + a.queued + a.running + a.failed + a.unavailable)
                     const isUpdating = a.status === 'updating'
-                    const frac = a.status === 'ready' ? 1 : a.done / total
+                    const completed = a.steps ? Object.values(a.steps).filter((state) => state === 'done' || state === 'unavailable').length : a.done + a.unavailable
+                    const frac = a.status === 'ready' && !a.failed ? 1 : completed / total
                     const fails = (d?.queue.failed ?? []).filter((j) => j.uid === a.uid)
                     const left = a.queued + a.running
                     return [
                       <tr key={a.uid}>
                         <td>
-                          <button type="button" className={s.rowButton} aria-expanded={open === a.uid} onClick={() => setOpen(open === a.uid ? null : a.uid)}>
+                          <button type="button" className={s.rowButton} title={a.path} aria-expanded={open === a.uid} onClick={() => setOpen(open === a.uid ? null : a.uid)}>
                             <Ic icon={ChevronRight} size={14} style={{ transform: open === a.uid ? 'rotate(90deg)' : undefined }} />
                             <span>{a.filename}</span>
                           </button>
@@ -314,7 +335,7 @@ export function IngestPage() {
                           )}
                         </td>
                         <td>
-                          {fails.length ? (
+                          {a.status === 'missing' ? <StatusText tone="caution" icon={CircleAlert}>Source file missing</StatusText> : fails.length || a.failed || a.status === 'error' ? (
                             <span className={s.stateCell}>
                               <StatusText tone="blocked" icon={CircleX}>Failed</StatusText>
                               <DecoderLink error={fails.find((f) => needsDecoder(f.error))?.error} className={s.decoderLink} />
@@ -338,6 +359,12 @@ export function IngestPage() {
             </div>
           )}
         </section>
+
+        <div className={s.pagination} aria-label="File history pages">
+          <span className={s.pct}>{formatNumber(assets.length ? offset + 1 : 0)}–{formatNumber(offset + assets.length)} of {formatNumber(d?.total ?? total)} files · newest added first</span>
+          <Button variant="secondary" size="sm" isDisabled={offset === 0 || proc.isFetching} onPress={() => setOffset(Math.max(0, offset - 200))}>Previous</Button>
+          <Button variant="secondary" size="sm" isDisabled={offset + assets.length >= (d?.total ?? total) || proc.isFetching} onPress={() => setOffset(offset + 200)}>Next</Button>
+        </div>
 
         <section className={l.section} aria-labelledby="an-h">
           <div className={l.sectionHead}>
@@ -367,12 +394,35 @@ export function IngestPage() {
   )
 }
 
+function ScanProgress({ scan }: { scan?: SourceScan }) {
+  if (!scan?.state) return null
+  const active = ['queued', 'discovering', 'registering'].includes(scan.state)
+  const problem = scan.state === 'failed' || scan.state === 'completed_with_errors'
+  const labels = { queued: 'Waiting to scan', discovering: 'Finding videos in all subfolders', registering: 'Registering videos and queuing analysis', completed: 'Scan complete', completed_with_errors: 'Scan finished — some paths could not be read', failed: 'Scan failed' }
+  const found = scan.found ?? 0
+  const processed = scan.processed ?? 0
+  return <div className={s.scanProgress}>
+    <StatusText tone={problem ? 'caution' : active ? 'info' : 'cleared'} icon={active ? LoaderCircle : problem ? CircleAlert : CircleCheck}>{labels[scan.state]}</StatusText>
+    <span>{formatNumber(scan.directories ?? 0)} folders checked · {formatNumber(found)} videos found{scan.state === 'discovering' ? ' so far' : ''}</span>
+    {scan.state !== 'queued' && scan.state !== 'discovering' && <>
+      <Bar value={found ? processed / found : 0} current={active} label="Videos checked" />
+      <span>{formatNumber(processed)} of {formatNumber(found)} videos checked · {formatNumber(scan.added ?? 0)} new · {formatNumber(scan.changed ?? 0)} changed · {formatNumber(scan.unchanged ?? 0)} already known · {formatNumber(scan.duplicates ?? 0)} duplicate locations · {formatNumber(scan.missing ?? 0)} missing</span>
+    </>}
+    {scan.current_path && <span className={s.path}>{scan.current_path}</span>}
+    {active && (scan.file_bytes ?? 0) > 0 && <span>Reading file: {Math.min(100, Math.round(100 * (scan.bytes_read ?? 0) / scan.file_bytes!))}%</span>}
+    {scan.updated_at && <span>Updated {formatRelative(scan.updated_at)}</span>}
+    {!active && !problem && <span>Folder scan finished. Video analysis progress is shown below.</span>}
+    {!!scan.errors && <details><summary>{plural(scan.errors, 'scan error')} — show details</summary>{(scan.issues ?? []).map((issue, i) => <p className={s.path} key={i}>{issue}</p>)}<p>Reconnect unavailable drives or fix access, then rescan. Up to 20 errors shown.</p></details>}
+  </div>
+}
+
 function DetailRow({ uid, fails }: { uid: string; fails: QueueJob[] }) {
   const a = useAsset(uid, { refetchInterval: 3000 })
   const qc = useQueryClient()
   return (
     <tr className={s.detail}>
       <td colSpan={5}>
+        {a.data?.path && <p className={s.path}>{a.data.path}</p>}
         <div className={s.detailRuns}>
           {(a.data?.processing ?? []).map((r) => (
             <StatusText key={r.analyser} tone={r.status === 'done' ? 'neutral' : r.status === 'failed' ? 'blocked' : r.status === 'unavailable' ? 'caution' : 'info'}>

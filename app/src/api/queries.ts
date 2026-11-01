@@ -316,10 +316,10 @@ export const exportClip = (body: { shot_uid: string; in?: number | null; out?: n
   api.post<ExportClipResult>('/api/export/clip', { ...body })
 
 // ---------------------------------------------------------------- ingest
-export const useProcessing = (enabled = true) =>
+export const useProcessing = (enabled = true, params: { offset?: number; q?: string } = {}) =>
   useQuery({
-    queryKey: ['processing'],
-    queryFn: () => api.get<Processing>('/api/processing'),
+    queryKey: ['processing', params],
+    queryFn: () => api.get<Processing>(`/api/processing${qs(params)}`),
     enabled,
     refetchInterval: () => (typeof document !== 'undefined' && document.visibilityState === 'visible' ? 2500 : false),
     refetchIntervalInBackground: false,
@@ -351,7 +351,8 @@ export const useImports = (limit = 200) =>
 /** yt-dlp status and the login settings for imports (cookie contents are never returned). */
 export const useImportTool = () => useQuery({ queryKey: ['imports', 'tool'], queryFn: () => api.get<ImportTool>('/api/imports/tool'), staleTime: 30_000 })
 
-export const useSources = () => useQuery({ queryKey: ['sources'], queryFn: () => api.get<{ sources: Source[] }>('/api/sources').then((r) => r.sources) })
+export const useSources = () => useQuery({ queryKey: ['sources'], queryFn: () => api.get<{ sources: Source[] }>('/api/sources').then((r) => r.sources), refetchInterval: 2500, refetchIntervalInBackground: false })
+export const useFolderExclusions = () => useQuery({ queryKey: ['folder-exclusions'], queryFn: () => api.get<{ folders: string[] }>('/api/ingest/exclusions').then((r) => r.folders), refetchInterval: 2500, refetchIntervalInBackground: false })
 
 // ---------------------------------------------------------------- admin
 export const useEndpointLocality = (url: string) =>

@@ -47,21 +47,75 @@ Every agent call is written to the audit log (Settings → Audit log, filter "ag
 
 | Tool | Read-only | Purpose |
 |---|---|---|
-| `search_shots` | yes | Natural-language and/or structured search with optional `intended_use`; returns ranked shots with in/out, tags, confidences, *why* explanations and rights verdicts |
+| `search_shots` | yes | Natural-language and/or structured search with optional `intended_use`; relevance or capture-date ordering, cursor pagination, in/out, tags, confidences, *why* explanations and rights verdicts |
 | `get_shot` | yes | Full record: every signal with value, confidence, source and model version; transcript with word timings; neighbours; rights |
-| `get_asset` | yes | File summary: structure (shots, cuts/min, single take, titles, music bed), raw/selects/finished with confidence, shot list |
+| `get_asset` | yes | File summary, technical metadata, shot list and outstanding jobs; `include_processing=true` adds per-analyser runs, errors and timings |
 | `find_similar` | yes | Shots that look like a shot or a still image |
 | `check_rights` | yes | Verdict (allowed / restricted / blocked / unknown) with reasons for a use, channel, territory and date |
 | `export_clip` | no | A clip as a reference, proxy file, trimmed original or one-clip OTIO/FCPXML/EDL |
 | `build_package` | no | A Cutawan / NLE hand-off package with manifest, media, transcript, timelines and rights summary |
 | `list_folders` | yes | Folders the footage came from, with files, shots, hours and recording dates; find "the Disney holiday" and pass it as `folder` |
-| `list_files` | yes | Files in a folder or collection (or matching a name), with duration, date, edit stage and summary |
+| `list_files` | yes | All files, including pending analysis, with duration, capture date, preview readiness, edit stage and summary; sort and explicit `next_offset` pagination |
 | `get_collection` | yes | One collection in order, with trims, notes and rights |
 | `list_people` | yes | People recognised by face and named in the app; put a name in `search_shots` to require that person. Agents cannot name, merge or forget people |
 | `library_stats` | yes | What exists, coverage and gaps; tells "not in the library" from "not indexed yet" |
+| `library_readiness` | yes | Searchable/unindexed files, missing index entries, preview coverage, failed/unavailable analysis, queue and scan state, bounded failure examples |
 | `list_vocabularies` | yes | The controlled vocabularies (term ids for filters) |
 | `list_collections` | yes | Collections and selects |
+| `create_collection` | no | Save an empty shortlist with a title, description and editorial brief; requires `collections:write` |
+| `add_to_collection` | no | Append ordered shots with optional trims and selection notes; requires `collections:write` |
+| `update_collection` | no | Update a shortlist's title, description or brief; requires `collections:write` |
+| `update_collection_item` | no | Refine one selection's note or source-file trim, or reset its trim; requires `collections:write` |
+| `reorder_collection` | no | Set the sequence using every item id exactly once; requires `collections:write` |
+| `remove_from_collection` | no | Remove a shortlist entry using its `item_id`; source media remains intact; requires `collections:write` |
 | `correct_tag` | no | Fix a tag with a note; survives re-processing |
+
+## Browse completely and distinguish missing from unfinished
+
+Start with `library_stats`, `library_readiness` and `list_folders` to learn the library's scope and readiness. `list_files` includes footage that has not
+produced searchable shots yet. An empty `search_shots` result therefore does not establish that a video is absent.
+For a file that looks unfinished, use `get_asset(asset_id=..., include_processing=true, include_transcript=false)`
+to inspect outstanding jobs and analyser errors without retrieving a long transcript.
+
+Being indexed does not mean a file is fully analysed or that its descriptions are accurate. Check `library_readiness`
+for missing shots, failed runs and unavailable analysers before depending on a feature. Optional local models or
+providers being disabled can reduce coverage even when a video is searchable. The readiness tool is read-only:
+it does not trigger processing, retries or any upload to an AI provider.
+
+`list_files` returns `total`, `assets`, `offset`, `limit`, `has_more`, and `next_offset`. Keep calling with the returned
+`next_offset` and the same query/folder/collection/sort until `has_more` is false. `search_shots` uses `next_cursor`
+instead; keep its query, filters and sort unchanged between pages. Do not describe the first page as the entire library.
+
+Choose `sort="captured_desc"` for newest footage or `sort="captured_asc"` for recording chronology. Known ISO and
+camera/Exif dates are normalised; unknown dates sort last. `list_files` defaults to `added_desc` (import order),
+while `search_shots` defaults to `relevance`. File lists also support `sort="name"`.
+For date filters, `captured_after` / `captured_before` values like `2026-10-25` include that whole camera-calendar day;
+explicit timestamps instead specify exact instants. Folder date ranges use recording metadata, with
+`capture_dates_known` / `capture_dates_unknown` counts; modification times are not presented as recording dates.
+
+## Save a reviewable shortlist
+
+With `collections:write`, an agent can leave its selections in the app for a person to review:
+
+1. `create_collection(name="Holiday opening", brief="Establish the location before the interview")`
+2. `add_to_collection(collection_id=<returned uid>, shot_ids=[...], note="Wide establishing views")`
+3. `get_collection(collection_id=...)` to review the order, time ranges and rights.
+4. `update_collection_item(collection_id=..., item_id=..., in_seconds=..., out_seconds=..., note="...")`
+   to refine a selection; `reset_trim=true` restores that entry's full shot. Omitted fields stay unchanged.
+5. `reorder_collection(collection_id=..., item_ids=[...])` to arrange every selected entry into the desired sequence.
+   Pass the complete set of item ids exactly once; invalid orders leave the collection untouched.
+6. `update_collection(collection_id=..., brief="...")` to refine the editorial plan, or
+   `remove_from_collection(collection_id=..., item_id=...)` to remove one selection.
+7. `check_rights` and then `build_package(collection_id=..., name="Holiday opening", ...)` when ready to export.
+
+Collections store references, so shortlisting does not duplicate source videos. Trims in `add_to_collection` are
+source-file seconds and apply to every shot in that call; add shots separately when they need different trims or notes.
+Creating a collection and appending entries are **not idempotent**. If a response is lost, inspect the existing
+collections/items before retrying. Removing an entry never removes the source video or its analysis.
+
+For grading, inspect the technical metadata and evidence in `get_asset`. A named Log profile reported by metadata is
+different from an image-based estimate that footage looks flat. Preserve that distinction; do not choose a camera
+input transform solely from an appearance estimate.
 
 ## Scoping to a folder or collection
 

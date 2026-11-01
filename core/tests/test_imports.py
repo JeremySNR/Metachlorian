@@ -57,11 +57,9 @@ FAKE = textwrap.dedent('''\
 
 
 @pytest.fixture()
-def fake(lib, tmp_path, sample_video, monkeypatch):
+def fake(lib, tmp_path, sample_video, monkeypatch, python_tool):
     s, db = lib
-    exe = tmp_path / "yt-dlp"
-    exe.write_text(FAKE.format(python=sys.executable))
-    exe.chmod(0o755)
+    exe = python_tool('yt-dlp', FAKE.format(python=sys.executable))
     monkeypatch.setenv("FAKE_YTDLP_LOG", str(tmp_path / "calls.log"))
     monkeypatch.setenv("FAKE_YTDLP_VIDEO", str(sample_video))
     s.ytdlp_path = str(exe)
@@ -85,7 +83,7 @@ def test_import_single_video_lands_in_folder_with_origin_and_unknown_rights(fake
     rows = _wait(db, [res["imports"][0]["id"]])
     r = next(iter(rows.values()))
     assert r["status"] == "done" and r["title"] == "Video cc" and r["uploader"] == "Mickey Fan"
-    assert r["path"].endswith("imports/Holidays/Disney 2026/Video cc [cc].mp4") and os.path.exists(r["path"])
+    assert r["path"].replace('\\', '/').endswith("imports/Holidays/Disney 2026/Video cc [cc].mp4") and os.path.exists(r["path"])
     assert not os.path.exists(r["path"][:-4] + ".info.json")
     assert time.gmtime(os.stat(r["path"]).st_mtime)[:3] == (2026, 8, 5)        # file dated by the upload date
     asset = lib.get_asset(LOCAL_ADMIN, db.q1("SELECT uid FROM assets WHERE id=?", (r["asset_id"],))["uid"])
@@ -111,7 +109,7 @@ def test_playlist_expands_into_one_import_per_video(fake):
     kids = [r for r in rows.values() if r["parent_id"] == pid]
     assert parent["status"] == "expanded" and parent["folder"] == "YouTube/Disney 2026" and "2 videos" in parent["message"]
     assert sorted(k["title"] for k in kids) == ["Video aaa", "Video bbb"] and all(k["status"] == "done" for k in kids)
-    assert all("/imports/YouTube/Disney 2026/" in k["path"] for k in kids)
+    assert all("/imports/YouTube/Disney 2026/" in k["path"].replace('\\', '/') for k in kids)
     assert len(lib.import_status(LOCAL_ADMIN, pid)["children"]) == 2
 
 
@@ -148,7 +146,9 @@ def test_links_folders_and_cookie_files_are_validated(fake, monkeypatch):
     with pytest.raises(ValueError, match="cookies.txt"):
         lib.set_import_cookies(LOCAL_ADMIN, b"not a cookie file")
     st = lib.set_import_cookies(LOCAL_ADMIN, b"# Netscape HTTP Cookie File\n.youtube.com\tTRUE\t/\tTRUE\t0\tSID\tsecret\n")
-    assert st["cookies_file"] and oct(os.stat(ytdlp.cookies_file(s)).st_mode)[-3:] == "600"
+    assert st["cookies_file"]
+    if os.name != 'nt':
+        assert oct(os.stat(ytdlp.cookies_file(s)).st_mode)[-3:] == "600"
     assert ytdlp.auth_args(s)[-2:] == ["--cookies", str(ytdlp.cookies_file(s))] and "secret" not in json.dumps(st)
     assert not lib.set_import_cookies(LOCAL_ADMIN, None)["cookies_file"]
     s.import_cookies_browser = "firefox"

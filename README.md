@@ -177,6 +177,32 @@ mode it connects to a shared server. It adds native drag-out of real clip files 
 are unsigned on Windows and ad-hoc signed, without notarisation, on macOS (see [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md)): on macOS use **System Settings → Privacy & Security → Open
 Anyway** the first time; on Windows choose **More info → Run anyway**. From source: `cd desktop && npm ci && npm start`.
 
+**Library storage:** The app and its data can live on separate drives. Start with
+`metachlorian --data "D:\Metachlorian\library" serve` (or set `METACHLORIAN_DATA`) to put the database, models,
+previews, thumbnails and uploaded videos there. Adding a folder reads originals in place, including subfolders;
+uploading files stores full-size copies in the library. Identical content shares one library record and analysis.
+The Ingest page shows the current library location, persistent scan counts and errors, current analysis steps,
+and searchable, paginated file history. Scan completion and analysis completion are reported separately.
+
+Capture metadata preserves named Log profiles (including LogC3/4 and S-Log2/3), capture gamma and colour gamut
+when available. File and shot records expose the profile and its metadata evidence for grading tools.
+An image-based Log/flat estimate is labelled separately and must not be treated as a confirmed input transform.
+
+**Agents (MCP):** create a token in Settings → Agents (or `metachlorian token my-agent`), then point your MCP client at
+`http://<host>:8765/mcp/` with `Authorization: Bearer <token>`, or run `metachlorian mcp` over stdio (read-only by default).
+See [docs/agents.md](docs/agents.md).
+
+**Know what is ready:** Library → Overview separates searchable files from completed analysis. Its readiness panel
+reports missing indexed shots, failed/unavailable analysers, previews and unknown recording dates. The same report is
+available through MCP `library_readiness` and `GET /api/library/readiness`. An empty search does not prove footage is absent
+while scanning or analysis is incomplete. Index failures persist across restarts and retry locally during planning,
+without repeating successful AI analysis.
+
+**Save AI selections:** Agents with `collections:write` can create a shortlist, append shots with notes and trims,
+refine individual entries, reorder the sequence and remove entries. These are references to the originals, not new
+video copies. Collection mutations are audited and checked against the named collection; invalid batch additions and
+orders leave the collection unchanged. Export still requires its separate scope and rights clearance.
+
 ## Community sharing
 
 Metachlorian can also search a public [community index](https://metachlorian-community.vercel.app) of analysed YouTube

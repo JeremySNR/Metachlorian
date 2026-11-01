@@ -21,6 +21,24 @@ def _uids(res) -> list[str]:
     return [r["uid"] for r in res["results"]]
 
 
+def test_capture_sort_applies_before_pagination(eng):
+    rows = eng.db.q('SELECT shot_id, capture_date FROM shot_index ORDER BY shot_id')
+    try:
+        for i, row in enumerate(rows):
+            eng.db.x('UPDATE shot_index SET capture_date=? WHERE shot_id=?',
+                     (f'2025-01-{i + 1:02d}T12:00:00Z' if i < 8 else None, row['shot_id']))
+        newest = eng.search(SearchRequest(sort='captured_desc', limit=3, facets=False, **ALL))
+        oldest = eng.search(SearchRequest(sort='captured_asc', limit=3, facets=False, **ALL))
+        ids = lambda response: [eng.db.q1('SELECT id FROM shots WHERE uid=?', (r['uid'],))[0] for r in response['results']]
+        assert ids(newest) == [r['shot_id'] for r in rows[5:8]][::-1]
+        assert ids(oldest) == [r['shot_id'] for r in rows[:3]]
+        reset = eng.search(SearchRequest(sort='captured_asc', limit=3, cursor=newest['next_cursor'], facets=False, **ALL))
+        assert ids(reset) == ids(oldest)
+    finally:
+        for row in rows:
+            eng.db.x('UPDATE shot_index SET capture_date=? WHERE shot_id=?', (row['capture_date'], row['shot_id']))
+
+
 def test_cursor_round_trip_visits_every_shot_once(eng, rights_matrix):
     first = eng.search(SearchRequest(q="", limit=40, facets=False, **ALL))
     seen, cursor, pages = [], None, 0

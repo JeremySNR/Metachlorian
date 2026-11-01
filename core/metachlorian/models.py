@@ -7,6 +7,7 @@ downloads what is missing; nothing is downloaded implicitly during analysis.
 from __future__ import annotations
 
 import hashlib
+import logging
 import os
 import shutil
 import tarfile
@@ -14,6 +15,7 @@ import threading
 import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
+from functools import lru_cache
 from typing import Any
 
 SHERPA = "https://github.com/k2-fsa/sherpa-onnx/releases/download"
@@ -155,6 +157,25 @@ def install_from(models_root: Path, name: str, src_dir: Path) -> Path:
     return d
 
 
+@lru_cache(maxsize=1)
+def ort_providers() -> list[str]:
+    """Prepare optional CUDA DLLs before constructing any inference engines."""
+    import onnxruntime as ort
+
+    if os.environ.get("METACHLORIAN_ACCELERATORS", "").lower() in ("0", "false", "no", "off"):
+        return ["CPUExecutionProvider"]
+    available = ort.get_available_providers()
+    if "CUDAExecutionProvider" in available and hasattr(ort, "preload_dlls"):
+        try:
+            ort.preload_dlls()
+        except Exception as exc:
+            logging.getLogger(__name__).warning("CUDA DLL preloading failed: %s", exc)
+        available = ort.get_available_providers()
+    wanted = ("CUDAExecutionProvider", "DmlExecutionProvider") + (("CoreMLExecutionProvider",) if os.environ.get("METACHLORIAN_COREML") == "1" else ())
+    return [p for p in wanted
+            if p in available] + ["CPUExecutionProvider"]
+
+
 def ort_session(path: Path, threads: int | None = None):
     import onnxruntime as ort
 
@@ -162,13 +183,11 @@ def ort_session(path: Path, threads: int | None = None):
     so.intra_op_num_threads = threads or int(os.environ.get("METACHLORIAN_THREADS", "0") or 0) or max(1, (os.cpu_count() or 2) // 2)
     so.inter_op_num_threads = 1
     so.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
-    # CoreML is opt-in (METACHLORIAN_COREML=1): it fails at inference on SigLIP's vision head on Apple Silicon.
-    wanted = ("CUDAExecutionProvider", "DmlExecutionProvider") + (("CoreMLExecutionProvider",) if os.environ.get("METACHLORIAN_COREML") == "1" else ())
-    providers = [p for p in wanted if p in ort.get_available_providers()]
-    # METACHLORIAN_ACCELERATORS=false forces CPU everywhere.
-    if os.environ.get("METACHLORIAN_ACCELERATORS", "").lower() in ("0", "false", "no", "off"):
-        providers = []
-    return ort.InferenceSession(str(path), sess_options=so, providers=providers + ["CPUExecutionProvider"])
+    providers = ort_providers()
+    session = ort.InferenceSession(str(path), sess_options=so, providers=providers)
+    if providers[0] != "CPUExecutionProvider" and session.get_providers()[0] == "CPUExecutionProvider":
+        logging.getLogger(__name__).warning("%s could not use %s; running on CPU", path.name, providers[0])
+    return session
 
 
 _cache: dict[tuple[str, str], Any] = {}

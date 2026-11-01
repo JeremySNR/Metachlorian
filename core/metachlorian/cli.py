@@ -61,10 +61,8 @@ def cmd_add(args) -> None:
 
     s, db = _lib(args)
     for uri in args.paths:
-        sid = add_source(db, uri, watch=not args.no_watch)
-        res = scan_source(db, sid, s.data_dir / "cache" / "s3")
-        for aid in res.asset_ids or []:
-            plan_asset(db, s, aid)
+        sid = add_source(db, uri, watch=not args.no_watch, options={"camera_originals": True} if args.camera_originals else None)
+        res = scan_source(db, sid, s.data_dir / "cache" / "s3", on_asset=lambda aid: plan_asset(db, s, aid))
         print(json.dumps({"source": uri, **{k: v for k, v in res.as_dict().items() if k != "asset_ids"}}))
 
 
@@ -96,7 +94,7 @@ def cmd_process(args) -> None:
     s, db = _lib(args)
     n = plan_all(db, s)
     print(f"planned {n} jobs")
-    w = Worker(db, s)
+    w = Worker(db, s, resources=tuple(args.resources))
     done = 0
     while True:
         r = w.run_once()
@@ -222,6 +220,16 @@ def cmd_reindex(args) -> None:
     print(f"indexed {reindex_all(db, s)} shots")
 
 
+def cmd_place_context(args) -> None:
+    import math
+    from .place_context import refresh_places
+
+    s, db = _lib(args)
+    if not math.isfinite(args.max_gap) or args.max_gap < 0 or args.max_gap > 300:
+        sys.exit("--max-gap must be between 0 and 300 seconds")
+    print(json.dumps(refresh_places(db, s, args.max_gap)))
+
+
 def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(prog="metachlorian", description="Self-hostable video library that understands every shot.")
     ap.add_argument("--data", default=os.environ.get("METACHLORIAN_DATA"), help="library directory (default ~/.local/share/metachlorian)")
@@ -243,13 +251,19 @@ def main(argv: list[str] | None = None) -> None:
     sp = sub.add_parser("add", help="add a folder or s3:// bucket and scan it")
     sp.add_argument("paths", nargs="+")
     sp.add_argument("--no-watch", action="store_true")
+    sp.add_argument("--camera-originals", action="store_true", help="confirm these files are continuous camera takes; allow nearby-clip place inference")
     sp.set_defaults(fn=cmd_add)
     sp = sub.add_parser("process", help="run all pending analysis in this process, then exit")
+    sp.add_argument("--resources", nargs="+", choices=("cpu", "model", "io"), default=("cpu", "model", "io"),
+                    help="worker lanes to consume; model adds a recognition worker without decoding more originals")
     sp.add_argument("-v", "--verbose", action="store_true")
     sp.set_defaults(fn=cmd_process)
     sub.add_parser("status").set_defaults(fn=cmd_status)
     sub.add_parser("community-sync", help="retry pending YouTube analysis contributions").set_defaults(fn=cmd_community_sync)
     sub.add_parser("reindex").set_defaults(fn=cmd_reindex)
+    sp = sub.add_parser("place-context", help="refresh specific place labels and nearby-camera-clip inference")
+    sp.add_argument("--max-gap", type=float, default=30, help="maximum recording gap in seconds (default 30)")
+    sp.set_defaults(fn=cmd_place_context)
     sp = sub.add_parser("search")
     sp.add_argument("query", nargs="+")
     sp.add_argument("--limit", type=int, default=10)

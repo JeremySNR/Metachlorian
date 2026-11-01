@@ -201,6 +201,10 @@ def detect(f: Features, p: Params | None = None) -> list[Boundary]:
     out.sort(key=lambda b: b.frame)
     merged: list[Boundary] = []
     for b in out:
+        # Both edge shots need enough frames. Filter before merging so a stronger
+        # last-frame glitch cannot suppress a usable boundary just before it.
+        if not min_len <= b.frame <= n - min_len:
+            continue
         if merged and b.frame - merged[-1].frame < min_len:
             prev = merged[-1]
             rank = {"fade": 3, "cut": 2, "dissolve": 1}
@@ -208,7 +212,7 @@ def detect(f: Features, p: Params | None = None) -> list[Boundary]:
                 merged[-1] = b
             continue
         merged.append(b)
-    return [b for b in merged if min_len <= b.frame <= n - 1]
+    return merged
 
 
 def split_long(f: Features, start: int, end: int, p: Params) -> list[int]:

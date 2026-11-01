@@ -64,7 +64,6 @@ def _ratio(s: str | None) -> float | None:
 _ISO6709 = re.compile(r"([+-]\d+(?:\.\d+)?)([+-]\d+(?:\.\d+)?)([+-]\d+(?:\.\d+)?)?")
 
 HDR_TRANSFERS = {"smpte2084": "PQ (HDR10)", "arib-std-b67": "HLG"}
-LOG_HINTS = ("log", "slog", "s-log", "clog", "c-log", "vlog", "v-log", "flog", "f-log", "nlog", "n-log", "logc", "apple log", "dlog", "d-log", "hlg")
 
 
 def technical_metadata(path: str | Path) -> dict[str, Any]:
@@ -147,10 +146,9 @@ def technical_metadata(path: str | Path) -> dict[str, Any]:
     out.update({"camera_make": make, "camera_model": model, "lens": lens, "capture_date": created, "gps": gps,
                 "encoder": tags.get("encoder") or tags.get("handler_name")})
     out.update(_exiftool(path))
-    # Log/flat profile hint from metadata only; image statistics refine it later.
-    hint_src = " ".join(str(x) for x in (tags.get("com.apple.quicktime.camera.identifier"), tags.get("gamma"), tags.get("comment"), transfer, out.get("video_profile")) if x).lower()
-    out["log_hint"] = next((h for h in LOG_HINTS if h != "hlg" and h in hint_src), None)
     out["tags"] = {k: v_ for k, v_ in tags.items() if len(str(v_)) < 200}
+    from .profiles import capture_profile
+    out.update(capture_profile(out))
     if out.get("hdr"):
         out["max_luminance"] = hdr_peak_nits(path)
     return out
@@ -175,8 +173,9 @@ def _exiftool(path: str | Path) -> dict[str, Any]:
     if not exe:
         return {}
     try:
-        p = subprocess.run([exe, "-j", "-n", "-Make", "-Model", "-LensModel", "-LensID", "-FocalLength", "-GPSLatitude", "-GPSLongitude",
-                            "-CreateDate", "-DateTimeOriginal", "-GammaCurve", "-CaptureGammaEquation", "-ColorPrimaries", str(path)],
+        p = subprocess.run([exe, "-j", "-Make", "-Model", "-LensModel", "-LensID", "-FocalLength#", "-GPSLatitude#", "-GPSLongitude#",
+                            "-CreateDate", "-DateTimeOriginal", "-GammaCurve", "-CaptureGammaEquation", "-Gamma",
+                            "-CaptureColorPrimaries", "-ColorPrimaries", "-ColorSpace", str(path)],
                            capture_output=True, timeout=60)
         d = json.loads(p.stdout or b"[{}]")[0]
     except Exception:
@@ -194,9 +193,12 @@ def _exiftool(path: str | Path) -> dict[str, Any]:
         out["gps"] = {"lat": d["GPSLatitude"], "lon": d["GPSLongitude"], "alt": None}
     if d.get("DateTimeOriginal") or d.get("CreateDate"):
         out["capture_date"] = d.get("DateTimeOriginal") or d.get("CreateDate")
-    gamma = (str(d.get("GammaCurve") or "") + " " + str(d.get("CaptureGammaEquation") or "")).strip()
+    gamma = " ".join(str(d[k]) for k in ("GammaCurve", "CaptureGammaEquation", "Gamma") if d.get(k))
     if gamma:
         out["gamma"] = gamma
+    gamut = d.get("CaptureColorPrimaries") or d.get("ColorPrimaries") or d.get("ColorSpace")
+    if gamut is not None:
+        out["capture_color_gamut"] = str(gamut)
     return out
 
 
@@ -283,11 +285,14 @@ _DECODE_ERR = re.compile(r"error while decoding|corrupt|concealing \d+|Invalid N
 
 
 def make_proxy(src: str | Path, dst: str | Path, height: int = 540, crf: int = 26, fps_cap: float = 30.0,
-               src_fps: float | None = None, tech: dict[str, Any] | None = None) -> dict[str, Any]:
+               src_fps: float | None = None, tech: dict[str, Any] | None = None,
+               audio_dst: str | Path | None = None) -> dict[str, Any]:
     """H.264 proxy with a 1 s GOP for instant seeking/scrubbing, faststart for streaming, converted to display
     SDR BT.709 (see display_filter). Returns how the colour was handled and how many decode errors were seen."""
     dst = Path(dst)
     tmp = dst.with_suffix(".tmp.mp4")
+    audio = Path(audio_dst) if audio_dst is not None else None
+    audio_tmp = audio.with_suffix(".tmp.wav") if audio is not None else None
     gop = max(1, int(round(min(src_fps or fps_cap, fps_cap))))
     pre = f"fps={fps_cap}," if src_fps and src_fps > fps_cap + 0.5 else ""
     chains = []
@@ -300,12 +305,17 @@ def make_proxy(src: str | Path, dst: str | Path, height: int = 540, crf: int = 2
                 "-vf", vf, "-c:v", "libx264", "-preset", "veryfast", "-crf", str(crf), "-g", str(gop), "-keyint_min", str(gop),
                 "-sc_threshold", "0", *BT709_TAGS, "-c:a", "aac", "-b:a", "96k", "-ac", "2", "-movflags", "+faststart",
                 "-map_metadata", "-1", str(tmp)]
+        if audio_tmp is not None:
+            # Decode the original audio in the same read as the video proxy.
+            args += ["-map", "0:a:0", "-vn", "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", str(audio_tmp)]
         try:
             p = run(args)
         except RuntimeError as e:  # e.g. a colour description zimg cannot convert: fall back rather than fail
             last = e
             continue
         tmp.replace(dst)
+        if audio_tmp is not None:
+            audio_tmp.replace(audio)
         errs = sum(1 for line in p.stderr.decode(errors="replace").splitlines() if _DECODE_ERR.search(line))
         hdr = bool(tech and (tech.get("color_transfer") or "") in _HDR_TRC)
         return {"colour": ("hdr_tonemapped" if hdr else "converted") if kind == "display" else "unconverted",
@@ -373,6 +383,8 @@ def frame_at(src: str | Path, t: float, width: int | None = None) -> np.ndarray:
     args = [ffmpeg_bin(), "-v", "error", "-ss", f"{max(0.0, t):.3f}", "-i", str(src), "-frames:v", "1", "-vf", vf,
             "-f", "image2pipe", "-vcodec", "png", "-"]
     p = run(args)
+    if not p.stdout:
+        raise RuntimeError(f"could not decode frame at {t}s from {src}")
     import cv2
 
     img = cv2.imdecode(np.frombuffer(p.stdout, np.uint8), cv2.IMREAD_COLOR)
@@ -427,7 +439,8 @@ def make_sprites(src: str | Path, out_dir: str | Path, duration: float, interval
     for old in out_dir.glob("sprite_*.jpg"):
         old.unlink()
     vf = (f"fps=1/{interval},scale={tile_w}:{tile_h}:force_original_aspect_ratio=decrease:flags=area,"
-          f"pad={tile_w}:{tile_h}:(ow-iw)/2:(oh-ih)/2:color=black,tile={cols}x{rows}")
+          f"pad={tile_w}:{tile_h}:(ow-iw)/2:(oh-ih)/2:color=black,tile={cols}x{rows},"
+          "scale=in_range=tv:out_range=pc,format=yuvj420p,setparams=range=pc")
     run([ffmpeg_bin(), "-y", "-v", "error", "-i", str(src), "-vf", vf, "-q:v", "5", str(out_dir / "sprite_%03d.jpg")])
     sheets = sorted(p.name for p in out_dir.glob("sprite_*.jpg"))
     return SpriteInfo(interval=interval, tile_w=tile_w, tile_h=tile_h, cols=cols, rows=rows,
@@ -436,7 +449,7 @@ def make_sprites(src: str | Path, out_dir: str | Path, duration: float, interval
 
 def loudness(src: str | Path) -> dict[str, Any]:
     """EBU R128 integrated loudness, range and true peak, plus a 100 ms momentary curve."""
-    p = subprocess.run([ffmpeg_bin(), "-v", "info", "-nostats", "-i", str(src), "-map", "0:a:0", "-af", "ebur128=peak=true:framelog=verbose",
+    p = subprocess.run([ffmpeg_bin(), "-v", "info", "-nostats", "-i", str(src), "-map", "0:a:0", "-af", "ebur128=peak=true:framelog=info",
                         "-f", "null", "-"], capture_output=True, timeout=3600)
     err = p.stderr.decode(errors="replace")
     momentary: list[tuple[float, float]] = []

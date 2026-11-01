@@ -42,19 +42,20 @@ def _worker_main(data_dir: str, resources: tuple[str, ...], stop_evt) -> None:
 
 def _watch(settings: Settings, stop: threading.Event) -> None:
     """Rescan watch folders on file changes (debounced) and every 10 minutes."""
-    from .ingest.scan import scan_source
+    from .ingest.scan import scan_source, scan_status
     from .pipeline import plan_asset
 
     db = Database(settings.db_path)
 
     def rescan(only: set[int] | None = None) -> None:
-        for s in db.q("SELECT id, kind FROM sources WHERE watch=1"):
+        for s in db.q("SELECT id, kind, watch FROM sources"):
+            if not s["watch"] and scan_status(db, s["id"]).get("state") not in ("queued", "discovering", "registering"):
+                continue
             if only is not None and s["id"] not in only:
                 continue
             try:
-                res = scan_source(db, s["id"], settings.data_dir / "cache" / "s3")
-                for aid in res.asset_ids or []:
-                    plan_asset(db, settings, aid)
+                scan_source(db, s["id"], settings.data_dir / "cache" / "s3",
+                            on_asset=lambda aid: plan_asset(db, settings, aid))
             except Exception:
                 log.exception("scan of source %s failed", s["id"])
 
@@ -102,16 +103,23 @@ def _watch(settings: Settings, stop: threading.Event) -> None:
                 last_full = time.time()
 
 
+def worker_resources(count: int) -> list[tuple[str, ...]]:
+    """Keep original decoding serial while analysis of finished proxies overlaps."""
+    if count <= 0:
+        return []
+    if count == 1:
+        return [("model", "cpu", "io")]
+    model_lane = ("model", "cpu") if count == 2 else ("model",)
+    return [model_lane, ("cpu", "io"), *[("cpu",)] * (count - 2)]
+
+
 def start_background(settings: Settings) -> dict[str, Any]:
     ctx = mp.get_context("spawn")
     stop_evt = ctx.Event()
     procs = []
     n = max(0, settings.workers)
-    if n:
-        # One worker owns the large local models; the rest do CPU analysis.
-        procs.append(ctx.Process(target=_worker_main, args=(str(settings.data_dir), ("model", "cpu"), stop_evt), daemon=True))
-        for _ in range(n - 1):
-            procs.append(ctx.Process(target=_worker_main, args=(str(settings.data_dir), ("cpu",), stop_evt), daemon=True))
+    for resources in worker_resources(n):
+        procs.append(ctx.Process(target=_worker_main, args=(str(settings.data_dir), resources, stop_evt), daemon=True))
     for p in procs:
         p.start()
     tstop = threading.Event()
@@ -135,7 +143,7 @@ def start_background(settings: Settings) -> dict[str, Any]:
 
 def save_settings(settings: Settings, changes: dict[str, Any]) -> None:
     """Apply admin changes and persist them to <data_dir>/config.toml."""
-    editable = {"workers", "proxy_height", "sprite_interval", "max_segment_s", "allow_remote", "face_identity", "vlm", "llm", "require_auth",
+    editable = {"workers", "proxy_height", "sprite_interval", "max_segment_s", "allow_remote", "logging_context", "face_identity", "vlm", "llm", "require_auth",
                 "import_cookies_browser", "import_max_height", "ytdlp_path", "raw_decoders", "community_enabled", "community_url"}
     for k, v in changes.items():
         if k not in editable:
@@ -173,7 +181,10 @@ def save_settings(settings: Settings, changes: dict[str, Any]) -> None:
 def _validate_setting(settings: Settings, k: str, v: Any, changes: dict[str, Any]) -> None:
     from .ingest.ytdlp import BROWSERS
 
-    if k == "community_enabled":
+    if k == "logging_context":
+        if not isinstance(v, str) or len(v) > 600 or "\n" in v or "\r" in v:
+            raise ValueError("logging_context must be a single line of text up to 600 characters")
+    elif k == "community_enabled":
         if not isinstance(v, bool):
             raise ValueError("community_enabled must be true or false")
     elif k == "community_url":

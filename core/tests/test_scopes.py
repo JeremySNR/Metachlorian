@@ -53,7 +53,7 @@ def test_folder_scope_by_name_path_and_query_text(holiday_lib):
     miss = search(folder="Disney 2025")
     assert miss["total"] == 0 and "Disney 2026" in miss["notes"][0]          # says so, and suggests the closest
     hits = [r for r in search(folder="Disney 2026")["results"] if r["filename"] == "b.mp4"]  # b is unique, so its folder is certain
-    assert hits[0]["folder"] == str(root / "Holidays" / "Disney 2026")
+    assert hits[0]["folder"] == (root / "Holidays" / "Disney 2026").as_posix()
 
 
 def test_collection_scope_and_agent_tools(holiday_lib):
@@ -84,6 +84,6 @@ def test_collection_scope_and_agent_tools(holiday_lib):
     assert _files(lib.list_assets(LOCAL_ADMIN, collection="Kids on rides")) == {"b.mp4", "c.mp4"}
     assert folders["Videos/Holidays/Disney 2026"]["edit_types"] and sum(folders["Videos"]["edit_types"].values()) == 3
     assert lib.get_shot(LOCAL_ADMIN, db.q1("SELECT s.uid FROM shots s JOIN assets a ON a.id=s.asset_id WHERE a.filename='a_copy.mp4'"
-                                           " OR a.filename='a.mp4' LIMIT 1")["uid"])["folders"] == [str(root / "Best"), str(root / "Holidays" / "Disney 2026")]
+                                           " OR a.filename='a.mp4' LIMIT 1")["uid"])["folders"] == [(root / "Best").as_posix(), (root / "Holidays" / "Disney 2026").as_posix()]
     near = SearchEngine(db, s).search(SearchRequest(filters={"collection": "kids on ride"}, hide_blocked=False))
     assert near["notes"] == ['No collection called "kids on ride". Closest: Kids on rides.'] and near["query"]["filters"]["collection"] == ["kids on ride"]

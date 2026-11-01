@@ -7,6 +7,7 @@ from __future__ import annotations
 from typing import Any
 
 from .config import Settings
+from .capture_dates import capture_iso
 from .db import Database, dumps, now
 from .records import FREE_TERM_FIELDS, VOCAB_FIELDS, build_shot_docs, scalar, term_list
 from .vocab import registry
@@ -24,7 +25,10 @@ def index_asset(db: Database, settings: Settings | None, asset_id: int) -> int:
     docs = build_shot_docs(db, asset_id) if not a["deleted_at"] else []
     reg = registry()
     with db.tx() as c:
-        old = [r[0] for r in c.execute("SELECT shot_id FROM shot_index WHERE asset_id=?", (asset_id,)).fetchall()]
+        # Include the source shot ids: a partial/corrupt typed index can still
+        # have FTS/term rows, which must be replaced during recovery too.
+        old = [r[0] for r in c.execute("SELECT shot_id FROM shot_index WHERE asset_id=? UNION SELECT id FROM shots WHERE asset_id=?",
+                                     (asset_id, asset_id)).fetchall()]
         if old:
             q = ",".join("?" * len(old))
             c.execute(f"DELETE FROM shot_terms WHERE shot_id IN ({q})", old)
@@ -42,6 +46,8 @@ def index_asset(db: Database, settings: Settings | None, asset_id: int) -> int:
             usable = scalar(_f(d, "quality.usable"))
             edit = (d.get("edit_type") or {}).get("term") if isinstance(d.get("edit_type"), dict) else d.get("edit_type")
             loc = scalar(_f(d, "content.location")) or d.get("location") or scalar(_f(d, "content.location_guess")) or ""
+            recognised = [scalar(_f(d, f"content.{k}")) for k in ("destination", "venue", "area", "attraction_or_show")]
+            loc = " | ".join(dict.fromkeys(str(x) for x in [loc, *recognised] if x))
             c.execute(
                 "INSERT INTO shot_index(shot_id, asset_id, duration, start_s, end_s, width, height, fps, aspect, log_profile, hdr, people_count,"
                 " faces, speech, music, motion_energy, pace, shot_size, camera_movement, role, time_of_day, usable, quality, capture_date,"
@@ -51,7 +57,7 @@ def index_asset(db: Database, settings: Settings | None, asset_id: int) -> int:
                  _f(d, "people.faces"), int("speech" in classes), int("music" in classes or "singing" in classes),
                  _f(d, "pacing.motion_energy"), scalar(_f(d, "pacing.pace")), scalar(_f(d, "camera.shot_size")),
                  moves[0]["term"] if moves else None, roles[0]["term"] if roles else None, scalar(_f(d, "content.time_of_day")),
-                 None if usable is None else int(bool(usable)), scalar(_f(d, "quality.score")), str(t.get("capture_date") or "") or None,
+                 None if usable is None else int(bool(usable)), scalar(_f(d, "quality.score")), capture_iso(t.get("capture_date")),
                  loc or None, edit, caption, dumps(d), now()))
             terms: dict[tuple[str, str], tuple[float, str]] = {}
             for field, (vocab, _) in VOCAB_FIELDS.items():
@@ -78,7 +84,9 @@ def index_asset(db: Database, settings: Settings | None, asset_id: int) -> int:
             if t.get("orientation"):
                 terms[("orientation", t["orientation"])] = (1.0, "technical")
             if t.get("log_profile"):
-                terms[("look", "log")] = (float(t.get("log_confidence") or 0.6), "quality")
+                source = "technical" if t.get("log_profile_source") == "metadata" else (
+                    "metadata_hint" if t.get("log_profile_source") == "metadata_hint" else "quality")
+                terms[("look", "log")] = (float(t.get("log_confidence") or 0.6), source)
             if t.get("hdr"):
                 terms[("look", "hdr")] = (1.0, "technical")
             c.executemany("INSERT OR REPLACE INTO shot_terms(shot_id, vocab, term, confidence, source) VALUES(?,?,?,?,?)",

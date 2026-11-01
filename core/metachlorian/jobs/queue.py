@@ -21,6 +21,15 @@ log = logging.getLogger(__name__)
 LEASE_S = 120.0
 MAX_ATTEMPTS = 3
 
+# Historical failures stay stored, but do not count as actionable after a newer
+# job/run supersedes them. Also used by retry-all before clearing run records.
+CURRENT_JOBS = (
+    "NOT (jobs.status='failed' AND (EXISTS (SELECT 1 FROM analysis_runs r "
+    "WHERE r.asset_id=jobs.asset_id AND r.analyser=jobs.analyser AND r.input_key<>jobs.input_key) "
+    "OR EXISTS (SELECT 1 FROM jobs newer WHERE newer.asset_id=jobs.asset_id "
+    "AND newer.analyser=jobs.analyser AND newer.id>jobs.id AND newer.status<>'cancelled')))"
+)
+
 
 def worker_id() -> str:
     return f"{socket.gethostname()}:{os.getpid()}"
@@ -42,8 +51,17 @@ def claim(db: Database, worker: str, resources: tuple[str, ...] | None = None, a
     """Atomically take the highest-priority runnable job."""
     with db.tx() as c:
         c.execute("UPDATE jobs SET status='queued', worker=NULL, lease_until=NULL WHERE status='running' AND lease_until < ?", (now(),))
-        rows = c.execute("SELECT id, analyser FROM jobs WHERE status='queued' AND run_after <= ? ORDER BY priority DESC, id LIMIT 50",
-                         (now(),)).fetchall()
+        eligible = ""
+        params: list[Any] = [now()]
+        if resources is not None and analysers is not None:
+            names = [name for name, a in analysers.items() if a.resource in resources]
+            if not names:
+                return None
+            # Filter before the limit: a model backlog must not hide CPU work.
+            eligible = " AND analyser IN (" + ",".join("?" for _ in names) + ")"
+            params.extend(names)
+        rows = c.execute("SELECT id, analyser FROM jobs WHERE status='queued' AND run_after <= ?" + eligible +
+                         " ORDER BY priority DESC, id LIMIT 50", params).fetchall()
         for r in rows:
             if resources is not None and analysers is not None:
                 a = analysers.get(r["analyser"])
@@ -70,13 +88,16 @@ def fail(db: Database, job: dict, err: BaseException | str) -> bool:
 
 def stats(db: Database) -> dict[str, Any]:
     out: dict[str, Any] = {"by_status": {}, "by_analyser": {}}
-    for r in db.q("SELECT status, COUNT(*) n FROM jobs GROUP BY status"):
+    # Keep historical jobs, but a newer run supersedes an old version's failure.
+    current = CURRENT_JOBS
+    for r in db.q(f"SELECT status, COUNT(*) n FROM jobs WHERE {current} GROUP BY status"):
         out["by_status"][r["status"]] = r["n"]
-    for r in db.q("SELECT analyser, status, COUNT(*) n FROM jobs GROUP BY analyser, status"):
+    for r in db.q(f"SELECT analyser, status, COUNT(*) n FROM jobs WHERE {current} GROUP BY analyser, status"):
         out["by_analyser"].setdefault(r["analyser"], {})[r["status"]] = r["n"]
     running = db.q("SELECT j.id, j.analyser, j.worker, j.updated_at, a.filename, a.uid FROM jobs j JOIN assets a ON a.id=j.asset_id WHERE j.status='running'")
     out["running"] = [dict(r) for r in running]
-    failed = db.q("SELECT j.id, j.analyser, j.error, a.filename, a.uid FROM jobs j JOIN assets a ON a.id=j.asset_id WHERE j.status='failed' ORDER BY j.updated_at DESC LIMIT 50")
+    failed = db.q("SELECT jobs.id, jobs.analyser, jobs.error, a.filename, a.uid FROM jobs JOIN assets a ON a.id=jobs.asset_id "
+                  f"WHERE jobs.status='failed' AND {current} ORDER BY jobs.updated_at DESC LIMIT 50")
     out["failed"] = [dict(r) for r in failed]
     return out
 

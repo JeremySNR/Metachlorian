@@ -262,6 +262,11 @@
   max-inline-size: 100%;
 }
 
+.browseNav { display: flex; gap: 20px; padding: 12px 16px; border-bottom: 1px solid var(--border-subtle); font-weight: var(--weight-semibold); }
+.browseNav a { padding-block: 4px; }
+.sort { display: flex; align-items: center; gap: 8px; font-size: var(--text-sm); }
+.sort select { padding: 6px; border: 1px solid var(--border-control); border-radius: 4px; background: var(--bg-panel); color: var(--fg-1); max-width: 230px; }
+
 /* No strong matches (§3.16 suggestions), above the weaker results */
 .noStrong {
   display: flex;

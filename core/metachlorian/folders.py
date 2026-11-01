@@ -6,12 +6,12 @@ A file found in several places (duplicates) belongs to every folder it was found
 """
 from __future__ import annotations
 
-import datetime as dt
 import difflib
 import posixpath
 from typing import Any
 
 from .db import Database
+from .capture_dates import capture_iso
 
 
 def _norm(p: str) -> str:
@@ -43,7 +43,7 @@ def list_folders(db: Database, q: str = "", parent: str | None = None, limit: in
     """Every folder that holds footage (directly or below), with file, shot and hour counts and the date range."""
     sources = sorted(((r["id"], _norm(r["uri"]).rstrip("/")) for r in db.q("SELECT id, uri FROM sources")), key=lambda x: -len(x[1]))
     shots = {r[0]: r[1] for r in db.q("SELECT asset_id, COUNT(*) FROM shot_index GROUP BY asset_id")}
-    rows = db.q("SELECT p.path, a.id, a.duration, a.mtime, json_extract(a.tech, '$.capture_date') cap,"
+    rows = db.q("SELECT p.path, a.id, a.duration, json_extract(a.tech, '$.capture_date') cap,"
                 " json_extract(a.summary, '$.edit_type.term') edit FROM asset_paths p"
                 " JOIN assets a ON a.id=p.asset_id WHERE a.deleted_at IS NULL")
     agg: dict[str, dict[str, Any]] = {}
@@ -53,20 +53,23 @@ def list_folders(db: Database, q: str = "", parent: str | None = None, limit: in
         root = next((u for _, u in sources if directory == u or directory.startswith(u + "/")), None)
         if root is None:
             root = directory
-        cap = str(r["cap"] or "")[:10] or dt.datetime.fromtimestamp(r["mtime"], dt.timezone.utc).date().isoformat()
+        captured = capture_iso(r["cap"])
+        cap = captured[:10] if captured else None
         d = directory
         while True:
-            e = agg.setdefault(d, {"assets": set(), "hours": 0.0, "shots": 0, "from": cap, "to": cap, "root": root, "children": set(), "edit": {}})
+            e = agg.setdefault(d, {"assets": set(), "hours": 0.0, "shots": 0, "from": None, "to": None, "dates": 0, "root": root, "children": set(), "edit": {}})
             if r["id"] not in e["assets"]:
                 e["assets"].add(r["id"])
                 e["edit"][r["edit"]] = e["edit"].get(r["edit"], 0) + 1
                 e["hours"] += (r["duration"] or 0) / 3600
                 e["shots"] += shots.get(r["id"], 0)
-                e["from"], e["to"] = min(e["from"], cap), max(e["to"], cap)
+                if cap:
+                    e["from"], e["to"] = min(e["from"] or cap, cap), max(e["to"] or cap, cap)
+                    e["dates"] += 1
             if d == root or "/" not in d.strip("/"):
                 break
             up = posixpath.dirname(d)
-            agg.setdefault(up, {"assets": set(), "hours": 0.0, "shots": 0, "from": cap, "to": cap, "root": root, "children": set(),
+            agg.setdefault(up, {"assets": set(), "hours": 0.0, "shots": 0, "from": None, "to": None, "dates": 0, "root": root, "children": set(),
                                 "edit": {}})["children"].add(d)
             d = up
     out = []
@@ -80,6 +83,7 @@ def list_folders(db: Database, q: str = "", parent: str | None = None, limit: in
         out.append({"path": d, "name": posixpath.basename(d) or d, "relative": rel, "source": e["root"],
                     "depth": rel.count("/"), "files": len(e["assets"]), "shots": e["shots"], "hours": round(e["hours"], 3),
                     "captured_from": e["from"], "captured_to": e["to"], "subfolders": len(e["children"]),
+                    "capture_dates_known": e["dates"], "capture_dates_unknown": len(e["assets"]) - e["dates"],
                     # Files per edit stage (raw / selects / finished); "unclassified" until the rollup has run.
                     "edit_types": {(k or "unclassified"): v for k, v in sorted(e["edit"].items(), key=lambda kv: -kv[1])}})
     out.sort(key=lambda x: x["relative"].lower())

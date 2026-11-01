@@ -33,6 +33,43 @@ def upstream_keys(db: Database, asset_id: int) -> dict[str, tuple[str, str]]:
             db.q("SELECT analyser, input_key, status FROM analysis_runs WHERE asset_id=?", (asset_id,))}
 
 
+def _refresh_index(db: Database, settings: Settings, asset_id: int) -> None:
+    """Recover a durable dirty index without repeating any video/model analysis.
+
+    A later analyser commit changes the marker. Only clear the exact revision
+    we indexed, so a concurrent completion cannot lose its pending refresh.
+    """
+    key = f"index:asset:{asset_id}"
+    marker = db.q1("SELECT value FROM meta WHERE key=?", (key,))
+    if not marker:
+        missing = db.q1("SELECT 1 FROM shots s WHERE s.asset_id=? AND s.active=1 "
+                        "AND NOT EXISTS (SELECT 1 FROM shot_index i WHERE i.shot_id=s.id) LIMIT 1", (asset_id,))
+        if not missing:
+            return
+        # Repair gaps left by older versions that logged index exceptions only.
+        db.x("INSERT OR IGNORE INTO meta(key,value) VALUES(?,?)",
+             (key, dumps({"status": "pending", "attempts": 0, "updated_at": now()})))
+        marker = db.q1("SELECT value FROM meta WHERE key=?", (key,))
+        if not marker:  # another planner already repaired it
+            return
+    state = loads(marker["value"], {}) or {}
+    if state.get("next_retry_at", 0) > now():
+        return
+    from .indexer import index_asset
+
+    try:
+        index_asset(db, settings, asset_id)
+    except Exception as exc:
+        attempts = int(state.get("attempts", 0)) + 1
+        failed = {"status": "failed", "attempts": attempts,
+                  "error": f"{type(exc).__name__}: {exc}"[-2000:], "updated_at": now(),
+                  "next_retry_at": now() + min(300, 30 * 2 ** min(attempts - 1, 4))}
+        db.x("UPDATE meta SET value=? WHERE key=? AND value=?", (dumps(failed), key, marker["value"]))
+        log.exception("indexing failed for asset %s; retained for local retry", asset_id)
+    else:
+        db.x("DELETE FROM meta WHERE key=? AND value=?", (key, marker["value"]))
+
+
 def plan_asset(db: Database, settings: Settings, asset_id: int, boost: int = 0) -> list[str]:
     """Enqueue whatever is missing or stale for this asset. Returns analysers enqueued."""
     asset = _asset(db, asset_id)
@@ -40,6 +77,7 @@ def plan_asset(db: Database, settings: Settings, asset_id: int, boost: int = 0) 
         return []
     if asset["status"] == "error" and not asset["content_hash"]:
         return []
+    _refresh_index(db, settings, asset_id)
     runs = upstream_keys(db, asset_id)
     analysers = registry.all_analysers()
     enqueued: list[str] = []
@@ -99,9 +137,11 @@ def _update_asset_status(db: Database, asset_id: int) -> None:
     if not a or a["status"] == "missing":
         return
     critical_failed = db.q1("SELECT COUNT(*) n FROM analysis_runs WHERE asset_id=? AND status='failed' AND analyser IN ('technical','proxy','shots')", (asset_id,))["n"]
+    index_marker = db.q1("SELECT value FROM meta WHERE key=?", (f"index:asset:{asset_id}",))
+    index_state = loads(index_marker["value"], {}) if index_marker else {}
     # "updating": analysed before and searchable, now refreshing with newer analyser versions.
     busy = "updating" if a["status"] in ("ready", "updating") else "processing"
-    status = "error" if critical_failed else (busy if open_jobs else "ready")
+    status = "error" if critical_failed or index_state.get("status") == "failed" else (busy if open_jobs or index_marker else "ready")
     if a["status"] != status:
         db.x("UPDATE assets SET status=?, updated_at=? WHERE id=?", (status, now(), asset_id))
 
@@ -146,6 +186,13 @@ def commit(db: Database, job: dict, analyser: Analyser, ctx: AnalysisContext, st
                   " finished_at=excluded.finished_at, seconds=excluded.seconds",
                   (aid, analyser.name, analyser.version, job["input_key"], status, dumps(output), error, started, ts, ts - started))
         c.execute("UPDATE jobs SET status='done', lease_until=NULL, error=?, updated_at=? WHERE id=?", (error, ts, job["id"]))
+        # Commit index work with the new signals: a crash after this transaction
+        # must not leave a 'ready' asset with missing or stale search results.
+        index_key = f"index:asset:{aid}"
+        previous = c.execute("SELECT value FROM meta WHERE key=?", (index_key,)).fetchone()
+        index_state = loads(previous["value"], {}) if previous else {}
+        index_state = {**index_state, "status": index_state.get("status", "pending"), "updated_at": ts}
+        c.execute("INSERT OR REPLACE INTO meta(key,value) VALUES(?,?)", (index_key, dumps(index_state)))
 
 
 def _replace_shots(c, ctx: AnalysisContext, aid: int) -> None:
@@ -185,7 +232,7 @@ def _replace_shots(c, ctx: AnalysisContext, aid: int) -> None:
 def run_job(db: Database, settings: Settings, job: dict) -> str:
     analyser = registry.get(job["analyser"])
     asset = _asset(db, job["asset_id"])
-    if analyser is None or asset is None:
+    if analyser is None or asset is None or asset["deleted_at"]:
         db.x("UPDATE jobs SET status='cancelled', updated_at=? WHERE id=?", (now(), job["id"]))
         return "cancelled"
     ctx = AnalysisContext(db, settings, asset, analyser)
@@ -230,20 +277,21 @@ def run_job(db: Database, settings: Settings, job: dict) -> str:
     finally:
         stop.set()
     if result != "retry":
-        from .indexer import index_asset
-
-        try:
-            index_asset(db, settings, job["asset_id"])
-        except Exception:  # pragma: no cover - indexing must never block the queue
-            log.exception("indexing failed for asset %s", job["asset_id"])
         plan_asset(db, settings, job["asset_id"])
+        if analyser.name == "caption":
+            from .place_context import refresh_places
+
+            try:
+                refresh_places(db, settings)
+            except Exception:
+                log.exception("place context refresh failed for asset %s", job["asset_id"])
     return result
 
 
 class Worker:
     """Pulls jobs until stopped. Several workers (processes) can share a library."""
 
-    def __init__(self, db: Database, settings: Settings, resources: tuple[str, ...] = ("cpu", "model"), idle_sleep: float = 1.0):
+    def __init__(self, db: Database, settings: Settings, resources: tuple[str, ...] = ("cpu", "model", "io"), idle_sleep: float = 1.0):
         self.db = db
         self.settings = settings
         self.resources = resources

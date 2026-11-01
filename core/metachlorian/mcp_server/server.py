@@ -25,15 +25,26 @@ from ..vocab import registry
 RO = ToolAnnotations(readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
 EXPORT = ToolAnnotations(readOnlyHint=False, destructiveHint=False, idempotentHint=True, openWorldHint=False)
 WRITE = ToolAnnotations(readOnlyHint=False, destructiveHint=True, idempotentHint=True, openWorldHint=False)
+APPEND = ToolAnnotations(readOnlyHint=False, destructiveHint=False, idempotentHint=False, openWorldHint=False)
 
 INSTRUCTIONS = """Metachlorian is a video library indexed at the level of shots. Every shot has a time range inside a source file
 and structured signals (camera movement, shot size, role, setting, time of day, people, transcript, on-screen text, quality),
 each with a confidence and a source. Rights are recorded per file and can be checked for an intended use.
 
+Start with library_stats, library_readiness and list_folders to understand coverage, failures and scope. list_files includes files still being
+analysed; search_shots only finds indexed shots. An empty search is not proof that footage does not exist.
+Follow next_cursor on shot searches and next_offset on file lists before claiming you have seen every result.
+
 Typical flow: search_shots (describe the footage in plain language, add filters and an intended use) -> get_shot for
-candidates (check in/out points, transcript, rights) -> check_rights -> build_package (Cutawan or an editing timeline).
+candidates (check in/out points, transcript, rights) -> create_collection / add_to_collection to save a shortlist
+when collections:write is granted -> check_rights -> build_package (Cutawan or an editing timeline).
 Only shots whose rights verdict is 'allowed' for the stated use should be used; build_package refuses anything else.
-Vocabulary ids for filters come from list_vocabularies. Times are seconds from the start of the source file."""
+Collections store references and notes without copying source media or granting export rights. Creating a collection
+or appending shots is not idempotent: inspect list_collections / get_collection after an uncertain response before retrying.
+Vocabulary ids for filters come from list_vocabularies. Times are seconds from the start of the source file.
+Use captured_asc / captured_desc for recording chronology; added_desc means import order. Unknown capture dates sort last.
+Keep confidence and source with claims: an inferred flat/Log appearance is not a confirmed camera Log profile.
+Never infer an input colour transform from appearance alone; inspect get_asset technical metadata and its evidence."""
 
 stdio_principal: contextvars.ContextVar[Principal | None] = contextvars.ContextVar("stdio_principal", default=None)
 
@@ -74,12 +85,13 @@ def build_server(lib: Library) -> MCPServer:
                      exclude: dict[str, list[str]] | None = None, intended_use: dict[str, Any] | None = None,
                      asset_ids: list[str] | None = None, strict: bool = False, limit: int = 20, cursor: str | None = None,
                      folder: str | list[str] | None = None, collection: str | list[str] | None = None,
+                     sort: Literal["relevance", "captured_desc", "captured_asc"] = "relevance",
                      ctx: Context | None = None) -> dict[str, Any]:
         """Find shots (not whole files) matching a plain-language description and/or structured filters.
 
         query: natural language, e.g. "slow wide drone shots of a coastline at golden hour, no people, at least 8 seconds, 4K".
           It is parsed into filters (duration, resolution, people, orientation, log, fps) and vocabulary preferences;
-          the parse is returned as query.parsed so you can see and correct it.
+          the interpreted query is returned under query so you can see and correct it.
         filters: {min_duration, max_duration, min_height (e.g. 2160 for 4K), min_fps, orientation: vertical|horizontal,
           log: bool, hdr: bool, usable: bool, speech: bool, music: bool, min_people, max_people, edit_type: raw|selects|finished}.
         require / exclude: {vocabulary: [term ids]} hard term filters, e.g. {"camera_movement": ["aerial"]}. See list_vocabularies.
@@ -91,6 +103,9 @@ def build_server(lib: Library) -> MCPServer:
         collection: only shots in this collection (uid or exact name). See list_collections.
           With folder or collection and an empty query you get every shot in it, best quality first.
           (The query may also contain folder:"..." or collection:"...".)
+        sort: relevance (default), captured_desc (newest recorded first), or captured_asc (oldest first).
+          Date ordering applies before pagination, unknown dates come last. Keep the same query, scope and sort
+          when passing next_cursor as cursor. Use list_files to also see files without indexed shots.
         Returns results with uid (shot id), asset_uid, in/out seconds, caption, tags, why (which signals matched,
         with confidence), rights verdict when intended_use is given, and next_cursor for paging."""
         try:
@@ -101,7 +116,7 @@ def build_server(lib: Library) -> MCPServer:
                 filters["collection"] = collection
             return call(ctx, lib.search, SearchRequest(q=query, filters=filters, require=require or {}, exclude=exclude or {},
                                                        intended_use=intended_use, asset_uids=asset_ids, strict=strict,
-                                                       limit=max(1, min(100, limit)), cursor=cursor))
+                                                       limit=max(1, min(100, limit)), cursor=cursor, sort=sort))
         except (Forbidden, NotFound, ValueError, KeyError) as e:
             _err(e)
 
@@ -119,15 +134,18 @@ def build_server(lib: Library) -> MCPServer:
             _err(e)
 
     @server.tool(annotations=RO)
-    def get_asset(asset_id: str, include_transcript: bool = True, ctx: Context | None = None) -> dict[str, Any]:
+    def get_asset(asset_id: str, include_transcript: bool = True, include_processing: bool = False,
+                  ctx: Context | None = None) -> dict[str, Any]:
         """Asset (source file) summary: technical metadata, structure (shot count, cuts per minute, single take,
         titles, music bed), classification as raw / selects / finished edit with confidence, story summary,
-        the shot list with timecodes, rights and processing state."""
+        the shot list with timecodes, rights, status and outstanding jobs. Set include_processing=true for detailed
+        analyser runs, errors and completion times; include_transcript=false keeps long files compact."""
         try:
             d = call(ctx, lib.get_asset, asset_id)
             if not include_transcript:
                 d.pop("transcript", None)
-            d.pop("processing", None)
+            if not include_processing:
+                d.pop("processing", None)
             return d
         except (Forbidden, NotFound, ValueError, KeyError) as e:
             _err(e)
@@ -200,6 +218,18 @@ def build_server(lib: Library) -> MCPServer:
             _err(e)
 
     @server.tool(annotations=RO)
+    def library_readiness(limit: int = 10, ctx: Context | None = None) -> dict[str, Any]:
+        """Check whether search and analysis are complete before claiming footage is absent.
+        Reports searchable/unindexed files, missing active shots, preview readiness, per-analyser done/failed/unavailable
+        counts, queue and scan state, plus bounded failure examples. No files are processed or sent to a provider.
+        Indexed does not mean accurate or fully analysed; unavailable optional models mean reduced feature coverage.
+        Use get_asset(include_processing=True) to inspect a reported file. limit bounds diagnostic examples (1–50)."""
+        try:
+            return call(ctx, lib.library_readiness, limit)
+        except (Forbidden, NotFound, ValueError, KeyError) as e:
+            _err(e)
+
+    @server.tool(annotations=RO)
     def library_stats(ctx: Context | None = None) -> dict[str, Any]:
         """What the library holds: files, hours, shots, processing state, raw/selects/finished counts, topics,
         places, per-vocabulary coverage counts and coverage gaps (terms with no confident shots), rights status.
@@ -221,12 +251,104 @@ def build_server(lib: Library) -> MCPServer:
 
     @server.tool(annotations=RO)
     def list_files(folder: str | None = None, collection: str | None = None, query: str = "", limit: int = 100, offset: int = 0,
+                   sort: Literal["added_desc", "captured_desc", "captured_asc", "name"] = "added_desc",
                    ctx: Context | None = None) -> dict[str, Any]:
         """Files (not shots) in a folder or collection, or whose name, path or summary contains query: uid, filename,
         path, duration, recording date, raw/selects/finished, shot count, summary and rights badge. Use get_asset for
-        one file's shot list, or search_shots with the same folder to find moments."""
+        one file's shot list, or search_shots with the same folder to find moments. Includes files still being analysed.
+        sort: added_desc (newest import, default), captured_desc / captured_asc (recording chronology, unknown last),
+        or name. The response contains total, assets, offset, limit, has_more and next_offset. Repeat with next_offset
+        and the same scope/sort until has_more=false; the first page is not the complete library."""
         try:
-            return call(ctx, lib.list_assets, query, None, None, max(1, min(500, limit)), max(0, offset), folder, collection)
+            limit, offset = max(1, min(500, limit)), max(0, offset)
+            out = call(ctx, lib.list_assets, query, None, None, limit, offset, folder, collection, sort=sort)
+            next_offset = offset + len(out["assets"])
+            has_more = bool(out["assets"]) and next_offset < out["total"]
+            return {**out, "offset": offset, "limit": limit, "has_more": has_more,
+                    "next_offset": next_offset if has_more else None}
+        except (Forbidden, NotFound, ValueError, KeyError) as e:
+            _err(e)
+
+    @server.tool(annotations=APPEND)
+    def create_collection(name: str, description: str = "", brief: str = "", ctx: Context | None = None) -> dict[str, Any]:
+        """Save a new, empty footage shortlist in the app. Needs collections:write. No source media is copied.
+        name: a useful title; brief: the editorial goal. Returns uid for add_to_collection and build_package.
+        Repeating this call creates another collection; inspect list_collections after an uncertain response."""
+        try:
+            if not name.strip():
+                raise ValueError("name must not be empty")
+            return call(ctx, lib.create_collection, name, description, brief=brief)
+        except (Forbidden, NotFound, ValueError, KeyError) as e:
+            _err(e)
+
+    @server.tool(annotations=APPEND)
+    def add_to_collection(collection_id: str, shot_ids: list[str], note: str = "",
+                          in_seconds: float | None = None, out_seconds: float | None = None,
+                          ctx: Context | None = None) -> dict[str, Any]:
+        """Append 1–200 shots to a saved shortlist, in the supplied order. Needs collections:write.
+        Optional trims are source-file seconds and apply to every supplied shot; use one shot per call for distinct
+        trims or selection notes. The result includes item_id for each entry. This stores references only, without
+        copying media or changing rights. Repeated calls append duplicates; inspect get_collection before retrying."""
+        try:
+            if not 1 <= len(shot_ids) <= 200:
+                raise ValueError("give between 1 and 200 shot_ids")
+            return call(ctx, lib.add_to_collection, collection_id, shot_ids, in_seconds, out_seconds, note)
+        except (Forbidden, NotFound, ValueError, KeyError) as e:
+            _err(e)
+
+    @server.tool(annotations=WRITE)
+    def update_collection(collection_id: str, name: str | None = None, description: str | None = None,
+                          brief: str | None = None, ctx: Context | None = None) -> dict[str, Any]:
+        """Rename a shortlist or update its description/editorial brief. Needs collections:write.
+        Omitted fields stay unchanged; an empty description or brief clears that field. Items and media are unchanged."""
+        try:
+            if name is not None and not name.strip():
+                raise ValueError("name must not be empty")
+            return call(ctx, lib.update_collection, collection_id, name=name, description=description, brief=brief)
+        except (Forbidden, NotFound, ValueError, KeyError) as e:
+            _err(e)
+
+    @server.tool(annotations=WRITE)
+    def update_collection_item(collection_id: str, item_id: int, note: str | None = None,
+                               in_seconds: float | None = None, out_seconds: float | None = None,
+                               reset_trim: bool = False, ctx: Context | None = None) -> dict[str, Any]:
+        """Refine one shortlist entry's note or trim. Needs collections:write; item_id comes from get_collection.
+        Times are source-file seconds. Omitted values stay unchanged; an empty note clears the note.
+        reset_trim=true restores the full shot and cannot be combined with in_seconds/out_seconds.
+        Source media is unchanged. Use reorder_collection to change the sequence."""
+        try:
+            if reset_trim and (in_seconds is not None or out_seconds is not None):
+                raise ValueError("reset_trim cannot be combined with in_seconds or out_seconds")
+            fields: dict[str, Any] = {}
+            if note is not None:
+                fields["note"] = note
+            if reset_trim:
+                fields.update({"in": None, "out": None})
+            else:
+                if in_seconds is not None:
+                    fields["in"] = in_seconds
+                if out_seconds is not None:
+                    fields["out"] = out_seconds
+            return call(ctx, lib.update_item, collection_id, item_id, **fields)
+        except (Forbidden, NotFound, ValueError, KeyError) as e:
+            _err(e)
+
+    @server.tool(annotations=WRITE)
+    def reorder_collection(collection_id: str, item_ids: list[int], ctx: Context | None = None) -> dict[str, Any]:
+        """Set the shortlist sequence. Needs collections:write. Pass every item_id returned by get_collection
+        exactly once, in the desired order. Missing, repeated or foreign item ids are rejected without changing
+        the collection. Trims, notes, source media and rights remain unchanged."""
+        try:
+            return call(ctx, lib.reorder, collection_id, item_ids)
+        except (Forbidden, NotFound, ValueError, KeyError) as e:
+            _err(e)
+
+    @server.tool(annotations=WRITE)
+    def remove_from_collection(collection_id: str, item_id: int, ctx: Context | None = None) -> dict[str, Any]:
+        """Remove one shortlist entry using item_id from get_collection. Needs collections:write.
+        Only the collection entry is removed: the source video, its analysis and other entries remain."""
+        try:
+            return call(ctx, lib.remove_item, collection_id, item_id)
         except (Forbidden, NotFound, ValueError, KeyError) as e:
             _err(e)
 

@@ -14,6 +14,7 @@ import { useDocumentKeys, isTyping } from '../../hooks/useHotkeys'
 import { humanise } from '../../lib/format'
 import { rememberRecentShot, usePrefs, useUi } from '../../lib/store'
 import { Player, type PlayerHandle } from './Player'
+import { PlaceRecognition } from './PlaceRecognition'
 import { SignalTable } from './SignalTable'
 import { OriginDetails } from '../asset/Origin'
 import { AddToCollectionButton, BlockedNote, ExportMenu, InCollections, Moments, RightsBlock, Section, shotRightsState, SimilarStrip, Transcript, WhyMatched } from './ShotPanels'
@@ -151,6 +152,7 @@ export function ShotPage() {
             testId="shot-player"
           />
         </div>
+        <PlaceRecognition shot={d} />
         <Section title="Why it matched" id="why2">
           <WhyMatched why={result?.why ?? []} label={label} query={lastQuery} />
         </Section>

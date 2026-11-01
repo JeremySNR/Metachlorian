@@ -11,7 +11,7 @@ from .base import AnalysisContext, Analyser
 
 class ShotAnalyser(Analyser):
     name = "shots"
-    version = "1.1.0"
+    version = "1.1.1"
     requires = ("proxy",)
     priority = 90
     description = ("Deterministic shot boundary detection (hard cuts, dissolves, fades) and splitting of long single takes "

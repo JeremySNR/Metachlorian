@@ -28,28 +28,9 @@ import time
 from pathlib import Path
 from typing import Any
 
-try:
-    import fcntl
-except ImportError:  # Windows
-    fcntl = None
-    import msvcrt
-
-
-def _lock_exclusive(f) -> None:
-    """Block until this process holds an exclusive lock on the open file (released when it is closed)."""
-    if fcntl:
-        fcntl.flock(f, fcntl.LOCK_EX)
-    else:
-        f.seek(0)
-        while True:
-            try:
-                msvcrt.locking(f.fileno(), msvcrt.LK_LOCK, 1)  # retries for ~10 s, then raises
-                return
-            except OSError:
-                continue
-
 import httpx
 import jsonschema
+from filelock import FileLock
 
 from . import apikeys
 from .config import PROVIDERS, ModelEndpoint, Settings
@@ -253,11 +234,25 @@ MAX_CODEX_IMAGES = 10
 
 
 def find_codex(path: str = "codex") -> str | None:
-    if os.path.sep in path:
-        return path if os.access(path, os.X_OK) else None
+    # Desktop updates replace versioned bin directories. Resolve at use time,
+    # including in workers whose PATH still names the previous release.
+    local = os.environ.get("LOCALAPPDATA")
+    desktop_bin = Path(local) / "OpenAI" / "Codex" / "bin" if local else None
+    explicit = os.path.sep in path or bool(os.path.altsep and os.path.altsep in path)
+    if explicit:
+        candidate = Path(path)
+        if candidate.is_file() and os.access(candidate, os.X_OK):
+            return str(candidate)
+        if desktop_bin is None or candidate.name.lower() != "codex.exe" or candidate.parent.parent.resolve() != desktop_bin.resolve():
+            return None  # Never silently replace a custom executable.
+        path = "codex"
     found = shutil.which(path)
     if found:
         return found
+    if path in ("codex", "codex.exe") and desktop_bin is not None:
+        candidates = [p for p in desktop_bin.glob("*/codex.exe") if p.is_file() and os.access(p, os.X_OK)]
+        for candidate in sorted(candidates, key=lambda p: p.stat().st_mtime, reverse=True):
+            return str(candidate)
     for cand in (Path.home() / ".local" / "bin" / "codex", Path("/opt/homebrew/bin/codex"), Path("/usr/local/bin/codex")):
         if os.access(cand, os.X_OK):
             return str(cand)
@@ -294,8 +289,7 @@ class _Ledger:
 
     def _locked(self, fn):
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.path.with_suffix(".lock"), "w") as lk:
-            _lock_exclusive(lk)
+        with FileLock(str(self.path.with_suffix(".lock"))):
             try:
                 data = json.loads(self.path.read_text()) if self.path.exists() else {}
             except json.JSONDecodeError:
