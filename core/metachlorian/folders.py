@@ -41,11 +41,11 @@ def asset_sql(folders: list[str]) -> tuple[str, list[str]]:
 
 def list_folders(db: Database, q: str = "", parent: str | None = None, limit: int = 500) -> dict[str, Any]:
     """Every folder that holds footage (directly or below), with file, shot and hour counts and the date range."""
-    sources = sorted(((r["id"], _norm(r["uri"]).rstrip("/")) for r in db.q("SELECT id, uri FROM sources")), key=lambda x: -len(x[1]))
+    sources = sorted(((r["id"], _norm(r["uri"]).rstrip("/")) for r in db.q("SELECT id, uri FROM sources WHERE kind<>'photos'")), key=lambda x: -len(x[1]))
     shots = {r[0]: r[1] for r in db.q("SELECT asset_id, COUNT(*) FROM shot_index GROUP BY asset_id")}
     rows = db.q("SELECT p.path, a.id, a.duration, json_extract(a.tech, '$.capture_date') cap,"
                 " json_extract(a.summary, '$.edit_type.term') edit FROM asset_paths p"
-                " JOIN assets a ON a.id=p.asset_id WHERE a.deleted_at IS NULL")
+                " JOIN assets a ON a.id=p.asset_id WHERE a.deleted_at IS NULL AND a.media_kind='video'")
     agg: dict[str, dict[str, Any]] = {}
     for r in rows:
         path = _norm(r["path"])

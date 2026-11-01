@@ -187,4 +187,10 @@ def test_folder_ingest_incremental_and_no_video_jobs(photos, tmp_path, monkeypat
     assert not service.db.q('SELECT * FROM jobs')
     assert not service.db.q('SELECT * FROM shots')
     assert len(list(folder.iterdir())) == 3
-    assert Library(service.db, service.settings).list_assets(auth.LOCAL_ADMIN)['total'] == 0
+    lib = Library(service.db, service.settings)
+    assert lib.list_assets(auth.LOCAL_ADMIN)['total'] == 0
+    assert lib.folders(auth.LOCAL_ADMIN)['total'] == 0
+    readiness = lib.library_readiness(auth.LOCAL_ADMIN)
+    assert readiness['state'] == 'empty'
+    assert readiness['files']['total'] == 0
+    assert not readiness['sources']

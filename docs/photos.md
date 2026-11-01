@@ -2,24 +2,33 @@
 
 Metachlorian can index photographs in place, help an MCP agent compare a shortlist, and send recoverable edits to Lightroom Classic. Codex or another vision-capable agent makes the photographic decisions. The small Lightroom plug-in is the local connection to Adobe's catalogue and renderer; it does not run another agent.
 
-This is a **preview release**. Automated tests exercise the Python service, actual Lua handler with SDK doubles, TCP transport, REST and MCP. Real Lightroom rendering and UI interaction still need the Mac/Windows certification described below. Editing is explicitly limited to Classic **15.6** in this version; other versions can be indexed but are not silently declared compatible.
+This is a **source preview**, not included in the published **v0.2.0 installers**. Automated tests exercise the Python service, actual Lua handler with SDK doubles, TCP transport, REST and MCP. Real Lightroom rendering and UI interaction still need the Mac/Windows certification described below. Editing is explicitly limited to Classic **15.6** in this version; other versions can be indexed but are not silently declared compatible.
 
 ## Start
 
-1. Run Metachlorian on the **same computer and OS account as Lightroom Classic**. Use the desktop application or a native Python installation. A NAS/container cannot control desktop Classic through this adapter.
+1. Build the current source and run Metachlorian on the **same computer and OS account as Lightroom Classic**. Use a desktop build from that checkout or a native Python installation. A NAS/container cannot control desktop Classic through this adapter.
 2. Open **Photos → Enable Photos**. Install the photo models when prompted, or keep metadata-only search. Existing video model downloads are reused. New desktop installations can choose Photos without downloading speech/audio models.
 3. Select **Install connector files**. In Lightroom, choose **File → Plug-in Manager → Add**, select the displayed `MetachlorianPhotos.lrplugin` directory and enable it. Restart Lightroom if the connector has not started. Its status is available under **Library → Plug-in Extras**.
 4. Select **Sync catalogue**, or index a folder. Synchronisation indexes metadata first, then analyses available renditions locally. Existing Smart Previews are used through Lightroom. Metachlorian does not create Smart Previews for the whole catalogue or parse/write `.lrcat` internals.
 5. Name people in the photo inspector or People screen. Correct a wrong match with **Not this person**, or merge groups in People. Children, unusual poses and small faces still need human verification.
 6. Connect your agent to the running core's `/mcp/` endpoint and ask it to select and edit photographs. Jobs and reviewed copies appear in Photos → Activity. Finished selections appear in Lightroom under the **Metachlorian** collection set and can also be found through Metachlorian Collections.
 
-For a native install:
+For a native install on macOS, with Git, Node.js 22+, FFmpeg and uv installed:
 
 ```sh
-uv pip install -e 'core[photos]'
-metachlorian models fetch --pack photos
-metachlorian serve
+git clone https://github.com/JeremySNR/Metachlorian
+cd Metachlorian
+cd app && npm ci && npm run build
+cd ..
+uv venv -p 3.11 core/.venv
+uv pip install -p core/.venv/bin/python -e 'core[photos]'
+core/.venv/bin/metachlorian models fetch --pack photos
+core/.venv/bin/metachlorian serve
 ```
+
+On Windows, run these steps in PowerShell individually, use `core/.venv/Scripts/python.exe` for the pip target and
+`core/.venv/Scripts/metachlorian.exe` for the CLI. Open `http://127.0.0.1:8765` while the server is running.
+Linux can index local folders, but Lightroom Classic itself requires macOS or Windows.
 
 JPEG, PNG, TIFF and WebP use Pillow; RAW uses rawpy/LibRaw and HEIC uses the decoder-only pi-heif extra. ExifTool, if available on `PATH`, supplies richer capture metadata. Without ExifTool, Pillow reads supported EXIF; RAW metadata can be sparse until the file is linked to Lightroom. Metadata omissions remain unknown. A JPEG/HEIC HDR source is inspected as SDR, not as an HDR finishing proof.
 

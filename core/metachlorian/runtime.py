@@ -48,7 +48,7 @@ def _watch(settings: Settings, stop: threading.Event) -> None:
     db = Database(settings.db_path)
 
     def rescan(only: set[int] | None = None) -> None:
-        for s in db.q("SELECT id, kind, watch FROM sources"):
+        for s in db.q("SELECT id, kind, watch FROM sources WHERE kind<>'photos'"):
             if not s["watch"] and scan_status(db, s["id"]).get("state") not in ("queued", "discovering", "registering"):
                 continue
             if only is not None and s["id"] not in only:
