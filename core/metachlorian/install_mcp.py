@@ -19,7 +19,7 @@ def install(client: str, url: str, token: str, *, home: Path | None = None) -> P
     if client not in ('codex', 'claude-code'):
         raise ValueError('Unsupported client')
     parsed = urlparse(url)
-    if parsed.scheme != 'http' or parsed.hostname != '127.0.0.1' or parsed.port != 8765 or parsed.path != '/mcp' or parsed.query or parsed.fragment or parsed.username:
+    if parsed.scheme != 'http' or parsed.hostname != '127.0.0.1' or parsed.port != 8765 or parsed.path != '/mcp/' or parsed.query or parsed.fragment or parsed.username:
         raise ValueError('Installation requires the local Metachlorian server on port 8765')
     if not isinstance(token, str) or not token.startswith('mc_') or any(c.isspace() for c in token):
         raise ValueError('Create a valid agent token first')

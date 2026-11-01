@@ -159,7 +159,7 @@ ipcMain.handle('mc:installMcp', async (event, { client, token }) => {
       child.on('error', () => { clearTimeout(timer); resolve({ ok: false, error: 'Could not start the installer.' }); });
       child.on('close', () => { clearTimeout(timer); try { resolve(JSON.parse(output)); } catch { resolve({ ok: false, error: 'Could not install the connection.' }); } });
       child.stdin.on('error', () => {});
-      child.stdin.end(JSON.stringify({ client, token, url: `${baseUrl}/mcp` }));
+      child.stdin.end(JSON.stringify({ client, token, url: `${baseUrl}/mcp/` }));
     });
   } catch { return { ok: false, error: 'Could not reach the local server. Try again.' }; }
 });

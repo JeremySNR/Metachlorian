@@ -3,7 +3,7 @@ import pytest
 import tomlkit
 from metachlorian.install_mcp import install
 
-URL = 'http://127.0.0.1:8765/mcp'
+URL = 'http://127.0.0.1:8765/mcp/'
 TOKEN = 'mc_test_secret'
 
 @pytest.mark.parametrize('client', ['codex', 'claude-code'])

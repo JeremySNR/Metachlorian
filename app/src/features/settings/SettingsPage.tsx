@@ -272,8 +272,8 @@ function Users() {
 function mcpSnippets(token: string, dataDir: string) {
   const origin = window.location.origin
   const stdio = JSON.stringify({ mcpServers: { metachlorian: { command: 'metachlorian', args: ['--data', dataDir, 'mcp'], env: { METACHLORIAN_TOKEN: token } } } }, null, 2)
-  const http = JSON.stringify({ mcpServers: { metachlorian: { type: 'http', url: `${origin}/mcp`, headers: { Authorization: `Bearer ${token}` } } } }, null, 2)
-  const cli = `claude mcp add --transport http metachlorian ${origin}/mcp --header "Authorization: Bearer ${token}"`
+  const http = JSON.stringify({ mcpServers: { metachlorian: { type: 'http', url: `${origin}/mcp/`, headers: { Authorization: `Bearer ${token}` } } } }, null, 2)
+  const cli = `claude mcp add --transport http metachlorian ${origin}/mcp/ --header "Authorization: Bearer ${token}"`
   return { stdio, http, cli }
 }
 
