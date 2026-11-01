@@ -1,0 +1,590 @@
+{
+  "Exposure2012": {
+    "type": "number",
+    "min": -5,
+    "max": 5,
+    "family": "tone"
+  },
+  "Contrast2012": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "tone"
+  },
+  "Highlights2012": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "tone"
+  },
+  "Shadows2012": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "tone"
+  },
+  "Whites2012": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "tone"
+  },
+  "Blacks2012": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "tone"
+  },
+  "Texture": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "tone"
+  },
+  "Clarity2012": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "tone"
+  },
+  "Dehaze": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "tone"
+  },
+  "Vibrance": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "tone"
+  },
+  "Saturation": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "tone"
+  },
+  "Temperature": {
+    "type": "number",
+    "min": 2000,
+    "max": 50000,
+    "family": "white_balance"
+  },
+  "Tint": {
+    "type": "number",
+    "min": -150,
+    "max": 150,
+    "family": "white_balance"
+  },
+  "ParametricShadows": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "curves"
+  },
+  "ParametricDarks": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "curves"
+  },
+  "ParametricLights": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "curves"
+  },
+  "ParametricHighlights": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "curves"
+  },
+  "ParametricShadowSplit": {
+    "type": "number",
+    "min": 0,
+    "max": 100,
+    "family": "curves"
+  },
+  "ParametricMidtoneSplit": {
+    "type": "number",
+    "min": 0,
+    "max": 100,
+    "family": "curves"
+  },
+  "ParametricHighlightSplit": {
+    "type": "number",
+    "min": 0,
+    "max": 100,
+    "family": "curves"
+  },
+  "HueAdjustmentRed": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "colour_mixer"
+  },
+  "HueAdjustmentOrange": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "colour_mixer"
+  },
+  "HueAdjustmentYellow": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "colour_mixer"
+  },
+  "HueAdjustmentGreen": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "colour_mixer"
+  },
+  "HueAdjustmentAqua": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "colour_mixer"
+  },
+  "HueAdjustmentBlue": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "colour_mixer"
+  },
+  "HueAdjustmentPurple": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "colour_mixer"
+  },
+  "HueAdjustmentMagenta": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "colour_mixer"
+  },
+  "SaturationAdjustmentRed": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "colour_mixer"
+  },
+  "SaturationAdjustmentOrange": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "colour_mixer"
+  },
+  "SaturationAdjustmentYellow": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "colour_mixer"
+  },
+  "SaturationAdjustmentGreen": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "colour_mixer"
+  },
+  "SaturationAdjustmentAqua": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "colour_mixer"
+  },
+  "SaturationAdjustmentBlue": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "colour_mixer"
+  },
+  "SaturationAdjustmentPurple": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "colour_mixer"
+  },
+  "SaturationAdjustmentMagenta": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "colour_mixer"
+  },
+  "LuminanceAdjustmentRed": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "colour_mixer"
+  },
+  "LuminanceAdjustmentOrange": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "colour_mixer"
+  },
+  "LuminanceAdjustmentYellow": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "colour_mixer"
+  },
+  "LuminanceAdjustmentGreen": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "colour_mixer"
+  },
+  "LuminanceAdjustmentAqua": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "colour_mixer"
+  },
+  "LuminanceAdjustmentBlue": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "colour_mixer"
+  },
+  "LuminanceAdjustmentPurple": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "colour_mixer"
+  },
+  "LuminanceAdjustmentMagenta": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "colour_mixer"
+  },
+  "SplitToningShadowHue": {
+    "type": "number",
+    "min": 0,
+    "max": 360,
+    "family": "colour_grading"
+  },
+  "SplitToningHighlightHue": {
+    "type": "number",
+    "min": 0,
+    "max": 360,
+    "family": "colour_grading"
+  },
+  "ColorGradeMidtoneHue": {
+    "type": "number",
+    "min": 0,
+    "max": 360,
+    "family": "colour_grading"
+  },
+  "ColorGradeGlobalHue": {
+    "type": "number",
+    "min": 0,
+    "max": 360,
+    "family": "colour_grading"
+  },
+  "SplitToningShadowSaturation": {
+    "type": "number",
+    "min": 0,
+    "max": 100,
+    "family": "colour_grading"
+  },
+  "SplitToningHighlightSaturation": {
+    "type": "number",
+    "min": 0,
+    "max": 100,
+    "family": "colour_grading"
+  },
+  "ColorGradeMidtoneSat": {
+    "type": "number",
+    "min": 0,
+    "max": 100,
+    "family": "colour_grading"
+  },
+  "ColorGradeGlobalSat": {
+    "type": "number",
+    "min": 0,
+    "max": 100,
+    "family": "colour_grading"
+  },
+  "ColorGradeBlending": {
+    "type": "number",
+    "min": 0,
+    "max": 100,
+    "family": "colour_grading"
+  },
+  "SplitToningBalance": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "colour_grading"
+  },
+  "ColorGradeShadowLum": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "colour_grading"
+  },
+  "ColorGradeMidtoneLum": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "colour_grading"
+  },
+  "ColorGradeHighlightLum": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "colour_grading"
+  },
+  "ColorGradeGlobalLum": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "colour_grading"
+  },
+  "Sharpness": {
+    "type": "number",
+    "min": 0,
+    "max": 150,
+    "family": "detail"
+  },
+  "SharpenRadius": {
+    "type": "number",
+    "min": 0.5,
+    "max": 3,
+    "family": "detail"
+  },
+  "SharpenDetail": {
+    "type": "number",
+    "min": 0,
+    "max": 100,
+    "family": "detail"
+  },
+  "SharpenEdgeMasking": {
+    "type": "number",
+    "min": 0,
+    "max": 100,
+    "family": "detail"
+  },
+  "LuminanceSmoothing": {
+    "type": "number",
+    "min": 0,
+    "max": 100,
+    "family": "detail"
+  },
+  "LuminanceNoiseReductionDetail": {
+    "type": "number",
+    "min": 0,
+    "max": 100,
+    "family": "detail"
+  },
+  "LuminanceNoiseReductionContrast": {
+    "type": "number",
+    "min": 0,
+    "max": 100,
+    "family": "detail"
+  },
+  "ColorNoiseReduction": {
+    "type": "number",
+    "min": 0,
+    "max": 100,
+    "family": "detail"
+  },
+  "ColorNoiseReductionDetail": {
+    "type": "number",
+    "min": 0,
+    "max": 100,
+    "family": "detail"
+  },
+  "ColorNoiseReductionSmoothness": {
+    "type": "number",
+    "min": 0,
+    "max": 100,
+    "family": "detail"
+  },
+  "LensManualDistortionAmount": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "geometry"
+  },
+  "PerspectiveVertical": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "geometry"
+  },
+  "PerspectiveHorizontal": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "geometry"
+  },
+  "PerspectiveAspect": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "geometry"
+  },
+  "PerspectiveRotate": {
+    "type": "number",
+    "min": -10,
+    "max": 10,
+    "family": "geometry"
+  },
+  "PerspectiveScale": {
+    "type": "number",
+    "min": 50,
+    "max": 150,
+    "family": "geometry"
+  },
+  "PerspectiveUpright": {
+    "type": "enum",
+    "values": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "family": "geometry"
+  },
+  "CropTop": {
+    "type": "number",
+    "min": 0,
+    "max": 1,
+    "family": "crop"
+  },
+  "CropLeft": {
+    "type": "number",
+    "min": 0,
+    "max": 1,
+    "family": "crop"
+  },
+  "CropBottom": {
+    "type": "number",
+    "min": 0,
+    "max": 1,
+    "family": "crop"
+  },
+  "CropRight": {
+    "type": "number",
+    "min": 0,
+    "max": 1,
+    "family": "crop"
+  },
+  "CropAngle": {
+    "type": "number",
+    "min": -45,
+    "max": 45,
+    "family": "crop"
+  },
+  "PostCropVignetteAmount": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "effects"
+  },
+  "PostCropVignetteRoundness": {
+    "type": "number",
+    "min": -100,
+    "max": 100,
+    "family": "effects"
+  },
+  "PostCropVignetteMidpoint": {
+    "type": "number",
+    "min": 0,
+    "max": 100,
+    "family": "effects"
+  },
+  "PostCropVignetteFeather": {
+    "type": "number",
+    "min": 0,
+    "max": 100,
+    "family": "effects"
+  },
+  "PostCropVignetteHighlightContrast": {
+    "type": "number",
+    "min": 0,
+    "max": 100,
+    "family": "effects"
+  },
+  "GrainAmount": {
+    "type": "number",
+    "min": 0,
+    "max": 100,
+    "family": "effects"
+  },
+  "GrainSize": {
+    "type": "number",
+    "min": 0,
+    "max": 100,
+    "family": "effects"
+  },
+  "GrainFrequency": {
+    "type": "number",
+    "min": 0,
+    "max": 100,
+    "family": "effects"
+  },
+  "LensProfileEnable": {
+    "type": "enum",
+    "values": [
+      0,
+      1
+    ],
+    "family": "optics"
+  },
+  "AutoLateralCA": {
+    "type": "enum",
+    "values": [
+      0,
+      1
+    ],
+    "family": "optics"
+  },
+  "ConvertToGrayscale": {
+    "type": "boolean",
+    "family": "colour_mixer"
+  },
+  "WhiteBalance": {
+    "type": "enum",
+    "values": [
+      "As Shot",
+      "Auto",
+      "Custom",
+      "Daylight",
+      "Cloudy",
+      "Shade",
+      "Tungsten",
+      "Fluorescent",
+      "Flash"
+    ],
+    "family": "white_balance"
+  },
+  "CameraProfile": {
+    "type": "string",
+    "family": "profiles"
+  },
+  "ToneCurvePV2012": {
+    "type": "curve",
+    "family": "curves"
+  },
+  "ToneCurvePV2012Red": {
+    "type": "curve",
+    "family": "curves"
+  },
+  "ToneCurvePV2012Green": {
+    "type": "curve",
+    "family": "curves"
+  },
+  "ToneCurvePV2012Blue": {
+    "type": "curve",
+    "family": "curves"
+  }
+}

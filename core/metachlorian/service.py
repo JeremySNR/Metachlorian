@@ -53,6 +53,16 @@ class Library:
         self._media_cache: dict[tuple[int, bool], tuple[Any, str]] = {}
         self._lock = threading.Lock()
         registry().load_custom(db)
+        self._photos = None
+
+    @property
+    def photos(self):
+        # Lazy so video-only installations never load photo runtimes/models.
+        with self._lock:
+            if self._photos is None:
+                from .photos.service import PhotoLibrary
+                self._photos = PhotoLibrary(self.db, self.settings)
+            return self._photos
 
     # ------------------------------------------------------------------ helpers
     def _log(self, p: Principal, action: str, target: str = "", detail: dict[str, Any] | None = None, write: bool = False) -> None:
@@ -161,7 +171,7 @@ class Library:
     def health(self) -> dict[str, Any]:
         from . import models
 
-        return {"name": "metachlorian", "version": __version__, "auth_required": self.settings.require_auth,
+        return {"name": "metachlorian", "version": __version__, "auth_required": self.settings.require_auth, "photos_enabled": self.settings.photos_enabled,
                 "egress": self.settings.egress_summary(), "vlm": bool(self.settings.vlm.enabled), "llm": bool(self.settings.llm.enabled),
                 "models": {m["name"]: m["installed"] for m in models.status(self.settings.resolved_models_dir)}}
 
@@ -242,7 +252,7 @@ class Library:
         if sort not in orders:
             raise ValueError("Unknown file sort order")
         limit, offset = max(1, min(500, limit)), max(0, offset)
-        where, args = ["deleted_at IS NULL"], []
+        where, args = ["deleted_at IS NULL", "media_kind='video'"], []
         if hide_blocked:
             where.append("NOT EXISTS (SELECT 1 FROM rights r WHERE r.asset_id=assets.id AND "
                          "(r.status='not_cleared' OR (r.expires IS NOT NULL AND r.expires<>'' AND r.expires<?)))")
@@ -331,9 +341,10 @@ class Library:
             raise NotFound(f"no person {identity_id}")
         faces = PP.person_faces(self.db, identity_id, limit, offset)
         shots = sorted({f["shot_uid"] for f in faces})
+        photo_count = self.db.q1('SELECT COUNT(DISTINCT f.photo_id) n FROM photo_faces f JOIN photos p ON p.id=f.photo_id WHERE f.identity_id=? AND p.deleted_at IS NULL', (identity_id,))['n']
         self._log(p, "get_person", str(identity_id))
         return {"id": row["id"], "name": row["name"], "label": row["name"] or f"Person {row['id']}", "named_by": row["named_by"],
-                "faces": faces, "shot_uids": shots}
+                "faces": faces, "shot_uids": shots, "photo_count": photo_count}
 
     def _people_write(self, p: Principal) -> None:
         require(p, "tags:write")
@@ -419,13 +430,13 @@ class Library:
     def library_stats(self, p: Principal) -> dict[str, Any]:
         require(p, "library:read")
         reg = registry()
-        a = self.db.q1("SELECT COUNT(*) n, SUM(duration) d, SUM(size) s FROM assets WHERE deleted_at IS NULL")
+        a = self.db.q1("SELECT COUNT(*) n, SUM(duration) d, SUM(size) s FROM assets WHERE deleted_at IS NULL AND media_kind='video'")
         shots = self.db.q1("SELECT COUNT(*) n FROM shot_index")["n"]
-        status = {r["status"]: r["n"] for r in self.db.q("SELECT status, COUNT(*) n FROM assets WHERE deleted_at IS NULL GROUP BY status")}
+        status = {r["status"]: r["n"] for r in self.db.q("SELECT status, COUNT(*) n FROM assets WHERE deleted_at IS NULL AND media_kind='video' GROUP BY status")}
         edit = Counter()
         topics = Counter()
         places = Counter()
-        for r in self.db.q("SELECT summary FROM assets WHERE deleted_at IS NULL"):
+        for r in self.db.q("SELECT summary FROM assets WHERE deleted_at IS NULL AND media_kind='video'"):
             s = loads(r["summary"], {}) or {}
             if s.get("edit_type"):
                 edit[s["edit_type"]["term"]] += 1
@@ -443,7 +454,7 @@ class Library:
                 if item["count"] == 0:
                     gaps.append({"vocab": vocab, "term": item["term"], "label": item["label"]})
         rights = Counter()
-        for r in self.db.q("SELECT a.id FROM assets a WHERE a.deleted_at IS NULL"):
+        for r in self.db.q("SELECT a.id FROM assets a WHERE a.deleted_at IS NULL AND a.media_kind='video'"):
             rights[R.summary_status(R.get_rights(self.db, r["id"]))] += 1
         self._log(p, "library_stats")
         return {"assets": a["n"], "hours": round((a["d"] or 0) / 3600, 3), "bytes": a["s"] or 0, "shots": shots, "status": status,
@@ -553,10 +564,11 @@ class Library:
     def collections(self, p: Principal) -> list[dict[str, Any]]:
         require(p, "library:read")
         rows = self.db.q("SELECT c.*, (SELECT COUNT(*) FROM collection_items i WHERE i.collection_id=c.id) n,"
+                         " (SELECT COUNT(*) FROM photo_collection_items i WHERE i.collection_id=c.id) photo_count,"
                          " (SELECT SUM(IFNULL(i.out_s, s.end_s) - IFNULL(i.in_s, s.start_s)) FROM collection_items i JOIN shots s ON s.id=i.shot_id WHERE i.collection_id=c.id) d"
                          " FROM collections c ORDER BY c.updated_at DESC")
         return [{"uid": r["uid"], "name": r["name"], "description": r["description"], "kind": r["kind"], "brief": r["brief"], "owner": r["owner"],
-                 "items": r["n"], "duration": round(r["d"] or 0, 2), "updated_at": r["updated_at"]} for r in rows]
+                 "items": r["n"], "photo_count": r['photo_count'], "duration": round(r["d"] or 0, 2), "updated_at": r["updated_at"]} for r in rows]
 
     def collection(self, p: Principal, uid: str) -> dict[str, Any]:
         require(p, "library:read")
@@ -570,8 +582,9 @@ class Library:
             rr = R.get_rights(self.db, r["asset_id"], r["shot_id"])
             items.append({"item_id": r["id"], "position": r["position"], "in": r["in_s"], "out": r["out_s"], "note": r["note"],
                           "shot": summ, "rights_badge": R.summary_status(rr)})
+        photo_count = self.db.q1('SELECT COUNT(*) n FROM photo_collection_items WHERE collection_id=?', (c['id'],))['n']
         return {"uid": c["uid"], "name": c["name"], "description": c["description"], "kind": c["kind"], "brief": c["brief"],
-                "owner": c["owner"], "items": items, "created_at": c["created_at"], "updated_at": c["updated_at"]}
+                "owner": c["owner"], "items": items, "photo_count": photo_count, "created_at": c["created_at"], "updated_at": c["updated_at"]}
 
     def create_collection(self, p: Principal, name: str, description: str = "", kind: str = "collection", brief: str = "") -> dict[str, Any]:
         require(p, "collections:write")
@@ -732,7 +745,7 @@ class Library:
     def sources(self, p: Principal) -> list[dict[str, Any]]:
         require(p, "library:read")
         out = []
-        for r in self.db.q("SELECT s.*, (SELECT COUNT(*) FROM assets a WHERE a.source_id=s.id AND a.deleted_at IS NULL) n FROM sources s ORDER BY s.id"):
+        for r in self.db.q("SELECT s.*, (SELECT COUNT(*) FROM assets a WHERE a.source_id=s.id AND a.deleted_at IS NULL AND a.media_kind='video') n FROM sources s WHERE s.kind<>'photos' ORDER BY s.id"):
             out.append({**dict(r), "options": loads(r["options"], {}), "assets": r["n"],
                         "scan": scan_status(self.db, r["id"])})
         return out
@@ -770,8 +783,8 @@ class Library:
                 exclusions = [existing for existing in exclusions if not path_within(existing, folder)]
                 self.db.set_meta("ingest:excluded_folders", dumps([*exclusions, folder]))
             ids = {r["id"] for r in c.execute(
-                "SELECT a.id, a.path FROM assets a WHERE a.deleted_at IS NULL UNION "
-                "SELECT a.id, p.path FROM asset_paths p JOIN assets a ON a.id=p.asset_id WHERE a.deleted_at IS NULL"
+                "SELECT a.id, a.path FROM assets a WHERE a.deleted_at IS NULL AND a.media_kind='video' UNION "
+                "SELECT a.id, p.path FROM asset_paths p JOIN assets a ON a.id=p.asset_id WHERE a.deleted_at IS NULL AND a.media_kind='video'"
             ) if path_within(r["path"], folder)}
             for aid in ids:
                 c.execute("UPDATE assets SET deleted_at=? WHERE id=?", (now(), aid))

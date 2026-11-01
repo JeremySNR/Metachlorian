@@ -1,0 +1,24 @@
+{
+  "fixture": "synthetic metadata, 768-dimensional vectors and three faces per photo; no original files",
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "photo_count": 100000,
+  "persistent_index_bytes": 681642132,
+  "index_target_bytes": 2147483648,
+  "index_within_target": true,
+  "vector_cache_bytes": 168450196,
+  "database_bytes": 513191936,
+  "model_bytes": "excluded; shared existing photo pack is approximately 947 MB",
+  "temporary_cache": "256 MiB configured limit, tested separately; no previews generated in this benchmark",
+  "fixture_population_seconds": 5.22,
+  "metadata_search_p95_ms": 131.02,
+  "hybrid_cold_ms": 60064.6,
+  "hybrid_warm_p95_ms": 365.02,
+  "hybrid_reopened_ms": 526.95,
+  "exclusions": [
+    "encoder inference",
+    "real catalogue synchronisation",
+    "Lightroom rendering",
+    "image quality",
+    "disk cache under real browsing"
+  ]
+}

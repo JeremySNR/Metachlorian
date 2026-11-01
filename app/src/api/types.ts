@@ -33,7 +33,7 @@ export interface Health {
   models: Record<string, boolean>
 }
 
-export type Scope = 'admin' | 'collections:write' | 'ingest:write' | 'library:read' | 'media:export' | 'rights:write' | 'tags:write'
+export type Scope = 'admin' | 'collections:write' | 'ingest:write' | 'library:read' | 'media:export' | 'photos:edit' | 'rights:write' | 'tags:write'
 
 export interface Me {
   user_id: number | null
@@ -616,6 +616,7 @@ export interface CorrectionsResponse {
 
 // ---------------------------------------------------------------- collections
 export interface CollectionSummary {
+  photo_count?: number
   uid: Uid
   name: string
   description: string
@@ -638,6 +639,7 @@ export interface CollectionItem {
 }
 
 export interface Collection {
+  photo_count?: number
   uid: Uid
   name: string
   description: string
@@ -900,6 +902,7 @@ export interface PersonRef {
 }
 
 export interface PersonSummary extends PersonRef {
+  photos?: number
   named: boolean
   faces: number
   shots: number
@@ -933,6 +936,7 @@ export interface Face {
 }
 
 export interface PersonDetail extends PersonRef {
+  photo_count?: number
   named_by: string
   faces: Face[]
   shot_uids: Uid[]

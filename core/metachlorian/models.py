@@ -36,12 +36,17 @@ class ModelSpec:
     size_mb: float = 0
     default: bool = True
     tier: str = "cpu"  # cpu | gpu
+    checksums: dict[str, str] = field(default_factory=dict)
 
     def as_dict(self) -> dict[str, Any]:
         return self.__dict__.copy()
 
 
 SPECS: dict[str, ModelSpec] = {s.name: s for s in [
+    ModelSpec("face-landmarker", "Local eye/pose evidence for photos (optional MediaPipe runtime)", "Apache-2.0",
+              "Google MediaPipe Face Landmarker, float16/1", ["face_landmarker.task"],
+              [f"{MEDIAPIPE}/face_landmarker/face_landmarker/float16/1/face_landmarker.task"], 3.8, default=False,
+              checksums={"face_landmarker.task": "64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff"}),
     ModelSpec("siglip-base-multilingual", "Visual and text embeddings for semantic search and zero-shot tags", "Apache-2.0",
               "google/siglip-base-patch16-256-multilingual (ONNX export)", ["vision.onnx", "text.q.onnx", "spiece.model", "config.json"],
               [f"{MC_RELEASE}/siglip-base-multilingual.tar.bz2"], 910),
@@ -95,6 +100,17 @@ def installed(models_root: Path, name: str) -> bool:
     return all((d / f).exists() for f in s.files)
 
 
+PHOTO_MODELS = ("siglip-base-multilingual", "yunet", "sface", "face-landmarker")
+
+
+def pack(name: str) -> list[str]:
+    if name == "photos":
+        return [n for n in PHOTO_MODELS if n != 'face-landmarker']
+    if name == "default":
+        return [n for n, spec in SPECS.items() if spec.default]
+    raise ValueError("model pack must be photos or default")
+
+
 def require(models_root: Path, name: str) -> Path:
     from .analysers.base import Unavailable
 
@@ -133,6 +149,10 @@ def fetch(models_root: Path, name: str, progress=print, on_bytes=None) -> Path:
                             shutil.copyfileobj(src, out)
             tmp.unlink()
         else:
+            checksum = spec.checksums.get(os.path.basename(url))
+            if checksum and hashlib.sha256(tmp.read_bytes()).hexdigest() != checksum:
+                tmp.unlink(missing_ok=True)
+                raise RuntimeError(f"checksum mismatch for {name}; model was not installed")
             tmp.replace(d / os.path.basename(url))
     if not installed(models_root, name):
         raise RuntimeError(f"download of {name} finished but files are missing: {spec.files}")

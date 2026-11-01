@@ -45,7 +45,7 @@ const python = win ? join(pythonHome, 'python.exe') : join(pythonHome, 'bin', 'p
 rmSync(join(pythonHome, win ? 'Lib' : `lib/python${PYTHON}`, 'EXTERNALLY-MANAGED'), { force: true })
 
 step('Metachlorian core and analysis dependencies')
-run('uv', ['pip', 'install', '--python', python, '--no-cache', `${join(repo, 'core')}[analysis]`])
+run('uv', ['pip', 'install', '--python', python, '--no-cache', `${join(repo, 'core')}[analysis,photos]`])
 // Precompile so the read-only (and, on macOS, signed) bundle is never written to at runtime. A few files in the
 // standard library and in dependencies' test data aren't valid Python 3.11 and fail to compile; that is expected,
 // so list them rather than failing the build.
@@ -53,7 +53,7 @@ const compiled = spawnSync(python, ['-m', 'compileall', '-q', '-j', '0', pythonH
 if (compiled.error) throw compiled.error
 const failed = (compiled.stdout || '').split(/\r?\n/).filter((l) => /^\*\*\* Error compiling/.test(l))
 if (failed.length) console.log(`  (${failed.length} file(s) not precompiled: ${failed.slice(0, 5).map((l) => l.replace(/^\*\*\* Error compiling /, '')).join(', ')}${failed.length > 5 ? ', …' : ''})`)
-run(python, ['-c', 'import metachlorian, onnxruntime, cv2, sherpa_onnx, usearch; print("core", metachlorian.__version__, "imports ok")'])
+run(python, ['-c', 'import metachlorian, onnxruntime, cv2, sherpa_onnx, usearch, rawpy, pi_heif; from importlib.resources import files; assert files("metachlorian.photos").joinpath("lightroom/MetachlorianPhotos.lrplugin/Info.lua").is_file(); print("core", metachlorian.__version__, "imports ok")'])
 
 // ---------------------------------------------------------------- web app
 step('Web app')

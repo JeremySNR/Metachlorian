@@ -87,7 +87,7 @@ export function CollectionsPage() {
             >
               <Ic icon={Layers} />
               <span className={s.colName}>{c.name}</span>
-              <span className={s.colCount}>{c.uid === active ? <span className={s.activeMark}>B · </span> : null}{c.items}</span>
+              <span className={s.colCount}>{c.uid === active ? <span className={s.activeMark}>B · </span> : null}{c.items + (c.photo_count ?? 0)}</span>
             </Link>
           ))}
           {cols.data && !cols.data.length && <p style={{ padding: 'var(--space-3)', color: 'var(--fg-2)' }}>No collections yet.</p>}
@@ -311,6 +311,7 @@ function CollectionView({ col }: { col: Collection }) {
           />
         </div>
       </div>
+      {col.photo_count ? <Button onPress={() => navigate({ to: '/photos', search: { photo_collection: col.uid } })}>View {plural(col.photo_count, 'photograph')} saved from Lightroom</Button> : null}
       {items.length ? (
         <div
           onKeyDownCapture={(e) => {
@@ -386,11 +387,11 @@ function CollectionView({ col }: { col: Collection }) {
           }}
         </GridList>
         </div>
-      ) : (
+      ) : !col.photo_count ? (
         <EmptyState icon={Layers} title={`Nothing in ${col.name} yet`} actions={<Button onPress={() => navigate({ to: '/search' })}>Find shots</Button>}>
           Select shots and press <strong>B</strong> to add them here, or drag shots onto this page.
         </EmptyState>
-      )}
+      ) : null}
       {trim && <TrimDialog item={trim} onClose={() => setTrim(null)} onSave={(i, o) => updateItem.mutateAsync({ uid: col.uid, itemId: trim.item_id, in: i, out: o }).then(() => toast({ title: 'Trim saved' }))} />}
       {noteItem && <NoteDialog item={noteItem} onClose={() => setNoteItem(null)} onSave={(note) => updateItem.mutateAsync({ uid: col.uid, itemId: noteItem.item_id, note })} />}
       <Dialog

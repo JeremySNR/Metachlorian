@@ -73,6 +73,8 @@ def _refresh_index(db: Database, settings: Settings, asset_id: int) -> None:
 def plan_asset(db: Database, settings: Settings, asset_id: int, boost: int = 0) -> list[str]:
     """Enqueue whatever is missing or stale for this asset. Returns analysers enqueued."""
     asset = _asset(db, asset_id)
+    if asset and asset.get("media_kind") == "photo":
+        return []  # Photos have a rendition-aware pipeline, never video proxies/shots.
     if not asset or asset["deleted_at"] or asset["status"] in ("missing",):
         return []
     if asset["status"] == "error" and not asset["content_hash"]:

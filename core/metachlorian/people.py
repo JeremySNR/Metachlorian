@@ -101,15 +101,18 @@ def assign(c: sqlite3.Connection, asset_id: int | None = None) -> int:
 
 
 def _recompute(c: sqlite3.Connection, identity_id: int) -> None:
-    rows = c.execute("SELECT id, embedding, size_px, score FROM faces WHERE identity_id=? ORDER BY size_px DESC, score DESC LIMIT 500",
-                     (identity_id,)).fetchall()
+    rows = c.execute("SELECT id, embedding, size_px, score, 0 is_photo FROM faces WHERE identity_id=? UNION ALL "
+                     "SELECT id, embedding, size_px, score, 1 is_photo FROM photo_faces WHERE identity_id=? AND embedding IS NOT NULL "
+                     "ORDER BY size_px DESC, score DESC LIMIT 500", (identity_id, identity_id)).fetchall()
     if not rows:
         return
     embs = np.stack([_vec(r["embedding"], np.float16) for r in rows])
     m = embs.mean(axis=0)
     m = m / (np.linalg.norm(m) + 1e-9)
+    video = [k for k, r in enumerate(rows) if not r['is_photo']]
+    cover = _cover([rows[k] for k in video], embs[video], m) if video else None
     c.execute("UPDATE identities SET centroid=?, n=?, cover_face_id=?, updated_at=? WHERE id=?",
-              (m.astype(np.float32).tobytes(), len(rows), _cover(rows, embs, m), now(), identity_id))
+              (m.astype(np.float32).tobytes(), len(rows), cover, now(), identity_id))
 
 
 def _cover(rows, embs: np.ndarray, centroid: np.ndarray) -> int:
@@ -135,9 +138,12 @@ def rename(db: Database, identity_id: int, name: str, actor: str) -> None:
                 raise ValueError(f"{name} is already person {other['id']}; merge the two instead of giving them the same name")
             # Naming confirms the cluster: its faces are no longer moved by automatic assignment.
             c.execute("UPDATE faces SET assigned_by='named' WHERE identity_id=? AND assigned_by='auto'", (identity_id,))
+            c.execute("UPDATE photo_faces SET assigned_by='named' WHERE identity_id=? AND assigned_by='auto'", (identity_id,))
         else:
             # Un-naming undoes only what naming confirmed; individual moves and merges stay.
             c.execute("UPDATE faces SET assigned_by='auto' WHERE identity_id=? AND assigned_by='named'", (identity_id,))
+            c.execute("UPDATE photo_faces SET assigned_by='auto' WHERE identity_id=? AND assigned_by='named'", (identity_id,))
+            c.execute("DELETE FROM photo_face_labels WHERE identity_id=? AND assigned_by='named'", (identity_id,))
         c.execute("UPDATE identities SET name=?, named_by=?, updated_at=? WHERE id=?", (name or None, actor if name else "", now(), identity_id))
 
 
@@ -150,6 +156,9 @@ def merge(db: Database, source_id: int, into_id: int) -> None:
         if not src or not dst:
             raise KeyError(source_id if not src else into_id)
         c.execute("UPDATE faces SET identity_id=?, assigned_by='human' WHERE identity_id=?", (into_id, source_id))
+        c.execute("UPDATE photo_faces SET identity_id=?, assigned_by='human' WHERE identity_id=?", (into_id, source_id))
+        c.execute('DELETE FROM photo_face_labels WHERE identity_id=? AND photo_id IN (SELECT photo_id FROM photo_face_labels WHERE identity_id=?)', (source_id, into_id))
+        c.execute("UPDATE photo_face_labels SET identity_id=?,assigned_by='human' WHERE identity_id=?", (into_id, source_id))
         if not dst["name"] and src["name"]:
             c.execute("UPDATE identities SET name=? WHERE id=?", (src["name"], into_id))
         c.execute("DELETE FROM identities WHERE id=?", (source_id,))
@@ -176,7 +185,7 @@ def move_face(db: Database, face_id: int, identity_id: int | None) -> int | None
             target = cur.lastrowid
             c.execute("UPDATE faces SET identity_id=?, assigned_by='human', excluded_identity=? WHERE id=?", (target, old, face_id))
         if old is not None:
-            if c.execute("SELECT COUNT(*) FROM faces WHERE identity_id=?", (old,)).fetchone()[0]:
+            if c.execute("SELECT (SELECT COUNT(*) FROM faces WHERE identity_id=?) + (SELECT COUNT(*) FROM photo_faces WHERE identity_id=?)", (old, old)).fetchone()[0]:
                 _recompute(c, old)
             else:
                 c.execute("DELETE FROM identities WHERE id=? AND name IS NULL", (old,))
@@ -194,6 +203,7 @@ def forget(db: Database, identity_id: int) -> tuple[list[int], list[str]]:
         thumbs = [r[0] for r in c.execute("SELECT a.uid || '/' || f.thumb FROM faces f JOIN assets a ON a.id=f.asset_id WHERE f.identity_id=?",
                                           (identity_id,))]
         c.execute("DELETE FROM faces WHERE identity_id=?", (identity_id,))
+        c.execute("DELETE FROM photo_faces WHERE identity_id=?", (identity_id,))
         c.execute("DELETE FROM identities WHERE id=?", (identity_id,))
     return affected, thumbs
 
@@ -207,19 +217,22 @@ def list_people(db: Database, q: str = "", named: bool | None = None, limit: int
         where.append("i.name IS NOT NULL")
     elif named is False:
         where.append("i.name IS NULL")
-    base = (" FROM identities i JOIN (SELECT identity_id, COUNT(*) n, COUNT(DISTINCT shot_id) shots, COUNT(DISTINCT asset_id) files"
-            " FROM faces GROUP BY identity_id) cnt ON cnt.identity_id=i.id WHERE " + " AND ".join(where))
+    base = (" FROM identities i JOIN (SELECT identity_id, COUNT(*) n, COUNT(DISTINCT shot_id) shots, COUNT(DISTINCT asset_id) files, COUNT(DISTINCT photo_id) photos"
+            " FROM (SELECT identity_id,shot_id,asset_id,NULL photo_id FROM faces UNION ALL SELECT f.identity_id,NULL,p.asset_id,p.id FROM photo_faces f JOIN photos p ON p.id=f.photo_id WHERE p.deleted_at IS NULL)"
+            " GROUP BY identity_id) cnt ON cnt.identity_id=i.id WHERE " + " AND ".join(where))
     total = db.q1("SELECT COUNT(*) n" + base, args)["n"]
-    rows = db.q("SELECT i.id, i.name, i.named_by, i.cover_face_id, cnt.n faces, cnt.shots, cnt.files" + base +
+    rows = db.q("SELECT i.id, i.name, i.named_by, i.cover_face_id, cnt.n faces, cnt.shots, cnt.files, cnt.photos" + base +
                 " ORDER BY (i.name IS NULL), cnt.shots DESC, i.id LIMIT ? OFFSET ?", (*args, limit, offset))
     out = []
     for r in rows:
         cover = db.q1("SELECT f.thumb, a.uid FROM faces f JOIN assets a ON a.id=f.asset_id WHERE f.id=?", (r["cover_face_id"],)) if r["cover_face_id"] else None
         if not cover:
             cover = db.q1("SELECT f.thumb, a.uid FROM faces f JOIN assets a ON a.id=f.asset_id WHERE f.identity_id=? ORDER BY f.size_px DESC LIMIT 1", (r["id"],))
+        photo = db.q1('SELECT p.uid,f.box FROM photo_faces f JOIN photos p ON p.id=f.photo_id WHERE f.identity_id=? AND p.deleted_at IS NULL ORDER BY f.size_px DESC LIMIT 1', (r['id'],)) if not cover else None
+        photo_cover = '/api/photos/'+photo['uid']+'/preview?edge=200&region='+','.join(str(n) for n in json.loads(photo['box'])) if photo else None
         out.append({"id": r["id"], "name": r["name"], "label": r["name"] or f"Person {r['id']}", "named": bool(r["name"]),
-                    "faces": r["faces"], "shots": r["shots"], "files": r["files"],
-                    "cover": f"/media/{cover['uid']}/{cover['thumb']}" if cover else None})
+                    "faces": r["faces"], "shots": r["shots"], "files": r["files"], "photos": r['photos'],
+                    "cover": f"/media/{cover['uid']}/{cover['thumb']}" if cover else photo_cover})
     return {"total": total, "people": out}
 
 

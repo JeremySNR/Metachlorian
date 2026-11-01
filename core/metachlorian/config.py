@@ -164,6 +164,11 @@ class Settings:
     # Face identity (recognise and name people). On by default: embeddings stay in this library and are
     # never sent to any provider. Admins can switch it off and forget people individually.
     face_identity: bool = True
+    # Opt-in until the real Lightroom/platform certification matrix passes.
+    photos_enabled: bool = False
+    photo_cache_mib: int = 256
+    lightroom_request_port: int = 58773
+    lightroom_response_port: int = 58774
     # Imports from web links (YouTube, Vimeo... via yt-dlp). Browser whose login yt-dlp may borrow for private
     # videos (chrome, edge, firefox, brave, opera, vivaldi, safari; only on the machine running the server),
     # the default quality cap, and an optional yt-dlp executable (else PATH, else downloaded on first use).
@@ -255,12 +260,13 @@ def _env_overrides() -> dict[str, Any]:
     out: dict[str, Any] = {}
     p = "METACHLORIAN_"
     simple = {"HOST": "host", "PORT": "port", "WORKERS": "workers", "REQUIRE_AUTH": "require_auth",
-              "ALLOW_REMOTE": "allow_remote", "COMMUNITY_ENABLED": "community_enabled", "COMMUNITY_URL": "community_url", "SECRET_KEY": "secret_key", "MODELS": "models_dir"}
+              "ALLOW_REMOTE": "allow_remote", "COMMUNITY_ENABLED": "community_enabled", "COMMUNITY_URL": "community_url", "SECRET_KEY": "secret_key", "MODELS": "models_dir",
+              "PHOTOS_ENABLED": "photos_enabled", "PHOTO_CACHE_MIB": "photo_cache_mib"}
     for env, key in simple.items():
         if (v := os.environ.get(p + env)) is not None:
-            if key in ("port", "workers"):
+            if key in ("port", "workers", "photo_cache_mib"):
                 out[key] = int(v)
-            elif key in ("require_auth", "allow_remote", "community_enabled"):
+            elif key in ("require_auth", "allow_remote", "community_enabled", "photos_enabled"):
                 out[key] = v.lower() in ("1", "true", "yes", "on")
             else:
                 out[key] = v

@@ -12,7 +12,7 @@ def library_readiness(db: Database, limit: int = 10) -> dict:
                 "(SELECT COUNT(*) FROM shots s WHERE s.asset_id=a.id AND s.active=1) active_shots, "
                 "(SELECT COUNT(*) FROM shots s JOIN shot_index si ON si.shot_id=s.id WHERE s.asset_id=a.id AND s.active=1) indexed_shots, "
                 "EXISTS(SELECT 1 FROM analysis_runs r WHERE r.asset_id=a.id AND r.analyser='proxy' AND r.status='done') preview "
-                "FROM assets a LEFT JOIN meta m ON m.key='index:asset:' || a.id WHERE a.deleted_at IS NULL")
+                "FROM assets a LEFT JOIN meta m ON m.key='index:asset:' || a.id WHERE a.deleted_at IS NULL AND a.media_kind='video'")
     files = {k: 0 for k in ('total', 'searchable', 'fully_indexed', 'partially_indexed', 'unindexed', 'previews_ready',
                           'index_pending', 'index_failed', 'capture_date_known', 'capture_date_unknown')}
     shots = {'active': 0, 'indexed': 0, 'missing_from_index': 0}
@@ -54,7 +54,7 @@ def library_readiness(db: Database, limit: int = 10) -> dict:
         "SELECT a.uid asset_uid,a.filename,r.analyser,substr(r.error,1,500) error FROM analysis_runs r "
         "JOIN assets a ON a.id=r.asset_id WHERE a.deleted_at IS NULL AND r.status='failed' ORDER BY r.finished_at DESC LIMIT ?", (limit,))]
     scans = []
-    for r in db.q("SELECT id,uri,last_scan FROM sources ORDER BY id"):
+    for r in db.q("SELECT id,uri,last_scan FROM sources WHERE kind<>'photos' ORDER BY id"):
         scan = loads(db.get_meta(f"scan:{r['id']}"), {}) or {}
         scans.append({'source_id': r['id'], 'path': r['uri'], 'state': scan.get('state', 'not_scanned'),
                       'last_scan': r['last_scan']})

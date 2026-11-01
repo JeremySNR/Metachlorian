@@ -15,6 +15,7 @@ from typing import Any
 from ..db import Database, dumps, loads, now
 
 SCOPES = {
+    "photos:edit": "Create and edit Lightroom virtual copies",
     "library:read": "Search and read shots, assets, collections and rights",
     "media:export": "Export clips and build packages",
     "collections:write": "Create and edit collections",
@@ -25,10 +26,10 @@ SCOPES = {
 }
 ROLE_SCOPES = {
     "viewer": {"library:read"},
-    "editor": {"library:read", "media:export", "collections:write", "tags:write", "ingest:write"},
+    "editor": {"library:read", "media:export", "collections:write", "tags:write", "ingest:write", "photos:edit"},
     "admin": set(SCOPES),
     # Agents: read by default; tokens may add export/collections/tags. Never rights or admin.
-    "agent": {"library:read", "media:export", "collections:write", "tags:write"},
+    "agent": {"library:read", "media:export", "collections:write", "tags:write", "photos:edit"},
 }
 AGENT_DEFAULT = {"library:read"}
 ROLES = tuple(ROLE_SCOPES)
