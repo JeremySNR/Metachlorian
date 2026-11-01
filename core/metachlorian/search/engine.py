@@ -24,6 +24,7 @@ import numpy as np
 
 from .. import rights as R
 from ..config import Settings
+from ..capture_dates import capture_calendar_sql, capture_day_sql, capture_iso
 from ..db import Database, loads
 from ..vocab import registry
 from .parse import Parsed, parse
@@ -56,6 +57,7 @@ FTS_COLS_WEIGHTS = (1.0, 0.8, 0.9, 1.2, 1.6, 0.5)  # caption, transcript, ocr, t
 @dataclass
 class SearchRequest:
     q: str = ""
+    sort: str = "relevance"
     filters: dict[str, Any] = field(default_factory=dict)
     require: dict[str, list[str]] = field(default_factory=dict)
     exclude: dict[str, list[str]] = field(default_factory=dict)
@@ -162,12 +164,20 @@ class SearchEngine:
             vals = f["edit_type"] if isinstance(f["edit_type"], list) else [f["edit_type"]]
             where.append(f"si.edit_type IN ({','.join('?' * len(vals))})")
             args += vals
-        if f.get("captured_after"):
-            where.append("si.capture_date >= ?")
-            args.append(str(f["captured_after"]))
-        if f.get("captured_before"):
-            where.append("si.capture_date <= ?")
-            args.append(str(f["captured_before"]))
+        for key, operator in (("captured_after", ">="), ("captured_before", "<=")):
+            if f.get(key):
+                raw = str(f[key]).strip()
+                bound = capture_iso(raw)
+                if bound is None:
+                    raise ValueError(f"{key} must be a valid ISO date or timestamp")
+                if len(raw) == 10:
+                    # Date controls select whole camera-calendar days, including
+                    # late footage on the last day, regardless of UTC offset.
+                    where.append(f"{capture_calendar_sql('si.capture_date')} {operator} ?")
+                    args.append(bound[:10])
+                else:
+                    where.append(f"{capture_day_sql('si.capture_date')} {operator} julianday(?)")
+                    args.append(bound)
         if asset_ids is not None:
             where.append(f"si.asset_id IN ({','.join('?' * len(asset_ids)) or 'NULL'})")
             args += asset_ids
@@ -468,8 +478,14 @@ class SearchEngine:
         else:
             strong_count = len(pool)
         timings["fuse"] = time.perf_counter() - t1
+        if req.sort in ("captured_desc", "captured_asc"):
+            dated = [sid for sid in pool if info[sid].get("capture_order") is not None]
+            undated = [sid for sid in pool if info[sid].get("capture_order") is None]
+            dated.sort(key=lambda sid: (info[sid]["asset_id"], info[sid]["start_s"]))
+            dated.sort(key=lambda sid: info[sid]["capture_order"], reverse=req.sort == "captured_desc")
+            pool = dated + undated
         # ---------------------------------------------------------- page
-        key = json.dumps([req.q, filters, require, exclude, prefer, intended, req.similar_to, req.strictness, req.hide_blocked],
+        key = json.dumps([req.sort, req.q, filters, require, exclude, prefer, intended, req.similar_to, req.strictness, req.hide_blocked],
                          sort_keys=True, default=str)[:400]
         offset = _dec_cursor(req.cursor, key)
         page = pool[offset: offset + limit]
@@ -650,7 +666,7 @@ class SearchEngine:
         out: dict[int, dict[str, Any]] = {}
         for i in range(0, len(ids), 900):
             chunk = ids[i:i + 900]
-            for r in self.db.q(f"SELECT shot_id, asset_id, people_count, quality, usable FROM shot_index WHERE shot_id IN ({','.join('?' * len(chunk))})", chunk):
+            for r in self.db.q(f"SELECT shot_id, asset_id, people_count, quality, usable, start_s, {capture_day_sql('capture_date')} capture_order FROM shot_index WHERE shot_id IN ({','.join('?' * len(chunk))})", chunk):
                 out[r[0]] = dict(r)
         return out
 

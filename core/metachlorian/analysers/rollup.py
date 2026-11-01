@@ -134,12 +134,16 @@ class RollupAnalyser(Analyser):
         locs = Counter((sig["content.location_guess"].get(s.id) or {}).get("value") for s in shots)
         locs.pop(None, None)
         locs.pop("", None)
+        # The detector emits a number; fusion wraps it in {value, ...}. When
+        # fusion is unavailable or failed, the measured count is still valid.
+        people_counts = [sig["people.count"].get(s.id) for s in shots]
+        people_counts = [v.get("value") if isinstance(v, dict) else v for v in people_counts]
         structure = {**features, "edit_type": {"term": label, "confidence": conf, "scores": scores},
                      "pace": asset_pace, "top_settings": [k for k, _ in settings_c.most_common(4)],
                      "time_of_day": [k for k, _ in tod_c.most_common(2)], "topics": [k for k, _ in topics_c.most_common(6)],
                      "roles": dict(roles_c), "camera_movements": dict(moves_c.most_common(8)),
                      "locations": [k for k, _ in locs.most_common(3)],
-                     "people_shots": sum(1 for s in shots if ((sig["people.count"].get(s.id) or {}).get("value") or 0) > 0)}
+                     "people_shots": sum(1 for count in people_counts if isinstance(count, (int, float)) and count > 0)}
         summary = self._summary(ctx, structure, shots, sig)
         structure["summary"] = summary
         ctx.asset_updates["summary"] = structure

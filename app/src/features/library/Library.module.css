@@ -4,6 +4,9 @@
   overflow-y: auto;
 }
 
+.readinessTable { width: 100%; border-collapse: collapse; margin-top: var(--space-3); font-variant-numeric: tabular-nums; }
+.readinessTable th, .readinessTable td { padding: var(--space-2); text-align: left; border-bottom: 1px solid var(--border-subtle); }
+
 .inner {
   max-inline-size: var(--page-max);
   margin-inline: auto;

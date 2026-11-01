@@ -149,6 +149,8 @@ def build_asset_doc(db: Database, asset_id: int) -> dict[str, Any]:
     apply_corrections(fields, corr)
     summary = loads(a["summary"], {}) or {}
     tech = loads(a["tech"], {}) or {}
+    from .media.profiles import capture_profile
+    tech.update(capture_profile(tech))
     edit = fields.get("structure.edit_type", {}).get("value") or summary.get("edit_type")
     from .ingest.importer import origin_for_asset
 
@@ -223,7 +225,8 @@ def shot_doc(asset: dict[str, Any], s: dict[str, Any], fields: dict[str, dict[st
         "poster": poster["file"] if poster else None, "thumb": f"kf/{s['idx']:05d}_thumb.jpg" if kfs else None,
         "technical": {k: tech.get(k) for k in ("width", "height", "fps", "aspect_ratio", "orientation", "resolution_class", "video_codec",
                                                "bit_depth", "hdr", "hdr_format", "color_transfer", "camera_make", "camera_model", "lens",
-                                               "capture_date", "gps", "audio_channels")},
+                                               "capture_date", "gps", "audio_channels", "gamma", "capture_color_gamut", "color_primaries",
+                                               "log_profile_name", "log_profile_source", "log_profile_evidence")},
         "edit_type": asset.get("edit_type"),
         "location": asset.get("location"),
         # Where an imported file came from (web link); the long description stays on the file record.
@@ -238,6 +241,8 @@ def shot_doc(asset: dict[str, Any], s: dict[str, Any], fields: dict[str, dict[st
     log = fields.get("look.log_likeness", {}).get("value") or 0
     doc["technical"]["log_profile"] = bool(tech.get("log_hint")) or log >= 0.6
     doc["technical"]["log_confidence"] = 0.9 if tech.get("log_hint") else round(float(log), 3)
+    if not tech.get("log_profile_name"):
+        doc["technical"]["log_profile_source"] = 'metadata_hint' if tech.get('log_hint') else 'image_estimate' if log >= 0.6 else None
     return doc
 
 

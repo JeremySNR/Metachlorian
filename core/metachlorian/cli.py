@@ -62,9 +62,7 @@ def cmd_add(args) -> None:
     s, db = _lib(args)
     for uri in args.paths:
         sid = add_source(db, uri, watch=not args.no_watch, options={"camera_originals": True} if args.camera_originals else None)
-        res = scan_source(db, sid, s.data_dir / "cache" / "s3")
-        for aid in res.asset_ids or []:
-            plan_asset(db, s, aid)
+        res = scan_source(db, sid, s.data_dir / "cache" / "s3", on_asset=lambda aid: plan_asset(db, s, aid))
         print(json.dumps({"source": uri, **{k: v for k, v in res.as_dict().items() if k != "asset_ids"}}))
 
 

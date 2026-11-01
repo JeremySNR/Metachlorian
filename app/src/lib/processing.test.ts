@@ -8,6 +8,10 @@ const row = (p: Partial<ProcessingAsset>): ProcessingAsset => ({ uid: 'a', filen
 const job = (analyser: string): QueueJob => ({ id: 1, analyser, updated_at: 0, filename: 'f.mp4', uid: 'a' })
 
 describe('re-analysis ("updating") status', () => {
+  it('uses actual analyser states when parallel steps finish out of order', () => {
+    const states = stepStates(row({ status: 'processing', done: 2, steps: { technical: 'done', place: 'done', proxy: 'running', audio: 'done', speech: 'unavailable', quality: 'failed' } }), analysers, [], [])
+    expect(states).toEqual(['done', 'active', 'waiting', 'failed', 'done', 'waiting'])
+  })
   it('keeps analysed steps done and spins only what is refreshing', () => {
     expect(stepStates(row({ running: 1, queued: 1, pending: ['visual_tags', 'rollup'] }), analysers, [job('visual_tags')], [])).toEqual(['done', 'done', 'done', 'active', 'done', 'waiting'])
   })

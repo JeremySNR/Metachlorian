@@ -10,6 +10,7 @@ import { formatBytes, formatNumber, humanise, plural, shortLabel } from '../../l
 import { stateFromBadge, RIGHTS_SHORT } from '../../lib/rights'
 import s from './Library.module.css'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
+import { Readiness } from './Readiness'
 
 const COVERAGE: [string, string][] = [
   ['shot_size', 'Shot size'],
@@ -90,8 +91,8 @@ export function LibraryPage() {
             <span className={s.figureSub}>{processing
                 ? `${formatNumber(ready)} analysed · ${formatNumber(processing)} in progress`
                 : updating
-                  ? `All analysed · ${formatNumber(updating)} updating to newer analysers`
-                  : 'All analysed'}</span>
+                  ? `${formatNumber(ready)} available · ${formatNumber(updating)} updating`
+                  : `${formatNumber(ready)} marked ready · ${formatNumber((d?.status?.error ?? 0) + (d?.status?.missing ?? 0))} failed or missing`}</span>
           </div>
           <div className={s.figure}>
             <span className={s.figureLabel}>Shots</span>
@@ -109,6 +110,8 @@ export function LibraryPage() {
             <span className={s.figureSub}>{d?.throughput.ratio ? 'Hours of new footage analysed per hour of work' : 'Shown after new footage is analysed'}</span>
           </div>
         </div>
+
+        <Readiness />
 
         <div className={s.two}>
           <section className={s.section} aria-labelledby="stages-h">
@@ -153,7 +156,7 @@ export function LibraryPage() {
               })}
             </div>
             <p className={s.muted} style={{ fontSize: 'var(--text-sm)' }}>
-              Files with unknown rights are never treated as cleared, and agents never see them.
+              Files with unknown rights are never treated as cleared. Agents can find them, but cannot export their media until cleared.
             </p>
           </section>
         </div>

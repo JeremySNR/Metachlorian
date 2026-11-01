@@ -23,7 +23,8 @@ RAW_HELP = {
 ASSET_FIELDS = ("duration", "width", "height", "fps", "aspect_ratio", "orientation", "resolution_class", "video_codec", "video_profile",
                 "bit_depth", "chroma", "bitrate", "video_bitrate", "color_primaries", "color_transfer", "color_space", "hdr", "hdr_format",
                 "audio_channels", "audio_codec", "audio_sample_rate", "size", "camera_make", "camera_model", "lens", "focal_length_mm",
-                "capture_date", "gps", "timecode", "variable_frame_rate", "interlaced", "container")
+                "capture_date", "gps", "timecode", "variable_frame_rate", "interlaced", "container",
+                "gamma", "capture_color_gamut", "log_profile_name", "log_profile_source", "log_profile_evidence")
 
 
 class TechnicalAnalyser(Analyser):

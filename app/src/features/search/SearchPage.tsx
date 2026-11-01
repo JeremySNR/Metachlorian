@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate, useSearch as useRouteSearch } from '@tanstack/react-router'
+import { Link, useNavigate, useSearch as useRouteSearch } from '@tanstack/react-router'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { CircleAlert, FolderPlus, FolderSearch, Info, LayoutGrid, ListVideo, PanelLeftOpen, PanelRightOpen, Rows3, SearchX, SlidersHorizontal, TriangleAlert } from 'lucide-react'
 import type { PersonRef, SearchRequest, SearchResponse, SearchResult, Strictness } from '../../api/types'
@@ -27,6 +27,7 @@ import { Inspector } from '../shot/Inspector'
 import { ChipRow, type ExtraChip, type ScopeChipView } from './ChipRow'
 import { FilterRail } from './FilterRail'
 import { FilesView } from './FilesView'
+import { FileBrowser } from './FileBrowser'
 import { ResultsGrid } from './ResultsGrid'
 import { SelectionBar } from './SelectionBar'
 import { fromState, keepScope, showsBlocked, similarRightsOf, strictnessOf, toRequest, toState, withBlocked, withoutScope, withScopeFix, type SearchParams } from './searchParams'
@@ -77,8 +78,18 @@ export function SearchPage() {
     if (useUi.getState().example && (params.q || params.similar || params.req || params.f)) useUi.getState().set({ example: null })
   }, [params])
 
-  const req = useMemo(() => toRequest(params), [params])
-  const search = useSearch(example ? null : req)
+  const browseFiles = params.group === 'files' && !example && !params.q?.trim() && !params.similar && !params.assets
+    && !Object.keys(params.req ?? {}).length && !Object.keys(params.exc ?? {}).length && !Object.keys(params.f ?? {}).length
+    && !params.use && !params.ch && !params.terr && (params.folder?.length ?? 0) <= 1 && (params.collection?.length ?? 0) <= 1
+  const sort = params.sort ?? (params.q?.trim() || params.similar || example ? 'relevance' : 'captured_desc')
+  const req = useMemo(() => ({ ...toRequest(params), sort }), [params, sort])
+  const search = useSearch(example || browseFiles ? null : req)
+  const fileFacets = useQuery({
+    queryKey: ['file-browse-facets', req],
+    queryFn: ({ signal }) => api.post<SearchResponse>('/api/search', { ...req, limit: 1, facets: true }, signal),
+    enabled: browseFiles,
+    staleTime: 60_000,
+  })
   const strictness = strictnessOf(params)
 
   // Query by example follows the rights filters too: re-run it when they change.
@@ -97,8 +108,8 @@ export function SearchPage() {
       live = false
     }
   }, [rightsKey, exampleFile])
-  const pages = useMemo(() => search.data?.pages ?? [], [search.data])
-  const first: SearchResponse | undefined = example ? example.response : pages[0]
+  const pages = useMemo(() => browseFiles ? [] : search.data?.pages ?? [], [browseFiles, search.data])
+  const first: SearchResponse | undefined = browseFiles ? fileFacets.data : example ? example.response : pages[0]
   const results = useMemo(() => (example ? example.response.results : pages.flatMap((p) => p.results)), [example, pages])
   const total = example ? results.length : (first?.total ?? 0)
   const state = toState(params)
@@ -137,8 +148,8 @@ export function SearchPage() {
   const personNames = (first?.query.require?.[PERSON_VOCAB] ?? []).map((id) => personLabel(id, peopleById))
   const nameOnly = !example && onlyNames(params.q ?? '', personNames)
   const strength = first && !nameOnly ? { total, strong_count: first.strong_count, strictness: first.strictness } : null
-  const split = strongDivider(strength)
-  const noStrong = !search.isError && noStrongMatches(strength)
+  const split = sort === 'relevance' ? strongDivider(strength) : null
+  const noStrong = sort === 'relevance' && !search.isError && noStrongMatches(strength)
   const scored = Boolean(first?.strictness) && !nameOnly
 
   const overlay = isOverlayInspector(tier)
@@ -374,7 +385,9 @@ export function SearchPage() {
   const firstRun = stats.data && stats.data.assets === 0
 
   let body
-  if (firstRun) {
+  if (browseFiles) {
+    body = <FileBrowser key={JSON.stringify([params.folder, params.collection, sort, params.blocked])} folder={params.folder?.[0]} collection={params.collection?.[0]} sort={sort === 'relevance' ? 'captured_desc' : sort} hideBlocked={!showsBlocked(params)} />
+  } else if (firstRun) {
     body = (
       <EmptyState icon={FolderPlus} title="Add your first footage" actions={<><Button variant="primary" onPress={() => navigate({ to: '/ingest' })}>Add a folder</Button><Button variant="quiet" onPress={() => navigate({ to: '/library' })}>Read how indexing works</Button></>}>
         Point Metachlorian at a folder. Files stay where they are, and we only read them.
@@ -441,7 +454,7 @@ export function SearchPage() {
       </EmptyState>
     )
   } else if (params.group === 'files' && !example) {
-    body = <FilesView results={results} onOpen={(r) => onOpen(r, 'click')} />
+    body = <FilesView results={results} onOpen={(r) => onOpen(r, 'click')} hasMore={Boolean(search.hasNextPage)} fetching={search.isFetchingNextPage} loadMore={() => search.fetchNextPage()} error={search.isFetchNextPageError} />
   } else {
     const sugg = chips
       .map((c, i) => ({ c, n: noStrong ? suggestions[i]?.data?.strong_count : suggestions[i]?.data?.total }))
@@ -530,6 +543,11 @@ export function SearchPage() {
           </aside>
         ))}
       <main id="main" className={s.main} aria-busy={search.isFetching || undefined} tabIndex={-1}>
+        <nav className={s.browseNav} aria-label="Browse library">
+          <Link to="/search" search={{ group: 'files' }} onClick={() => setUi({ example: null, selection: new Set() })}>All files</Link>
+          <Link to="/library/folders">Folders</Link>
+          <Link to="/search" search={{}} onClick={() => setUi({ example: null, selection: new Set() })}>All shots</Link>
+        </nav>
         <h1 className="visually-hidden">{params.q ? `Search results for ${params.q}${inScope ? ` ${inScope}` : ''}` : example ? `Shots similar to ${example.name}` : scopeTitle ? `Shots ${inScope}` : 'Search'}</h1>
         <ChipRow
           query={first?.query}
@@ -553,7 +571,7 @@ export function SearchPage() {
             </Button>
           )}
           <p className={s.count} role="status" data-testid="result-count">
-            {countText}
+            {browseFiles ? 'Browse files · including footage still being analysed' : countText}
           </p>
           {(first?.hidden_blocked ?? 0) > 0 && !showsBlocked(params) && (
             <Button variant="quiet" size="sm" className={s.hideNarrow} onPress={() => setParams(withBlocked(params, true), false)}>
@@ -569,7 +587,7 @@ export function SearchPage() {
                 segments={[{ id: 'shots', label: 'Shots' }, { id: 'files', label: 'Files' }]}
               />
             )}
-            <Segmented
+            {(!params.group || browseFiles) && <Segmented
               label="View"
               value={prefs.view}
               onChange={(v) => prefs.set({ view: v })}
@@ -578,16 +596,22 @@ export function SearchPage() {
                 { id: 'list', label: 'List view', icon: Rows3, iconOnly: true },
                 { id: 'log', label: 'Log view', icon: ListVideo, iconOnly: true },
               ]}
-            />
-            {prefs.view === 'grid' && (
+            />}
+            {(prefs.view === 'grid' || (params.group === 'files' && !browseFiles)) && (
               <Segmented
-                className={s.hideNarrow}
                 label="Thumbnail size"
                 value={prefs.thumbSize}
                 onChange={(v) => prefs.set({ thumbSize: v })}
-                segments={[{ id: 's', label: 'S' }, { id: 'm', label: 'M' }, { id: 'l', label: 'L' }]}
+                segments={[{ id: 's', label: 'Small' }, { id: 'm', label: 'Medium' }, { id: 'l', label: 'Large' }]}
               />
             )}
+            {!example && <label className={s.sort}>Sort
+              <select aria-label="Sort results" value={browseFiles && sort === 'relevance' ? 'captured_desc' : sort} onChange={(e) => setParams({ ...params, sort: e.target.value as SearchParams['sort'] }, false)}>
+                {!browseFiles && <option value="relevance">Relevance</option>}
+                <option value="captured_desc">Capture date · newest first</option>
+                <option value="captured_asc">Capture date · oldest first</option>
+              </select>
+            </label>}
             {hasQuery && (
               <Segmented
                 className={s.hideNarrow}
@@ -597,7 +621,7 @@ export function SearchPage() {
                 segments={[{ id: 'loose', label: 'Loose' }, { id: 'balanced', label: 'Balanced' }, { id: 'strict', label: 'Strict' }]}
               />
             )}
-            {!overlay && !prefs.inspectorOpen && <IconButton icon={PanelRightOpen} label="Show inspector" shortcut={`${MOD}I`} onPress={() => prefs.set({ inspectorOpen: true })} />}
+            {!browseFiles && !overlay && !prefs.inspectorOpen && <IconButton icon={PanelRightOpen} label="Show inspector" shortcut={`${MOD}I`} onPress={() => prefs.set({ inspectorOpen: true })} />}
           </div>
         </div>
         {processing > 0 && !firstRun && (
@@ -636,7 +660,7 @@ export function SearchPage() {
         ))}
         {body}
       </main>
-      {!overlay && prefs.inspectorOpen && (
+      {!browseFiles && !overlay && prefs.inspectorOpen && (
         <aside aria-label="Shot details" className={s.inspector}>
           {inspector}
         </aside>
@@ -661,7 +685,7 @@ export function SearchPage() {
           </div>
         </Sheet>
       )}
-      <div className={s.selection}>
+      {!browseFiles && <div className={s.selection}>
         <SelectionBar
           total={total}
           loaded={results.length}
@@ -675,7 +699,7 @@ export function SearchPage() {
           onExport={() => exportTimeline(selected)}
           onSend={openSend}
         />
-      </div>
+      </div>}
     </div>
   )
 }

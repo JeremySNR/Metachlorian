@@ -4,6 +4,7 @@ agents are never second-class users and never get more than people do."""
 from __future__ import annotations
 
 import os
+import math
 import posixpath
 import shutil
 import threading
@@ -17,10 +18,11 @@ import numpy as np
 from . import __version__, rights as R
 from .auth import Forbidden, Principal, audit, require
 from .config import Settings
+from .capture_dates import capture_day_sql, capture_iso
 from .db import Database, dumps, loads, now
 from .exports import package as P
 from .indexer import index_asset
-from .ingest.scan import add_source, register_file, scan_source
+from .ingest.scan import add_source, register_file, scan_source, scan_status, queue_scan, excluded_folders, path_within
 from .jobs import queue
 from .records import ASSET_CORRECTABLE, CORRECTABLE, build_asset_doc, build_shot_doc, collect, record_correction, revert_correction
 from .search.engine import SearchEngine, SearchRequest, summarise_doc
@@ -230,9 +232,21 @@ class Library:
         return out
 
     def list_assets(self, p: Principal, q: str = "", edit_type: str | None = None, status: str | None = None, limit: int = 200,
-                    offset: int = 0, folder: str | None = None, collection: str | None = None) -> dict[str, Any]:
+                    offset: int = 0, folder: str | None = None, collection: str | None = None,
+                    sort: str = "added_desc", hide_blocked: bool = False) -> dict[str, Any]:
         require(p, "library:read")
+        captured = capture_day_sql("json_extract(tech, '$.capture_date')")
+        orders = {"added_desc": "created_at DESC, id DESC", "name": "filename COLLATE NOCASE, id",
+                  "captured_desc": f"{captured} IS NULL, {captured} DESC, id DESC",
+                  "captured_asc": f"{captured} IS NULL, {captured} ASC, id ASC"}
+        if sort not in orders:
+            raise ValueError("Unknown file sort order")
+        limit, offset = max(1, min(500, limit)), max(0, offset)
         where, args = ["deleted_at IS NULL"], []
+        if hide_blocked:
+            where.append("NOT EXISTS (SELECT 1 FROM rights r WHERE r.asset_id=assets.id AND "
+                         "(r.status='not_cleared' OR (r.expires IS NOT NULL AND r.expires<>'' AND r.expires<?)))")
+            args.append(str(date.today()))
         if folder:
             from .folders import like_pattern
 
@@ -252,18 +266,18 @@ class Library:
             where.append("json_extract(summary, '$.edit_type.term') = ?")
             args.append(edit_type)
         total = self.db.q1(f"SELECT COUNT(*) n FROM assets WHERE {' AND '.join(where)}", args)["n"]
-        rows = self.db.q(f"SELECT * FROM assets WHERE {' AND '.join(where)} ORDER BY created_at DESC LIMIT ? OFFSET ?", (*args, limit, offset))
+        rows = self.db.q(f"SELECT *, EXISTS(SELECT 1 FROM analysis_runs r WHERE r.asset_id=assets.id AND r.analyser='proxy' AND r.status='done') preview_ready FROM assets WHERE {' AND '.join(where)} ORDER BY {orders[sort]} LIMIT ? OFFSET ?", (*args, limit, offset))
         out = []
         for r in rows:
             s = loads(r["summary"], {}) or {}
             rr = R.get_rights(self.db, r["id"])
             tech = loads(r["tech"], {}) or {}
             out.append({"uid": r["uid"], "filename": r["filename"], "path": r["path"], "status": r["status"], "duration": r["duration"],
-                        "captured": tech.get("capture_date"),
+                        "captured": capture_iso(tech.get("capture_date")),
                         "width": r["width"], "height": r["height"], "fps": r["fps"], "size": r["size"], "created_at": r["created_at"],
                         "edit_type": s.get("edit_type"), "shot_count": s.get("shot_count"), "cuts_per_minute": s.get("cuts_per_minute"),
                         "summary": (s.get("summary") or {}).get("story") or (s.get("summary") or {}).get("text"),
-                        "poster": f"/media/{r['uid']}/poster.jpg", "rights_badge": R.summary_status(rr), "pace": s.get("pace"),
+                        "poster": f"/media/{r['uid']}/poster.jpg", "preview_ready": bool(r["preview_ready"]), "rights_badge": R.summary_status(rr), "pace": s.get("pace"),
                         "topics": s.get("topics", [])})
         self._log(p, "list_assets", q)
         return {"total": total, "assets": out}
@@ -436,6 +450,14 @@ class Library:
                 "edit_types": dict(edit), "topics": topics.most_common(30), "places": places.most_common(30), "facets": facets,
                 "gaps": gaps, "rights": dict(rights), "jobs": queue.stats(self.db)["by_status"], "throughput": queue.throughput(self.db)}
 
+    def library_readiness(self, p: Principal, limit: int = 10) -> dict[str, Any]:
+        require(p, "library:read")
+        from .readiness import library_readiness
+
+        out = library_readiness(self.db, limit)
+        self._log(p, "library_readiness")
+        return out
+
     def vocabularies(self, p: Principal, name: str | None = None) -> dict[str, Any]:
         require(p, "library:read")
         reg = registry()
@@ -577,36 +599,83 @@ class Library:
     def add_to_collection(self, p: Principal, uid: str, shot_uids: list[str], in_s: float | None = None, out_s: float | None = None,
                           note: str = "") -> dict[str, Any]:
         require(p, "collections:write")
-        c = self.db.q1("SELECT id FROM collections WHERE uid=?", (uid,))
-        if not c:
-            raise NotFound(f"no collection {uid}")
-        pos = (self.db.q1("SELECT MAX(position) m FROM collection_items WHERE collection_id=?", (c["id"],))["m"] or 0)
-        for su in shot_uids:
-            pos += 1
-            self.db.x("INSERT INTO collection_items(collection_id, shot_id, position, in_s, out_s, note, added_by, added_at) VALUES(?,?,?,?,?,?,?,?)",
-                      (c["id"], self._shot_id(su), pos, in_s, out_s, note, p.username, now()))
-        self.db.x("UPDATE collections SET updated_at=? WHERE id=?", (now(), c["id"]))
-        self._log(p, "add_to_collection", uid, {"shots": shot_uids}, write=True)
+        with self.db.tx():
+            c = self._collection_row(uid)
+            pos = self.db.q1("SELECT MAX(position) m FROM collection_items WHERE collection_id=?", (c["id"],))["m"] or 0
+            for su in shot_uids:
+                shot = self.db.q1("SELECT s.id FROM shots s JOIN assets a ON a.id=s.asset_id WHERE s.uid=? AND s.active=1 AND a.deleted_at IS NULL", (su,))
+                if not shot:
+                    raise NotFound(f"no active shot {su}")
+                trim_in, trim_out = self._collection_trim(shot["id"], in_s, out_s)
+                pos += 1
+                self.db.x("INSERT INTO collection_items(collection_id, shot_id, position, in_s, out_s, note, added_by, added_at) VALUES(?,?,?,?,?,?,?,?)",
+                          (c["id"], shot["id"], pos, trim_in, trim_out, note, p.username, now()))
+            self.db.x("UPDATE collections SET updated_at=? WHERE id=?", (now(), c["id"]))
+            self._log(p, "add_to_collection", uid, {"shots": shot_uids}, write=True)
         return self.collection(p, uid)
+
+    def _collection_row(self, uid: str):
+        row = self.db.q1("SELECT id FROM collections WHERE uid=?", (uid,))
+        if not row:
+            raise NotFound(f"no collection {uid}")
+        return row
+
+    def _collection_item(self, collection_id: int, item_id: int):
+        row = self.db.q1("SELECT * FROM collection_items WHERE collection_id=? AND id=?", (collection_id, item_id))
+        if not row:
+            raise NotFound(f"item {item_id} is not in this collection")
+        return row
+
+    def _collection_trim(self, shot_id: int, in_s: float | None, out_s: float | None):
+        shot = self.db.q1("SELECT s.start_s,s.end_s,a.duration FROM shots s JOIN assets a ON a.id=s.asset_id WHERE s.id=?", (shot_id,))
+        if not shot:
+            raise NotFound("no shot for this collection entry")
+        try:
+            start = shot["start_s"] if in_s is None else float(in_s)
+            end = shot["end_s"] if out_s is None else float(out_s)
+        except (TypeError, ValueError):
+            raise ValueError("trim points must be finite numbers in source-file seconds") from None
+        duration = shot["duration"] if shot["duration"] is not None else shot["end_s"]
+        if isinstance(in_s, bool) or isinstance(out_s, bool) or not (math.isfinite(start) and math.isfinite(end) and 0 <= start < end <= duration):
+            raise ValueError("trim must satisfy 0 <= in < out <= source duration")
+        return (None if in_s is None else start, None if out_s is None else end)
 
     def update_item(self, p: Principal, uid: str, item_id: int, **fields: Any) -> dict[str, Any]:
         require(p, "collections:write")
         allowed = {{"in": "in_s", "out": "out_s"}.get(k, k): v for k, v in fields.items() if k in ("in", "out", "note", "position")}
-        if allowed:
-            self.db.x(f"UPDATE collection_items SET {', '.join(f'{k}=?' for k in allowed)} WHERE id=?", (*allowed.values(), item_id))
+        with self.db.tx():
+            c = self._collection_row(uid)
+            item = self._collection_item(c["id"], item_id)
+            if "in_s" in allowed or "out_s" in allowed:
+                trim_in, trim_out = self._collection_trim(item["shot_id"], allowed.get("in_s", item["in_s"]), allowed.get("out_s", item["out_s"]))
+                allowed.update(in_s=trim_in, out_s=trim_out)
+            if allowed:
+                self.db.x(f"UPDATE collection_items SET {', '.join(f'{k}=?' for k in allowed)} WHERE id=? AND collection_id=?", (*allowed.values(), item_id, c["id"]))
+                self.db.x("UPDATE collections SET updated_at=? WHERE id=?", (now(), c["id"]))
+            self._log(p, "update_collection_item", uid, {"item": item_id, "fields": allowed}, write=True)
         return self.collection(p, uid)
 
     def reorder(self, p: Principal, uid: str, item_ids: list[int]) -> dict[str, Any]:
         require(p, "collections:write")
         with self.db.tx() as c:
+            coll = self._collection_row(uid)
+            expected = {r["id"] for r in c.execute("SELECT id FROM collection_items WHERE collection_id=?", (coll["id"],))}
+            if len(item_ids) != len(expected) or set(item_ids) != expected:
+                raise ValueError("include every item in this collection exactly once")
             for i, iid in enumerate(item_ids, 1):
-                c.execute("UPDATE collection_items SET position=? WHERE id=?", (i, iid))
+                c.execute("UPDATE collection_items SET position=? WHERE id=? AND collection_id=?", (i, iid, coll["id"]))
+            c.execute("UPDATE collections SET updated_at=? WHERE id=?", (now(), coll["id"]))
+            self._log(p, "reorder_collection", uid, {"items": item_ids}, write=True)
         return self.collection(p, uid)
 
     def remove_item(self, p: Principal, uid: str, item_id: int) -> dict[str, Any]:
         require(p, "collections:write")
-        self.db.x("DELETE FROM collection_items WHERE id=?", (item_id,))
-        self._log(p, "remove_from_collection", uid, {"item": item_id}, write=True)
+        with self.db.tx():
+            c = self._collection_row(uid)
+            self._collection_item(c["id"], item_id)
+            self.db.x("DELETE FROM collection_items WHERE id=? AND collection_id=?", (item_id, c["id"]))
+            self.db.x("UPDATE collections SET updated_at=? WHERE id=?", (now(), c["id"]))
+            self._log(p, "remove_from_collection", uid, {"item": item_id}, write=True)
         return self.collection(p, uid)
 
     # ------------------------------------------------------------------ exports
@@ -664,7 +733,8 @@ class Library:
         require(p, "library:read")
         out = []
         for r in self.db.q("SELECT s.*, (SELECT COUNT(*) FROM assets a WHERE a.source_id=s.id AND a.deleted_at IS NULL) n FROM sources s ORDER BY s.id"):
-            out.append({**dict(r), "options": loads(r["options"], {}), "assets": r["n"]})
+            out.append({**dict(r), "options": loads(r["options"], {}), "assets": r["n"],
+                        "scan": scan_status(self.db, r["id"])})
         return out
 
     def add_source(self, p: Principal, uri: str, watch: bool = True, scan: bool = True) -> dict[str, Any]:
@@ -679,16 +749,66 @@ class Library:
     def remove_source(self, p: Principal, source_id: int) -> None:
         require(p, "ingest:write")
         self.db.x("DELETE FROM sources WHERE id=?", (source_id,))
+        self.db.x("DELETE FROM meta WHERE key=?", (f"scan:{source_id}",))
         self._log(p, "remove_source", str(source_id), write=True)
+
+    def folder_exclusions(self, p: Principal) -> list[str]:
+        require(p, "library:read")
+        return excluded_folders(self.db)
+
+    def exclude_folder(self, p: Principal, path: str) -> dict[str, Any]:
+        """Remove library entries and persist a recursive exclusion; never delete source media."""
+        require(p, "admin")
+        if not path.strip() or not Path(path).is_absolute():
+            raise ValueError("An absolute folder path is required")
+        folder = str(Path(path).resolve())
+        if Path(folder).exists() and not Path(folder).is_dir():
+            raise ValueError("Expected a folder")
+        with self.db.tx() as c:
+            exclusions = excluded_folders(self.db)
+            if not any(path_within(folder, existing) for existing in exclusions):
+                exclusions = [existing for existing in exclusions if not path_within(existing, folder)]
+                self.db.set_meta("ingest:excluded_folders", dumps([*exclusions, folder]))
+            ids = {r["id"] for r in c.execute(
+                "SELECT a.id, a.path FROM assets a WHERE a.deleted_at IS NULL UNION "
+                "SELECT a.id, p.path FROM asset_paths p JOIN assets a ON a.id=p.asset_id WHERE a.deleted_at IS NULL"
+            ) if path_within(r["path"], folder)}
+            for aid in ids:
+                c.execute("UPDATE assets SET deleted_at=? WHERE id=?", (now(), aid))
+                # Removing the lease also prevents an in-flight result from committing.
+                c.execute("DELETE FROM jobs WHERE asset_id=?", (aid,))
+                c.execute("DELETE FROM vectors WHERE asset_id=?", (aid,))
+                index_asset(self.db, self.settings, aid)
+            for src in c.execute("SELECT id, uri FROM sources WHERE kind='folder'").fetchall():
+                if path_within(src["uri"], folder):
+                    c.execute("UPDATE sources SET watch=0 WHERE id=?", (src["id"],))
+            self._log(p, "exclude_folder", folder, {"removed": len(ids)}, write=True)
+        from .place_context import refresh_places
+        refresh_places(self.db, self.settings)
+        return {"folder": folder, "removed": len(ids), "excluded_folders": excluded_folders(self.db)}
 
     def scan(self, p: Principal, source_id: int) -> dict[str, Any]:
         require(p, "ingest:write")
         from .pipeline import plan_asset
 
-        res = scan_source(self.db, source_id, self.settings.data_dir / "cache" / "s3")
-        for aid in res.asset_ids or []:
-            plan_asset(self.db, self.settings, aid)
+        res = scan_source(self.db, source_id, self.settings.data_dir / "cache" / "s3",
+                          on_asset=lambda aid: plan_asset(self.db, self.settings, aid))
         return res.as_dict()
+
+    def request_scan(self, p: Principal, source_id: int, tasks) -> dict[str, Any]:
+        require(p, "ingest:write")
+        if queue_scan(self.db, source_id):
+            def run():
+                try:
+                    self.scan(p, source_id)
+                except Exception:
+                    # The persisted scan record contains the failure for the UI.
+                    import logging
+                    logging.getLogger(__name__).exception("source scan failed: %s", source_id)
+                finally:
+                    self.db.close()
+            tasks.add_task(run)
+        return scan_status(self.db, source_id)
 
     def upload(self, p: Principal, filename: str, stream, priority: int = 5) -> dict[str, Any]:
         require(p, "ingest:write")
@@ -838,30 +958,46 @@ class Library:
 
         refresh_places(self.db, self.settings)
 
-    def processing(self, p: Principal) -> dict[str, Any]:
+    def processing(self, p: Principal, limit: int = 200, offset: int = 0, q: str = "") -> dict[str, Any]:
         require(p, "library:read")
         st = queue.stats(self.db)
         asset_counts = {r['status']: r['n'] for r in self.db.q(
             "SELECT status, COUNT(*) n FROM assets WHERE deleted_at IS NULL GROUP BY status")}
+        limit, offset = max(1, min(limit, 200)), max(0, offset)
+        where = "a.deleted_at IS NULL AND (instr(lower(a.filename),lower(?))>0 OR instr(lower(a.path),lower(?))>0)"
+        total = self.db.q1(f"SELECT COUNT(*) n FROM assets a WHERE {where}", (q, q))["n"]
         active = [dict(r) for r in self.db.q(
-            "SELECT a.uid, a.filename, a.status, a.duration, a.priority, a.updated_at,"
+            "SELECT a.uid, a.filename, a.path, a.status, a.duration, a.priority, a.updated_at,"
             " (SELECT COUNT(*) FROM jobs j WHERE j.asset_id=a.id AND j.status='queued') queued,"
             " (SELECT COUNT(*) FROM jobs j WHERE j.asset_id=a.id AND j.status='running') running,"
             " (SELECT COUNT(*) FROM analysis_runs r WHERE r.asset_id=a.id AND r.status='done') done,"
             " (SELECT COUNT(*) FROM analysis_runs r WHERE r.asset_id=a.id AND r.status='failed') failed,"
             " (SELECT COUNT(*) FROM analysis_runs r WHERE r.asset_id=a.id AND r.status='unavailable') unavailable"
-            " FROM assets a WHERE a.deleted_at IS NULL ORDER BY (a.status IN ('processing','updating')) DESC, a.updated_at DESC LIMIT 200")]
+            f" FROM assets a WHERE {where} ORDER BY a.id DESC LIMIT ? OFFSET ?", (q, q, limit, offset))]
         pending: dict[str, list[str]] = {}
         for r in self.db.q("SELECT a.uid, j.analyser FROM jobs j JOIN assets a ON a.id=j.asset_id WHERE j.status IN ('queued','running')"
                            " ORDER BY j.priority DESC, j.id"):
             pending.setdefault(r["uid"], []).append(r["analyser"])
         for a in active:
             a["pending"] = pending.get(a["uid"], [])
+        # Exact per-step states for this page, including unavailable and failed
+        # analysers; a completed-step count cannot identify which steps finished.
+        if active:
+            marks = ",".join("?" for _ in active)
+            uids = tuple(a["uid"] for a in active)
+            steps: dict[str, dict[str, str]] = {}
+            for r in self.db.q(f"SELECT a.uid, r.analyser, r.status FROM analysis_runs r JOIN assets a ON a.id=r.asset_id WHERE a.uid IN ({marks}) ORDER BY r.id", uids):
+                steps.setdefault(r["uid"], {})[r["analyser"]] = r["status"]
+            for r in self.db.q(f"SELECT a.uid, j.analyser, j.status FROM jobs j JOIN assets a ON a.id=j.asset_id WHERE a.uid IN ({marks}) AND j.status IN ('queued','running') ORDER BY j.id", uids):
+                steps.setdefault(r["uid"], {})[r["analyser"]] = r["status"]
+            for a in active:
+                a["steps"] = steps.get(a["uid"], {})
         from .analysers import registry as ar
 
         analysers = [{"name": a.name, "version": a.version, "description": a.description, "requires": list(a.requires),
                       "available": a.check(self.settings) is None, "reason": a.check(self.settings)} for a in ar.topological()]
         return {"queue": st, "assets": active, "asset_counts": asset_counts,
+                "total": total, "offset": offset, "limit": limit, "library_path": str(self.settings.data_dir),
                 "analysers": analysers, "throughput": queue.throughput(self.db)}
 
     def retry_failed(self, p: Principal) -> int:
@@ -869,12 +1005,12 @@ class Library:
         from .pipeline import plan_all
 
         with self.db.tx() as c:
-            c.execute("UPDATE jobs SET status='queued', attempts=0, run_after=0, error=NULL "
-                      f"WHERE status='failed' AND {queue.CURRENT_JOBS}")
+            retried = c.execute("UPDATE jobs SET status='queued', attempts=0, run_after=0, error=NULL "
+                                f"WHERE status='failed' AND {queue.CURRENT_JOBS}").rowcount
             c.execute("DELETE FROM analysis_runs WHERE status='failed'")
         n = plan_all(self.db, self.settings)
         self._log(p, "retry_failed", write=True)
-        return n
+        return n + retried
 
     # ------------------------------------------------------------------ vocab / admin
     def add_term(self, p: Principal, vocab: str, term: str, label: str, definition: str = "", synonyms: list[str] | None = None,

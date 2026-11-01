@@ -5,6 +5,13 @@ import {
 } from './searchParams'
 
 describe('search URL params', () => {
+  it('keeps date sorting across links and filter edits', () => {
+    const p = validateSearch({ group: 'files', sort: 'captured_asc' })
+    expect(p).toEqual({ group: 'files', sort: 'captured_asc' })
+    expect(toRequest(p).sort).toBe('captured_asc')
+    expect(fromState(toState(p), p).sort).toBe('captured_asc')
+    expect(validateSearch({ sort: 'invalid' })).toEqual({})
+  })
   it('validates and drops junk', () => {
     expect(validateSearch({ q: 'night', req: { shot_size: ['close_up', 3] }, f: { min_fps: 50, log: 'yes', orientation: 'vertical' }, group: 'x' })).toEqual({
       q: 'night', req: { shot_size: ['close_up'] }, f: { min_fps: 50, orientation: 'vertical' },

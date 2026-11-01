@@ -352,13 +352,22 @@ def _tool_args(m) -> dict[str, dict]:
         "search_shots": {"query": ""}, "get_shot": {"shot_id": shot}, "get_asset": {"asset_id": asset},
         "find_similar": {"shot_id": shot}, "check_rights": {"shot_ids": [shot]},
         "export_clip": {"shot_id": shot, "mode": "reference"}, "build_package": {"name": "x", "items": [{"shot_uid": shot}], "media": "none"},
-        "library_stats": {}, "list_folders": {}, "list_files": {}, "get_collection": {"collection_id": "nope"}, "list_people": {},
+        "library_stats": {}, "library_readiness": {}, "list_folders": {}, "list_files": {}, "get_collection": {"collection_id": "nope"}, "list_people": {},
         "list_vocabularies": {}, "list_collections": {},
+        "create_collection": {"name": "scope test"},
+        "add_to_collection": {"collection_id": "nope", "shot_ids": [shot]},
+        "update_collection": {"collection_id": "nope", "name": "scope test"},
+        "update_collection_item": {"collection_id": "nope", "item_id": 1, "note": "scope test"},
+        "reorder_collection": {"collection_id": "nope", "item_ids": [1]},
+        "remove_from_collection": {"collection_id": "nope", "item_id": 1},
         "correct_tag": {"shot_id": shot, "field": "camera.movement", "note": "test", "add": ["handheld"]},
     }
 
 
-NEEDS = {"export_clip": "media:export", "build_package": "media:export", "correct_tag": "tags:write"}
+NEEDS = {"export_clip": "media:export", "build_package": "media:export", "correct_tag": "tags:write",
+         "create_collection": "collections:write", "add_to_collection": "collections:write",
+         "update_collection": "collections:write", "remove_from_collection": "collections:write",
+         "update_collection_item": "collections:write", "reorder_collection": "collections:write"}
 
 
 @pytest.mark.parametrize("scopes", ("none", "agent"))

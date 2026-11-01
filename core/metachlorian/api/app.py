@@ -25,7 +25,7 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
-from fastapi import Body, Depends, FastAPI, File, HTTPException, Query, Request, UploadFile
+from fastapi import BackgroundTasks, Body, Depends, FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -276,8 +276,8 @@ def create_app(settings: Settings, db: Database | None = None, start_workers: bo
 
     @app.get("/api/assets")
     def assets(q: str = "", edit_type: str | None = None, status: str | None = None, limit: int = 200, offset: int = 0,
-               folder: str | None = None, collection: str | None = None, p: Principal = Depends(principal)):
-        return lib.list_assets(p, q, edit_type, status, limit, offset, folder, collection)
+               folder: str | None = None, collection: str | None = None, sort: str = "added_desc", hide_blocked: bool = False, p: Principal = Depends(principal)):
+        return lib.list_assets(p, q, edit_type, status, limit, offset, folder, collection, sort, hide_blocked)
 
     @app.get("/api/assets/{uid}")
     def asset(uid: str, p: Principal = Depends(principal)):
@@ -295,6 +295,10 @@ def create_app(settings: Settings, db: Database | None = None, start_workers: bo
     @app.get("/api/library/stats")
     def stats(p: Principal = Depends(principal)):
         return lib.library_stats(p)
+
+    @app.get("/api/library/readiness")
+    def readiness(limit: int = 10, p: Principal = Depends(principal)):
+        return lib.library_readiness(p, limit)
 
     @app.get("/api/vocab")
     def vocab(p: Principal = Depends(principal)):
@@ -414,13 +418,24 @@ def create_app(settings: Settings, db: Database | None = None, start_workers: bo
         return FileResponse(target, filename=target.name)
 
     # ------------------------------------------------------------------ ingest and processing
+    @app.get("/api/ingest/exclusions")
+    def folder_exclusions(p: Principal = Depends(principal)):
+        return {"folders": lib.folder_exclusions(p)}
+
+    @app.post("/api/ingest/exclusions")
+    def folder_exclude(body: dict = Body(...), p: Principal = Depends(principal)):
+        return lib.exclude_folder(p, body.get("path", ""))
+
     @app.get("/api/sources")
     def sources(p: Principal = Depends(principal)):
         return {"sources": lib.sources(p)}
 
     @app.post("/api/sources")
-    def source_add(body: dict = Body(...), p: Principal = Depends(principal)):
-        return lib.add_source(p, body["uri"], body.get("watch", True), body.get("scan", True))
+    def source_add(tasks: BackgroundTasks, body: dict = Body(...), p: Principal = Depends(principal)):
+        result = lib.add_source(p, body["uri"], body.get("watch", True), scan=False)
+        if body.get("scan", True):
+            result["scan"] = lib.request_scan(p, result["id"], tasks)
+        return result
 
     @app.delete("/api/sources/{sid}")
     def source_del(sid: int, p: Principal = Depends(principal)):
@@ -428,8 +443,8 @@ def create_app(settings: Settings, db: Database | None = None, start_workers: bo
         return {"ok": True}
 
     @app.post("/api/sources/{sid}/scan")
-    def source_scan(sid: int, p: Principal = Depends(principal)):
-        return lib.scan(p, sid)
+    def source_scan(sid: int, tasks: BackgroundTasks, p: Principal = Depends(principal)):
+        return lib.request_scan(p, sid, tasks)
 
     @app.post("/api/upload")
     async def upload(file: UploadFile = File(...), p: Principal = Depends(principal)):
@@ -503,8 +518,9 @@ def create_app(settings: Settings, db: Database | None = None, start_workers: bo
         return lib.import_action(p, import_id, "forget")
 
     @app.get("/api/processing")
-    def processing(p: Principal = Depends(principal)):
-        return lib.processing(p)
+    def processing(limit: int = Query(200, ge=1, le=200), offset: int = Query(0, ge=0),
+                   q: str = "", p: Principal = Depends(principal)):
+        return lib.processing(p, limit, offset, q)
 
     @app.post("/api/processing/retry")
     def retry(p: Principal = Depends(principal)):

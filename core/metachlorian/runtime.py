@@ -42,19 +42,20 @@ def _worker_main(data_dir: str, resources: tuple[str, ...], stop_evt) -> None:
 
 def _watch(settings: Settings, stop: threading.Event) -> None:
     """Rescan watch folders on file changes (debounced) and every 10 minutes."""
-    from .ingest.scan import scan_source
+    from .ingest.scan import scan_source, scan_status
     from .pipeline import plan_asset
 
     db = Database(settings.db_path)
 
     def rescan(only: set[int] | None = None) -> None:
-        for s in db.q("SELECT id, kind FROM sources WHERE watch=1"):
+        for s in db.q("SELECT id, kind, watch FROM sources"):
+            if not s["watch"] and scan_status(db, s["id"]).get("state") not in ("queued", "discovering", "registering"):
+                continue
             if only is not None and s["id"] not in only:
                 continue
             try:
-                res = scan_source(db, s["id"], settings.data_dir / "cache" / "s3")
-                for aid in res.asset_ids or []:
-                    plan_asset(db, settings, aid)
+                scan_source(db, s["id"], settings.data_dir / "cache" / "s3",
+                            on_asset=lambda aid: plan_asset(db, settings, aid))
             except Exception:
                 log.exception("scan of source %s failed", s["id"])
 

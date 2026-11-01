@@ -34,6 +34,15 @@ export function filesPending(assets: ProcessingAsset[], analyser: string): numbe
 
 /** Step states for a queue row from its counts, running and failed jobs (approximate between polls). */
 export function stepStates(a: ProcessingAsset, available: AnalyserInfo[], running: QueueJob[], failed: QueueJob[]): StepState[] {
+  if (a.steps) {
+    return STEPS.map((step) => {
+      const states = step.analysers.filter((name) => available.some((x) => x.name === name)).map((name) => a.steps?.[name])
+      if (states.includes('failed')) return 'failed'
+      if (states.includes('running')) return 'active'
+      if (states.length && states.every((state) => state === 'done' || state === 'unavailable')) return 'done'
+      return 'waiting'
+    })
+  }
   const order = available.filter((x) => x.available).map((x) => x.name)
   if (a.status === 'updating') {
     // Analysed and searchable: steps stay done except the ones being refreshed.

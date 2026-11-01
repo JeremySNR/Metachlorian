@@ -217,6 +217,7 @@ export interface SearchFilters {
 export type TermMap = Record<string, string[]>
 
 export interface SearchRequest {
+  sort?: 'relevance' | 'captured_desc' | 'captured_asc'
   q?: string
   filters?: SearchFilters
   require?: TermMap
@@ -326,6 +327,10 @@ export interface TechnicalSummary {
   gps: unknown
   audio_channels: number | null
   log_profile?: boolean
+  log_profile_name?: string | null
+  log_profile_source?: 'metadata' | 'metadata_hint' | 'image_estimate' | null
+  log_profile_evidence?: { field: string; value: string } | null
+  capture_color_gamut?: string | null
   log_confidence?: number
 }
 
@@ -502,6 +507,7 @@ export interface AssetDoc {
 }
 
 export interface AssetListItem {
+  preview_ready?: boolean
   uid: Uid
   filename: string
   path: string
@@ -685,6 +691,26 @@ export interface Source {
   last_scan: number | null
   created_at: number
   assets: number
+  scan?: SourceScan
+}
+
+export interface SourceScan {
+  state?: 'queued' | 'discovering' | 'registering' | 'completed' | 'completed_with_errors' | 'failed'
+  directories?: number
+  found?: number
+  processed?: number
+  added?: number
+  changed?: number
+  unchanged?: number
+  duplicates?: number
+  missing?: number
+  errors?: number
+  issues?: string[]
+  current_path?: string
+  bytes_read?: number
+  file_bytes?: number
+  updated_at?: number
+  finished_at?: number
 }
 
 export interface QueueJob {
@@ -699,8 +725,10 @@ export interface QueueJob {
 }
 
 export interface ProcessingAsset {
+  steps?: Record<string, string>
   uid: Uid
   filename: string
+  path?: string
   status: string
   duration: number | null
   priority: number
@@ -724,6 +752,10 @@ export interface AnalyserInfo {
 }
 
 export interface Processing {
+  total?: number
+  offset?: number
+  limit?: number
+  library_path?: string
   queue: {
     by_status: Record<string, number>
     by_analyser: Record<string, Record<string, number>>

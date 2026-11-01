@@ -64,7 +64,6 @@ def _ratio(s: str | None) -> float | None:
 _ISO6709 = re.compile(r"([+-]\d+(?:\.\d+)?)([+-]\d+(?:\.\d+)?)([+-]\d+(?:\.\d+)?)?")
 
 HDR_TRANSFERS = {"smpte2084": "PQ (HDR10)", "arib-std-b67": "HLG"}
-LOG_HINTS = ("log", "slog", "s-log", "clog", "c-log", "vlog", "v-log", "flog", "f-log", "nlog", "n-log", "logc", "apple log", "dlog", "d-log", "hlg")
 
 
 def technical_metadata(path: str | Path) -> dict[str, Any]:
@@ -147,10 +146,9 @@ def technical_metadata(path: str | Path) -> dict[str, Any]:
     out.update({"camera_make": make, "camera_model": model, "lens": lens, "capture_date": created, "gps": gps,
                 "encoder": tags.get("encoder") or tags.get("handler_name")})
     out.update(_exiftool(path))
-    # Log/flat profile hint from metadata only; image statistics refine it later.
-    hint_src = " ".join(str(x) for x in (tags.get("com.apple.quicktime.camera.identifier"), tags.get("gamma"), tags.get("comment"), transfer, out.get("video_profile")) if x).lower()
-    out["log_hint"] = next((h for h in LOG_HINTS if h != "hlg" and h in hint_src), None)
     out["tags"] = {k: v_ for k, v_ in tags.items() if len(str(v_)) < 200}
+    from .profiles import capture_profile
+    out.update(capture_profile(out))
     if out.get("hdr"):
         out["max_luminance"] = hdr_peak_nits(path)
     return out
@@ -175,8 +173,9 @@ def _exiftool(path: str | Path) -> dict[str, Any]:
     if not exe:
         return {}
     try:
-        p = subprocess.run([exe, "-j", "-n", "-Make", "-Model", "-LensModel", "-LensID", "-FocalLength", "-GPSLatitude", "-GPSLongitude",
-                            "-CreateDate", "-DateTimeOriginal", "-GammaCurve", "-CaptureGammaEquation", "-ColorPrimaries", str(path)],
+        p = subprocess.run([exe, "-j", "-Make", "-Model", "-LensModel", "-LensID", "-FocalLength#", "-GPSLatitude#", "-GPSLongitude#",
+                            "-CreateDate", "-DateTimeOriginal", "-GammaCurve", "-CaptureGammaEquation", "-Gamma",
+                            "-CaptureColorPrimaries", "-ColorPrimaries", "-ColorSpace", str(path)],
                            capture_output=True, timeout=60)
         d = json.loads(p.stdout or b"[{}]")[0]
     except Exception:
@@ -194,9 +193,12 @@ def _exiftool(path: str | Path) -> dict[str, Any]:
         out["gps"] = {"lat": d["GPSLatitude"], "lon": d["GPSLongitude"], "alt": None}
     if d.get("DateTimeOriginal") or d.get("CreateDate"):
         out["capture_date"] = d.get("DateTimeOriginal") or d.get("CreateDate")
-    gamma = (str(d.get("GammaCurve") or "") + " " + str(d.get("CaptureGammaEquation") or "")).strip()
+    gamma = " ".join(str(d[k]) for k in ("GammaCurve", "CaptureGammaEquation", "Gamma") if d.get(k))
     if gamma:
         out["gamma"] = gamma
+    gamut = d.get("CaptureColorPrimaries") or d.get("ColorPrimaries") or d.get("ColorSpace")
+    if gamut is not None:
+        out["capture_color_gamut"] = str(gamut)
     return out
 
 
@@ -437,7 +439,8 @@ def make_sprites(src: str | Path, out_dir: str | Path, duration: float, interval
     for old in out_dir.glob("sprite_*.jpg"):
         old.unlink()
     vf = (f"fps=1/{interval},scale={tile_w}:{tile_h}:force_original_aspect_ratio=decrease:flags=area,"
-          f"pad={tile_w}:{tile_h}:(ow-iw)/2:(oh-ih)/2:color=black,tile={cols}x{rows}")
+          f"pad={tile_w}:{tile_h}:(ow-iw)/2:(oh-ih)/2:color=black,tile={cols}x{rows},"
+          "scale=in_range=tv:out_range=pc,format=yuvj420p,setparams=range=pc")
     run([ffmpeg_bin(), "-y", "-v", "error", "-i", str(src), "-vf", vf, "-q:v", "5", str(out_dir / "sprite_%03d.jpg")])
     sheets = sorted(p.name for p in out_dir.glob("sprite_*.jpg"))
     return SpriteInfo(interval=interval, tile_w=tile_w, tile_h=tile_h, cols=cols, rows=rows,

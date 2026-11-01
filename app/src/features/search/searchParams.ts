@@ -25,6 +25,7 @@ export interface SearchParams {
   similar?: string
   assets?: string
   group?: 'files'
+  sort?: 'relevance' | 'captured_desc' | 'captured_asc'
   /** Search scope: only footage in these folders (name, relative or absolute path). */
   folder?: string[]
   /** Search scope: only shots in these collections (uid or name). */
@@ -83,6 +84,7 @@ export function validateSearch(raw: Record<string, unknown>): SearchParams {
     if (v) p[k] = v
   }
   if (raw.group === 'files') p.group = 'files'
+  if (raw.sort === 'relevance' || raw.sort === 'captured_desc' || raw.sort === 'captured_asc') p.sort = raw.sort
   if (raw.blocked === 'show') p.blocked = 'show'
   if (raw.strict === 'loose' || raw.strict === 'strict') p.strict = raw.strict
   return p
@@ -150,6 +152,7 @@ export function hasUse(p: SearchParams): boolean {
 /** The request body the core receives for these params. */
 export function toRequest(p: SearchParams): SearchRequest {
   const req: SearchRequest = { q: p.q ?? '' }
+  if (p.sort) req.sort = p.sort
   if (p.req) req.require = p.req
   if (p.exc) req.exclude = p.exc
   if (p.f || hasScope(scopeOf(p))) req.filters = { ...(p.f ?? {}), ...(p.folder?.length ? { folder: p.folder } : {}), ...(p.collection?.length ? { collection: p.collection } : {}) }
