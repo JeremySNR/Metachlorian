@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, Outlet, useNavigate } from '@tanstack/react-router'
+import { Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-router'
 import { TooltipTrigger, Focusable } from 'react-aria-components'
 import { Camera, CircleHelp, Globe, HardDrive, Layers, Library, Menu as MenuIcon, ScanFace, Search, Settings, ShieldCheck, type LucideIcon } from 'lucide-react'
 import { IconButton } from '../../components/Button'
@@ -50,6 +50,7 @@ function cycleLandmark(back: boolean) {
 
 export function AppShell() {
   const navigate = useNavigate()
+  const inPhotos = useRouterState({ select: state => state.location.pathname === '/photos' })
   const set = useUi((u) => u.set)
   const [dropTarget, setDropTarget] = useState(false)
   const collections = useCollections()
@@ -200,10 +201,11 @@ export function AppShell() {
           ))}
         </nav>
         )}
-        <div className={s.searchSlot}>
-          <SearchBar />
+        <div className={s.searchSlot} data-photos={inPhotos || undefined}>
+          {!inPhotos ? <SearchBar /> : null}
         </div>
         <div className={s.end}>
+          {inPhotos ? <IconButton icon={Search} label="Search videos" onPress={() => navigate({ to: '/search' })} /> : null}
           <EgressIndicator />
           <IconButton icon={CircleHelp} label="Keyboard shortcuts" shortcut="?" onPress={() => set({ shortcutsOpen: true })} />
           <Link to="/settings/$section" params={{ section: 'appearance' }} aria-label="Settings" className={s.navLink} style={{ marginBlock: 0, blockSize: 'var(--control-md)' }}>

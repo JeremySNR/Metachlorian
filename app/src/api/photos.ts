@@ -61,7 +61,7 @@ export type PhotoJob = {
     processed?: number; total?: number; unavailable?: number; collection?: string
     current_model?: string; downloaded_bytes?: number; total_bytes?: number
     sessions?: PhotoSession[]; accepted?: { photo_id: string; session_id: string }[]
-    session_id?: string; photo_id?: string; revision?: string
+    session_id?: string; photo_id?: string; source_photo_id?: string; revision?: string
   }
 }
 type PhotoResults = { results: Photo[]; total: number; next_cursor: string | null; semantic_available: boolean }
