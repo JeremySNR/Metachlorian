@@ -6,6 +6,14 @@ image tags are on the [releases page](https://github.com/JeremySNR/Metachlorian/
 This project uses [semantic versioning](https://semver.org/), loosely: while
 still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
 
+## [Unreleased]
+
+### Added
+
+- Photos preview: index folders or Lightroom Classic catalogues in place, search image content and named people, compare bursts, and inspect image/detail previews through the app and MCP. Preview storage is bounded at 256 MiB by default.
+- A bundled Lightroom Classic connector for recoverable virtual-copy editing, fresh render review and saved selections. Scoped jobs use revisions, idempotency receipts and recovery snapshots. Initial editing target: Classic 15.6; real Mac/Windows certification remains pending.
+- Photo-only model setup, local RAW/HEIC decoders, shared photo/video people and collections, and reproducible storage/retrieval and blind-preference benchmark tools.
+
 ## [0.2.0] - 2026-11-01
 
 ### Added

@@ -15,7 +15,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Iterator
 
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 
 MIGRATIONS: list[str] = [
     # ---------------------------------------------------------------- v1
@@ -407,6 +407,11 @@ MIGRATIONS: list[str] = [
 ]
 
 
+from .photos.schema import MIGRATION as PHOTO_MIGRATION
+
+MIGRATIONS.append(PHOTO_MIGRATION)
+
+
 def dumps(v: Any) -> str:
     return json.dumps(v, separators=(",", ":"), ensure_ascii=False, default=_json_default)
 
@@ -503,10 +508,23 @@ class Database:
         row = conn.execute("SELECT value FROM meta WHERE key='schema_version'").fetchone()
         current = int(row[0]) if row else 0
         for i in range(current, len(MIGRATIONS)):
-            with self.tx() as c:
-                for stmt in _split_sql(MIGRATIONS[i]):
-                    c.execute(stmt)
-                c.execute("INSERT OR REPLACE INTO meta(key, value) VALUES('schema_version', ?)", (str(i + 1),))
+            # v8 rebuilds assets to represent offline catalogue files honestly.
+            # Disable FK actions outside the transaction so dropping the old
+            # parent cannot cascade into an existing video library. Validate
+            # every relationship before committing the replacement table.
+            rebuild = i == 7
+            if rebuild:
+                conn.execute("PRAGMA foreign_keys=OFF")
+            try:
+                with self.tx() as c:
+                    for stmt in _split_sql(MIGRATIONS[i]):
+                        c.execute(stmt)
+                    if rebuild and c.execute("PRAGMA foreign_key_check").fetchone():
+                        raise sqlite3.IntegrityError("photo migration failed foreign key validation")
+                    c.execute("INSERT OR REPLACE INTO meta(key, value) VALUES('schema_version', ?)", (str(i + 1),))
+            finally:
+                if rebuild:
+                    conn.execute("PRAGMA foreign_keys=ON")
         # Keep planner statistics fresh (sampled, so this stays fast on large libraries).
         conn.execute("PRAGMA analysis_limit=1000")
         conn.execute("PRAGMA optimize")

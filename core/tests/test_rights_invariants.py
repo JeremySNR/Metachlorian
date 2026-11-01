@@ -361,6 +361,17 @@ def _tool_args(m) -> dict[str, dict]:
         "reorder_collection": {"collection_id": "nope", "item_ids": [1]},
         "remove_from_collection": {"collection_id": "nope", "item_id": 1},
         "correct_tag": {"shot_id": shot, "field": "camera.movement", "note": "test", "add": ["handheld"]},
+        "search_photos": {"query": ""},
+        "get_photo": {"photo_id": "photo"},
+        "get_photo_previews": {"photo_ids": ["photo"]},
+        "get_photo_edit_context": {"photo_id": "photo"},
+        "begin_photo_edits": {"photo_ids": ["photo"], "expected_revisions": {"photo": "rev"}, "idempotency_key": "begin"},
+        "apply_photo_edit": {"session_id": "session", "expected_revision": "rev", "operations": [{"op": "settings", "values": {"Exposure2012": 0}}], "idempotency_key": "apply"},
+        "restore_photo_edit": {"session_id": "session", "snapshot_id": "baseline", "expected_revision": "rev", "idempotency_key": "restore"},
+        "finish_photo_edits": {"selections": [{"session_id": "session", "reviewed_revision": "rev"}], "collection": "Family", "idempotency_key": "finish"},
+        "get_photo_job": {"job_id": "job"},
+        "resume_photo_job": {"job_id": "job"},
+        "cancel_photo_job": {"job_id": "job"},
     }
 
 
@@ -368,6 +379,7 @@ NEEDS = {"export_clip": "media:export", "build_package": "media:export", "correc
          "create_collection": "collections:write", "add_to_collection": "collections:write",
          "update_collection": "collections:write", "remove_from_collection": "collections:write",
          "update_collection_item": "collections:write", "reorder_collection": "collections:write"}
+NEEDS.update({name: 'photos:edit' for name in ('begin_photo_edits', 'apply_photo_edit', 'restore_photo_edit', 'finish_photo_edits')})
 
 
 @pytest.mark.parametrize("scopes", ("none", "agent"))

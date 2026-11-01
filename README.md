@@ -95,6 +95,8 @@ running video analysis again for each search. Reprocessing is available when mod
 
 ## Connect your agent (MCP)
 
+**Photos and Lightroom Classic (preview):** open **Photos** to index a catalogue or folder without copying originals, compare images and let Codex edit recoverable virtual copies in Lightroom. A photo-only model pack and bounded 256 MiB preview cache keep storage predictable. See [setup, capabilities and validation status](docs/photos.md).
+
 Start the server, create a token in **Settings → Agents** (or `metachlorian token my-agent`), then add it to your MCP
 client:
 

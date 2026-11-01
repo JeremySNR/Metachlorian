@@ -71,6 +71,9 @@ def create_app(settings: Settings, db: Database | None = None, start_workers: bo
 
     @contextlib.asynccontextmanager
     async def lifespan(app: FastAPI):
+        if start_workers and settings.photos_enabled:
+            lib.photos.jobs.start()
+            threading.Thread(target=lib.photos.searcher.warm, name='photo-search-warm', daemon=True).start()
         if start_workers:
             from ..runtime import start_background
 
@@ -87,6 +90,9 @@ def create_app(settings: Settings, db: Database | None = None, start_workers: bo
         if background.get("stop"):
             background["stop"]()
         lib.engine.vectors.save_all()
+        if lib._photos is not None:
+            lib.photos.jobs.stop()
+            lib.photos.bridge.close()
 
     app = FastAPI(title="Metachlorian", version=__version__, lifespan=lifespan, docs_url="/api/docs", openapi_url="/api/openapi.json")
     app.state.lib = lib
@@ -167,6 +173,19 @@ def create_app(settings: Settings, db: Database | None = None, start_workers: bo
     @app.exception_handler(ValueError)
     async def _bad(request: Request, exc: ValueError):
         return JSONResponse({"detail": str(exc)}, status_code=400)
+
+    from ..photos.api import router as photo_router
+    from ..photos.errors import PhotoConflict, LightroomUnavailable
+
+    @app.exception_handler(PhotoConflict)
+    async def _photo_conflict(request: Request, exc: PhotoConflict):
+        return JSONResponse({'detail': str(exc)}, status_code=409)
+
+    @app.exception_handler(LightroomUnavailable)
+    async def _lightroom_unavailable(request: Request, exc: LightroomUnavailable):
+        return JSONResponse({'detail': str(exc)}, status_code=503)
+
+    app.include_router(photo_router(lib, principal))
 
     @app.exception_handler(KeyError)
     async def _key(request: Request, exc: KeyError):

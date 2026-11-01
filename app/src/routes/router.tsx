@@ -79,6 +79,12 @@ export const personRoute = createRoute({
 })
 
 export const ingestRoute = createRoute({ getParentRoute: () => rootRoute, path: '/ingest', component: lazyRouteComponent(() => import('../features/ingest/IngestPage'), 'IngestPage') })
+export const photosRoute = createRoute({ getParentRoute: () => rootRoute, path: '/photos',
+  validateSearch: (raw: Record<string, unknown>): { person_id?: number; photo_collection?: string } => ({
+    person_id: Number.isInteger(Number(raw.person_id)) && Number(raw.person_id) > 0 ? Number(raw.person_id) : undefined,
+    photo_collection: typeof raw.photo_collection === 'string' ? raw.photo_collection : undefined,
+  }),
+  component: lazyRouteComponent(() => import('../features/photos/PhotosPage'), 'PhotosPage') })
 
 const communityRoute = createRoute({ getParentRoute: () => rootRoute, path: '/community', component: lazyRouteComponent(() => import('../features/community/CommunityPage'), 'CommunityPage') })
 
@@ -96,7 +102,7 @@ export const settingsRoute = createRoute({
 })
 
 const routeTree = rootRoute.addChildren([
-  indexRoute, searchRoute, shotRoute, fileRoute, collectionsRoute, collectionRoute, libraryRoute, foldersRoute, correctionsRoute, rightsRoute, peopleRoute, personRoute, ingestRoute, communityRoute, settingsIndex, settingsRoute,
+  indexRoute, searchRoute, shotRoute, fileRoute, collectionsRoute, collectionRoute, libraryRoute, foldersRoute, correctionsRoute, rightsRoute, peopleRoute, personRoute, ingestRoute, photosRoute, communityRoute, settingsIndex, settingsRoute,
 ])
 
 export const router = createRouter({ routeTree, defaultPreload: 'intent', scrollRestoration: false, stringifySearch })

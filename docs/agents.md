@@ -167,3 +167,7 @@ is rendered, so nothing is left in the export folder. Only packages download as 
 
 A tool that cannot do what was asked returns an MCP tool error (`isError: true`) whose text starts with the reason's type,
 for example `Forbidden: 'bot' (agent) lacks the 'media:export' scope` or `NotFound: no asset …`. Results are only ever data.
+
+## Photo tools
+
+The same MCP endpoint also exposes photo search, image previews, editing context and resumable Lightroom Classic jobs. `library:read` permits searching and inspection; `photos:edit` permits owned virtual-copy edits; delivery also requires `collections:write`. Tools and the complete visual-review protocol are documented in [Photos and Lightroom Classic](photos.md#connect-codex). Read `metachlorian://photos/editing-guide` for photographic guidance and check runtime capabilities before editing. Real Lightroom platform certification is still pending for this preview release.

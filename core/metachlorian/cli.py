@@ -178,7 +178,7 @@ def cmd_models(args) -> None:
         for m in models.status(root):
             print(f"{'✓' if m['installed'] else '·'} {m['name']:28s} {m['licence']:12s} {m['size_mb']:>6} MB  {m['purpose']}")
     elif args.action == "fetch":
-        names = args.names or [n for n, sp in models.SPECS.items() if sp.default]
+        names = args.names or models.pack(args.pack)
         if args.json:
             # One JSON object per line, for the desktop app's first-run setup screen.
             def emit(**event):
@@ -284,6 +284,7 @@ def main(argv: list[str] | None = None) -> None:
     sp.add_argument("action", choices=["list", "fetch", "install-from"])
     sp.add_argument("names", nargs="*")
     sp.add_argument("--json", action="store_true", help="fetch: report progress as JSON lines")
+    sp.add_argument("--pack", choices=["default", "photos"], default="default", help="photos: visual models only; no audio downloads")
     sp.set_defaults(fn=cmd_models)
     args = ap.parse_args(argv)
     logging.basicConfig(level=os.environ.get("METACHLORIAN_LOG", "WARNING"))

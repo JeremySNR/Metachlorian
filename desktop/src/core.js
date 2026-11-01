@@ -71,10 +71,11 @@ function runCore(core, args) {
 
 // First-run setup: download any missing analysis models, reporting progress.
 // onEvent receives the JSON events of `metachlorian models fetch --json` (plan, start, progress, done, complete).
-function ensureModels({ resourcesPath, dataDir, onEvent, onLog } = {}) {
+function ensureModels({ resourcesPath, dataDir, onEvent, onLog, pack = 'default' } = {}) {
+  if (!['default', 'photos'].includes(pack)) throw new Error('Unknown model pack');
   const core = findCoreCommand(resourcesPath);
   const args = dataDir ? ['--data', dataDir] : [];
-  const child = runCore(core, [...args, 'models', 'fetch', '--json']);
+  const child = runCore(core, [...args, 'models', 'fetch', '--pack', pack, '--json']);
   let buf = '';
   let failure = null;
   child.stdout.on('data', (d) => {

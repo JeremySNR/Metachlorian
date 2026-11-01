@@ -73,7 +73,8 @@ def _err(e: Exception) -> NoReturn:
 
 
 def build_server(lib: Library) -> MCPServer:
-    server = MCPServer(name="metachlorian", title="Metachlorian: footage search for AI video editors", instructions=INSTRUCTIONS,
+    from ..photos.mcp import INSTRUCTIONS as PHOTO_INSTRUCTIONS, register as register_photos
+    server = MCPServer(name="metachlorian", title="Metachlorian: photo and footage library for AI editors", instructions=INSTRUCTIONS + PHOTO_INSTRUCTIONS,
                        version=__import__("metachlorian").__version__)
 
     def call(ctx: Context | None, fn, *a, **kw):
@@ -418,6 +419,7 @@ def build_server(lib: Library) -> MCPServer:
 
         return json.dumps(registry().get(name).as_dict())
 
+    register_photos(server, lib, _principal, RO, EXPORT)
     return server
 
 

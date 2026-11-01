@@ -28,8 +28,18 @@ async function connect() {
     return s.serverUrl;
   }
   const opts = { resourcesPath: process.resourcesPath, dataDir: process.env.METACHLORIAN_DATA, onLog: (l) => process.stdout.write(l) };
-  // First launch downloads the analysis models (~1.9 GB, once); later launches find them and continue at once.
-  if (!process.env.METACHLORIAN_SKIP_MODEL_SETUP) await ensureModels({ ...opts, onEvent: showSetupProgress });
+  if (!process.env.METACHLORIAN_SKIP_MODEL_SETUP) {
+    if (!s.modelPack) {
+      const choice = await dialog.showMessageBox(win, {
+        type: 'question', title: 'Set up your library', message: 'What will you use Metachlorian for?',
+        detail: 'Photos downloads the visual search and face models only. Video and photos also includes speech and audio models. Existing downloads are reused.',
+        buttons: ['Video and photos', 'Photos', 'Metadata only'], defaultId: 0, cancelId: 2,
+      });
+      s.modelPack = ['default', 'photos', 'none'][choice.response];
+      saveSettings(s);
+    }
+    if (s.modelPack !== 'none') await ensureModels({ ...opts, pack: s.modelPack, onEvent: showSetupProgress });
+  }
   setStatus({ title: 'Starting Metachlorian…' });
   core = await startSoloCore(opts);
   return core.baseUrl;
@@ -95,7 +105,7 @@ function showSetupProgress(ev) {
   }
   setStatus({
     title: 'Setting up Metachlorian',
-    detail: 'Downloading the models that watch and listen to your footage. This happens once and everything then runs on this computer.',
+    detail: 'Downloading your selected local models. Existing downloads are reused; analysis runs on this computer.',
     progress: total ? Math.min(1, got / total) : 0,
     note: `${gb(got)} of ${gb(total)}`,
   });

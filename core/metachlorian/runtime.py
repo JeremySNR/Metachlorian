@@ -144,7 +144,8 @@ def start_background(settings: Settings) -> dict[str, Any]:
 def save_settings(settings: Settings, changes: dict[str, Any]) -> None:
     """Apply admin changes and persist them to <data_dir>/config.toml."""
     editable = {"workers", "proxy_height", "sprite_interval", "max_segment_s", "allow_remote", "logging_context", "face_identity", "vlm", "llm", "require_auth",
-                "import_cookies_browser", "import_max_height", "ytdlp_path", "raw_decoders", "community_enabled", "community_url"}
+                "import_cookies_browser", "import_max_height", "ytdlp_path", "raw_decoders", "community_enabled", "community_url",
+                "photos_enabled", "photo_cache_mib", "lightroom_request_port", "lightroom_response_port"}
     for k, v in changes.items():
         if k not in editable:
             raise ValueError(f"'{k}' cannot be changed here")
@@ -184,9 +185,15 @@ def _validate_setting(settings: Settings, k: str, v: Any, changes: dict[str, Any
     if k == "logging_context":
         if not isinstance(v, str) or len(v) > 600 or "\n" in v or "\r" in v:
             raise ValueError("logging_context must be a single line of text up to 600 characters")
-    elif k == "community_enabled":
+    elif k in ("community_enabled", "photos_enabled"):
         if not isinstance(v, bool):
-            raise ValueError("community_enabled must be true or false")
+            raise ValueError(f"{k} must be true or false")
+    elif k == "photo_cache_mib":
+        if type(v) is not int or not 16 <= v <= 4096:
+            raise ValueError("photo_cache_mib must be an integer between 16 and 4096")
+    elif k in ("lightroom_request_port", "lightroom_response_port"):
+        if type(v) is not int or not 1024 <= v <= 65535:
+            raise ValueError("Lightroom port must be an integer between 1024 and 65535")
     elif k == "community_url":
         from .community.protocol import validate_endpoint
 

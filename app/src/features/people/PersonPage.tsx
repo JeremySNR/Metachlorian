@@ -92,11 +92,13 @@ export function PersonPage() {
               )}
               <p className={s.counts}>
                 {plural(summary.faces, 'face')} · {plural(summary.shots, 'shot')} · {plural(summary.files, 'file')}
+                {d.photo_count ? ` · ${plural(d.photo_count, 'photograph')}` : ''}
                 {d.name && d.named_by ? ` · named by ${d.named_by === 'local' ? 'you' : d.named_by}` : ''}
               </p>
             </div>
           </div>
           <div className={s.actions}>
+            {d.photo_count ? <Button variant="primary" icon={Search} onPress={() => navigate({ to: '/photos', search: { person_id: d.id } })}>Find photographs with this person</Button> : null}
             <Button variant="primary" icon={Search} onPress={() => findShots(d)}>
               Find shots with this person
             </Button>
