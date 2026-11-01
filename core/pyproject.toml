@@ -1,6 +1,6 @@
 [project]
 name = "metachlorian"
-version = "0.2.0"
+version = "0.3.0"
 description = "Local video and photo understanding, search, Lightroom editing, REST API and MCP server."
 readme = "README.md"
 license = "Apache-2.0"

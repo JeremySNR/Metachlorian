@@ -7,7 +7,7 @@
 <p align="center">
   <strong>Free, open-source video and photo search for your own library.</strong><br>
   Find B-roll, search spoken words, and connect an AI agent through MCP.<br>
-  New in source: photo selection and Lightroom Classic editing on virtual copies.
+  New in v0.3.0: photo selection and Lightroom Classic editing on virtual copies.
 </p>
 
 <p align="center">
@@ -44,13 +44,13 @@ The desktop app bundles Python, the Metachlorian engine, FFmpeg and the web app.
 | Windows | macOS | Linux |
 | :---: | :---: | :---: |
 | **x64** | **Apple Silicon** | **x64** |
-| [**Download .exe**](https://github.com/JeremySNR/Metachlorian/releases/download/v0.2.0/Metachlorian-Setup-0.2.0.exe) | [**Download .dmg**](https://github.com/JeremySNR/Metachlorian/releases/download/v0.2.0/Metachlorian-0.2.0-arm64.dmg) | [**Download AppImage**](https://github.com/JeremySNR/Metachlorian/releases/download/v0.2.0/Metachlorian-0.2.0.AppImage) |
+| [**Download .exe**](https://github.com/JeremySNR/Metachlorian/releases/download/v0.3.0/Metachlorian-Setup-0.3.0.exe) | [**Download .dmg**](https://github.com/JeremySNR/Metachlorian/releases/download/v0.3.0/Metachlorian-0.3.0-arm64.dmg) | [**Download AppImage**](https://github.com/JeremySNR/Metachlorian/releases/download/v0.3.0/Metachlorian-0.3.0.AppImage) |
 
-**Current installers: v0.2.0.** [Release notes and all downloads](https://github.com/JeremySNR/Metachlorian/releases/latest)
+**Current installers: v0.3.0.** [Release notes and all downloads](https://github.com/JeremySNR/Metachlorian/releases/latest)
 · [Docker and source installation](#quick-start)
 
-The **Photos and Lightroom Classic preview** is available from the current source checkout; it is **not included in
-the v0.2.0 installers**. Follow the [photo setup guide](docs/photos.md#start) to try it.
+The **Photos and Lightroom Classic preview** is included in the **v0.3.0 installers**. Open **Photos → Enable Photos**
+and follow the [photo setup guide](docs/photos.md#start). Lightroom itself still needs live platform certification.
 
 The first launch downloads about **1.7 GB of analysis models**, once. Local analysis needs no paid API key; processing
 time depends on your hardware and footage. Windows builds are unsigned; macOS builds are ad-hoc signed and not notarised.
@@ -129,7 +129,7 @@ Adobe AI data can grow Lightroom's catalogue. This avoids copying your photo lib
 Photo analysis runs locally. Previews requested through MCP are sent to your chosen agent, which may be hosted.
 Editing needs the `photos:edit` token scope; read-only agents can search and inspect.
 
-**Availability:** enable Photos in a current source build. Global Lightroom edits are enabled for **Classic 14.2–15.6**, on the same
+**Availability:** enable Photos in v0.3.0 or later, using a desktop installer or source build. Global Lightroom edits are enabled for **Classic 14.2–15.6**, on the same
 computer and OS account as Metachlorian; AI masks require 15.6. Live macOS/Windows Lightroom certification and real-photo preference evaluation
 are still pending. Advanced operations such as Generative Remove, Lens Blur, Enhance/Denoise and complex mask geometry
 require a manual handoff. Smart Previews cannot establish original-resolution eye focus or RAW highlight recovery.

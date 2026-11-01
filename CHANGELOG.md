@@ -6,17 +6,41 @@ image tags are on the [releases page](https://github.com/JeremySNR/Metachlorian/
 This project uses [semantic versioning](https://semver.org/), loosely: while
 still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
 
-## [Unreleased]
+## [0.3.0] - 2026-11-01
+
+Photos and the Lightroom Classic editing preview are now included in the desktop installers. Open **Photos → Enable Photos** to get started.
 
 ### Added
 
-- Photos opens to the gallery after import, with compact connection status, separate Library/Edits/Activity views, adjustable thumbnails and a persistent selection bar. Setup and model/storage details open on demand. Create edit brief copies selected photo references and a Natural, Warm film or Black & white starting point to your agent; Edits reviews rendered virtual copies alongside their sources. Photo search shortcuts stay within Photos.
-- Photos now uses independently scrolling library and inspector panes, persistent previous/next navigation, a large preview, and Overview/Analysis/People/Metadata views. Analysis exposes measured exposure, focus, framing and actual model coverage with explicit limitations.
-- Guided Photos setup with verified Lightroom connection status, actionable errors, Codex configuration, selection briefs and a dedicated Activity view. The plug-in shows authenticated requests and its version; copied files are distinguished from a working connection.
-- Folder-indexed files now match existing Lightroom masters by path for current settings and previews, including RAWs without a local decoder. Agents can check readiness with `get_photo_workflow_status`.
-- Photos preview: index folders or Lightroom Classic catalogues in place, search image content and named people, compare bursts, and inspect image/detail previews through the app and MCP. Preview storage is bounded at 256 MiB by default.
-- A bundled Lightroom Classic connector for recoverable virtual-copy editing, fresh render review and saved selections. Scoped jobs use revisions, idempotency receipts and recovery snapshots. Global editing range: Classic 14.2–15.6; AI masks require 15.6; real Mac/Windows certification remains pending.
-- Photo-only model setup, local RAW/HEIC decoders, shared photo/video people and collections, and reproducible storage/retrieval and blind-preference benchmark tools.
+- Index photo folders or a Lightroom Classic catalogue in place. Search photographs and named people, compare related frames, and give Codex or another MCP agent the previews and metadata it needs to choose your favourites.
+- Create recoverable edits on Lightroom virtual copies, review fresh renders, and save reviewed selections to a named collection. Snapshots and revision checks help recover interrupted edits and detect intervening changes.
+- Desktop installers include local RAW/HEIC decoders and the Lightroom connector. Photo models are available from Library details and reuse downloads already installed for video analysis.
+
+### Improved
+
+- Guided photo setup walks through choosing a source, connecting Lightroom and configuring your agent. **Check connection** shows the responding Lightroom version, catalogue and editing availability.
+- Photos opens to the gallery, with separate Library, Edits and Activity views, adjustable thumbnails and a persistent selection bar. Setup and analysis/storage details open when needed.
+- **Create edit brief** copies selected photo references and your requested look to your agent, with Natural, Warm film and Black & white starting points. These are briefs, not automatic presets.
+- The photo inspector scrolls independently, keeps previous/next navigation accessible, and explains actual exposure, focus, framing and model coverage in Overview, Analysis, People and Metadata views.
+- Edits shows a source photograph alongside its rendered virtual copy. Photo search shortcuts stay within Photos.
+
+### Fixed
+
+- Folder-indexed files match existing Lightroom masters by path for current settings and previews, including RAWs without a local decoder. Already-indexed originals do not need to be copied or re-indexed.
+- Connection and preview failures explain the next step. Copied connector files are no longer treated as proof of a working Lightroom connection, and the plug-in shows its last authenticated request.
+- The setup guide keeps its current step when the first photos arrive.
+
+### Upgrading
+
+- Install the new desktop version. If you already added the Lightroom plug-in, open **Photos → Setup & agent**, copy the connector files again, then use **Reload Plug-in** in Lightroom and **Check connection** in Metachlorian.
+- Originals stay in place. Existing libraries and shared model downloads are reused; previews have a default 256 MiB cache budget. Lightroom's own catalogue and previews use separate storage.
+
+### Validation and preview limits
+
+- The desktop package checks run on Windows, macOS (Apple Silicon) and Linux. Automated checks cover the photo service, Lua SDK doubles, TCP transport, REST/MCP, browser workflows and a synthetic 100,000-photo storage/retrieval benchmark.
+- Lightroom global controls target Classic **14.2–15.6**, checked per photograph; AI subject/sky/background masks require **15.6**. Live Lightroom certification on macOS and Windows and real-photo preference evaluation remain pending. Linux can index folders; Classic editing needs macOS or Windows on the same computer and OS account.
+- Photo analysis supplies retrieval and qualified preview measurements. The connected vision-capable agent judges the photograph and the edit; indexing does not generate a full photographic critique or guarantee a better image.
+- Windows builds remain unsigned; macOS builds are ad-hoc signed and not notarised. See the [setup guide](https://github.com/JeremySNR/Metachlorian/blob/main/docs/photos.md) for connection, storage and editing limits.
 
 ## [0.2.0] - 2026-11-01
 
