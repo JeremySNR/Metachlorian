@@ -1,6 +1,6 @@
 [project]
 name = "metachlorian"
-version = "0.1.0"
+version = "0.2.0"
 description = "Self-hostable video library that understands every shot. Headless core: ingest, analysis, search, REST API and MCP server."
 readme = "README.md"
 license = "Apache-2.0"

@@ -6,7 +6,7 @@ image tags are on the [releases page](https://github.com/JeremySNR/Metachlorian/
 This project uses [semantic versioning](https://semver.org/), loosely: while
 still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
 
-## [Unreleased]
+## [0.2.0] - 2026-11-01
 
 ### Added
 
