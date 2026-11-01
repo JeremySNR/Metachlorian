@@ -15,6 +15,7 @@ export interface DesktopInfo {
 
 export interface MetachlorianBridge {
   desktop: true
+  installMcp?: (client: 'codex' | 'claude-code', token: string) => Promise<{ ok: boolean; error?: string; path?: string }>
   info: () => Promise<DesktopInfo>
   /** Switch between this computer (solo) and a server (team). Relaunches the app. */
   setServer: (mode: 'solo' | 'team', serverUrl?: string) => Promise<{ ok: boolean; error?: string }>

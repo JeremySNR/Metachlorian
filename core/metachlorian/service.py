@@ -171,7 +171,11 @@ class Library:
     def health(self) -> dict[str, Any]:
         from . import models
 
-        return {"name": "metachlorian", "version": __version__, "auth_required": self.settings.require_auth, "photos_enabled": self.settings.photos_enabled,
+        import hashlib
+        import os
+
+        library_id = hashlib.sha256(os.path.normcase(str(self.settings.data_dir.resolve())).encode()).hexdigest()
+        return {"name": "metachlorian", "version": __version__, "library_id": library_id, "auth_required": self.settings.require_auth, "photos_enabled": self.settings.photos_enabled,
                 "egress": self.settings.egress_summary(), "vlm": bool(self.settings.vlm.enabled), "llm": bool(self.settings.llm.enabled),
                 "models": {m["name"]: m["installed"] for m in models.status(self.settings.resolved_models_dir)}}
 

@@ -5,7 +5,7 @@
 const { app, BrowserWindow, ipcMain, shell, dialog, nativeImage } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
-const { startSoloCore, ensureModels, health } = require('./core');
+const { startSoloCore, ensureModels, health, findCoreCommand, runCore } = require('./core');
 
 const settingsFile = () => path.join(app.getPath('userData'), 'settings.json');
 function loadSettings() {
@@ -27,7 +27,9 @@ async function connect() {
     if (!h) throw new Error(`Cannot reach the Metachlorian server at ${s.serverUrl}.`);
     return s.serverUrl;
   }
-  const opts = { resourcesPath: process.resourcesPath, dataDir: process.env.METACHLORIAN_DATA, onLog: (l) => process.stdout.write(l) };
+  s.dataDir = path.resolve(process.env.METACHLORIAN_DATA || s.dataDir || path.join(process.env.XDG_DATA_HOME || path.join(app.getPath('home'), '.local', 'share'), 'metachlorian'));
+  saveSettings(s);
+  const opts = { resourcesPath: process.resourcesPath, dataDir: s.dataDir, onLog: (l) => process.stdout.write(l) };
   if (!process.env.METACHLORIAN_SKIP_MODEL_SETUP) {
     if (!s.modelPack) {
       const choice = await dialog.showMessageBox(win, {
@@ -138,6 +140,29 @@ async function start() {
 }
 
 // ---------------------------------------------------------------- bridge
+ipcMain.handle('mc:installMcp', async (event, { client, token }) => {
+  // A team server or subframe must never write this computer's agent configuration.
+  if (!win || event.sender !== win.webContents || event.senderFrame !== win.webContents.mainFrame ||
+      baseUrl !== 'http://127.0.0.1:8765' || new URL(event.senderFrame.url).origin !== baseUrl ||
+      loadSettings().mode === 'team' || !['codex', 'claude-code'].includes(client) ||
+      typeof token !== 'string' || !/^mc_[A-Za-z0-9_-]+$/.test(token)) {
+    return { ok: false, error: 'Install from the local Metachlorian desktop app.' };
+  }
+  try {
+    const check = await fetch(`${baseUrl}/api/me`, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(5000) });
+    if (!check.ok) return { ok: false, error: 'This token is invalid or expired. Create a token for this library.' };
+    return await new Promise((resolve) => {
+      const child = runCore(findCoreCommand(process.resourcesPath), ['install-mcp'], true);
+      let output = '';
+      const timer = setTimeout(() => { child.kill(); resolve({ ok: false, error: 'Installation timed out. Try again.' }); }, 15000);
+      child.stdout.on('data', d => { output += String(d); });
+      child.on('error', () => { clearTimeout(timer); resolve({ ok: false, error: 'Could not start the installer.' }); });
+      child.on('close', () => { clearTimeout(timer); try { resolve(JSON.parse(output)); } catch { resolve({ ok: false, error: 'Could not install the connection.' }); } });
+      child.stdin.on('error', () => {});
+      child.stdin.end(JSON.stringify({ client, token, url: `${baseUrl}/mcp` }));
+    });
+  } catch { return { ok: false, error: 'Could not reach the local server. Try again.' }; }
+});
 ipcMain.handle('mc:retry', () => { if (!baseUrl) start(); return true; });
 ipcMain.handle('mc:info', () => ({ desktop: true, platform: process.platform, mode: loadSettings().mode, baseUrl, version: app.getVersion() }));
 ipcMain.handle('mc:setServer', async (_e, { mode, serverUrl }) => {
@@ -179,7 +204,11 @@ ipcMain.handle('mc:openInCutawan', async (_e, packagePath) => {
   return { ok: false, error: 'Cutawan was not found. Install it from https://github.com/JeremySNR/cutawan/releases' };
 });
 
+const primary = app.requestSingleInstanceLock();
+if (!primary) app.quit();
+app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
 app.whenReady().then(() => {
+  if (!primary) return;
   createWindow();
   start();
 });

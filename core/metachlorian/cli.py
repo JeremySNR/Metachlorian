@@ -160,6 +160,11 @@ def cmd_token(args) -> None:
     print(tok)
 
 
+def cmd_install_mcp(args) -> None:
+    import runpy
+    runpy.run_module("metachlorian.install_mcp", run_name="__main__")
+
+
 def cmd_mcp(args) -> None:
     from .mcp_server.server import run_stdio
     from .service import Library
@@ -279,6 +284,7 @@ def main(argv: list[str] | None = None) -> None:
     sp.add_argument("--name", default="agent")
     sp.add_argument("--scopes", help="comma-separated, e.g. library:read,media:export")
     sp.set_defaults(fn=cmd_token)
+    sub.add_parser("install-mcp", help="Install a client connection (JSON on stdin)").set_defaults(fn=cmd_install_mcp)
     sub.add_parser("mcp", help="MCP server on stdio (read-only unless METACHLORIAN_TOKEN grants more)").set_defaults(fn=cmd_mcp)
     sp = sub.add_parser("models")
     sp.add_argument("action", choices=["list", "fetch", "install-from"])
