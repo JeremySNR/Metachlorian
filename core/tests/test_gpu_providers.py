@@ -35,6 +35,24 @@ def test_older_runtime_without_preload_api_remains_supported(monkeypatch):
     assert models.ort_providers() == ['DmlExecutionProvider','CPUExecutionProvider']
 
 
+def test_accelerators_can_be_disabled_without_loading_cuda(monkeypatch):
+    monkeypatch.setenv('METACHLORIAN_ACCELERATORS', 'false')
+    monkeypatch.setitem(sys.modules, 'onnxruntime', SimpleNamespace(
+        get_available_providers=lambda: pytest.fail('CPU-only mode must not initialize accelerators')))
+    assert models.ort_providers() == ['CPUExecutionProvider']
+
+
+def test_coreml_is_opt_in(monkeypatch):
+    monkeypatch.delenv('METACHLORIAN_ACCELERATORS', raising=False)
+    monkeypatch.delenv('METACHLORIAN_COREML', raising=False)
+    monkeypatch.setitem(sys.modules, 'onnxruntime', SimpleNamespace(
+        get_available_providers=lambda: ['CoreMLExecutionProvider', 'CPUExecutionProvider']))
+    assert models.ort_providers() == ['CPUExecutionProvider']
+    models.ort_providers.cache_clear()
+    monkeypatch.setenv('METACHLORIAN_COREML', '1')
+    assert models.ort_providers() == ['CoreMLExecutionProvider', 'CPUExecutionProvider']
+
+
 def test_ocr_uses_available_cuda_provider(monkeypatch):
     from metachlorian.analysers import ocr
     ocr._engine.cache_clear()

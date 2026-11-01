@@ -5,6 +5,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('metachlorian', {
   desktop: true,
   info: () => ipcRenderer.invoke('mc:info'),
+  retry: () => ipcRenderer.invoke('mc:retry'),
   setServer: (mode, serverUrl) => ipcRenderer.invoke('mc:setServer', { mode, serverUrl }),
   startDrag: (files, icon) => ipcRenderer.send('mc:startDrag', { files, icon }),
   reveal: (filePath) => ipcRenderer.invoke('mc:reveal', filePath),

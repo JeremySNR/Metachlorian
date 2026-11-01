@@ -34,7 +34,8 @@ def test_api_keys_are_private_masked_and_fall_back_to_env(tmp_path, monkeypatch)
     assert apikeys.get(s, "openai_api_key") == "sk-proj-abcdefghijklmnop1234"
     st = apikeys.status(s)["openai_api_key"]
     assert st["from"] == "stored" and st["masked"] == "sk-pr…1234" and "abcdefgh" not in st["masked"]
-    assert stat.S_IMODE(os.stat(tmp_path / "secrets.json").st_mode) == 0o600
+    if os.name != 'nt':
+        assert stat.S_IMODE(os.stat(tmp_path / "secrets.json").st_mode) == 0o600
     with pytest.raises(ValueError):
         apikeys.put(s, "openai_api_key", "has space")
     apikeys.put(s, "openai_api_key", "")
@@ -125,10 +126,8 @@ FAKE_CODEX = textwrap.dedent('''\
 ''')
 
 
-def test_codex_adapter_uses_the_subscription_caches_and_caps(tmp_path, monkeypatch):
-    exe = tmp_path / "codex"
-    exe.write_text(FAKE_CODEX.format(python=sys.executable))
-    exe.chmod(0o755)
+def test_codex_adapter_uses_the_subscription_caches_and_caps(tmp_path, monkeypatch, python_tool):
+    exe = python_tool('codex', FAKE_CODEX.format(python=sys.executable))
     log = tmp_path / "codex.log"
     monkeypatch.setenv("FAKE_CODEX_LOG", str(log))
     monkeypatch.setenv("OPENAI_API_KEY", "sk-must-not-be-used-000000")

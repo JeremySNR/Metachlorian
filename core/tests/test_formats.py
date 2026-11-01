@@ -48,12 +48,12 @@ def test_camera_raw_needs_a_decoder_then_works_through_its_master(lib, tmp_path,
     tool = tmp_path / "braw-decode"
     tool.write_text(FAKE_DECODER.format(python=sys.executable))
     tool.chmod(0o755)
-    s.raw_decoders = {"braw": f"{tool} {{input}} {{output}}"}
+    s.raw_decoders = {"braw": f'"{sys.executable}" "{tool}" "{{input}}" "{{output}}"'}
     pipeline.plan_all(db, s)  # a new decoder changes the technical step's inputs, so it runs again
     run_all(s, db)
     a = db.q1("SELECT * FROM assets")
     tech = json.loads(a["tech"])
-    assert a["status"] == "ready" and a["local_path"].endswith("master/master.mov")
+    assert a["status"] == "ready" and a["local_path"].replace('\\', '/').endswith("master/master.mov")
     assert tech["decoded_from"]["format"] == "Blackmagic RAW" and tech["bit_depth"] >= 10 and tech["chroma"] == "4:4:4"
     assert db.q1("SELECT COUNT(*) n FROM shots WHERE asset_id=? AND active=1", (a["id"],))["n"] >= 2
     shot = db.q1("SELECT uid FROM shots WHERE asset_id=? AND active=1 ORDER BY idx", (a["id"],))["uid"]

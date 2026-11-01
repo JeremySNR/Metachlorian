@@ -11,6 +11,31 @@ from metachlorian.config import load_settings
 from metachlorian.db import Database
 
 
+@pytest.fixture
+def python_tool(tmp_path, monkeypatch):
+    """Run fake command-line tools through Python on Windows, where shebangs aren't executable."""
+    import sys
+    original = subprocess.Popen
+    scripts = set()
+
+    def popen(args, *a, **kw):
+        if isinstance(args, (list, tuple)) and args and str(args[0]) in scripts:
+            args = [sys.executable, *args]
+        return original(args, *a, **kw)
+
+    if os.name == 'nt':
+        monkeypatch.setattr(subprocess, 'Popen', popen)
+
+    def create(name, source):
+        path = tmp_path / name
+        path.write_text(source, encoding='utf-8')
+        path.chmod(0o755)
+        scripts.add(str(path))
+        return path
+
+    return create
+
+
 def make_video(path: Path, segments=("testsrc2", "smptebars", "rgbtestsrc"), seg_s: float = 2.0, size="320x180", rate=25,
                audio: bool = True) -> Path:
     """A short video with hard cuts between visually distinct synthetic sources."""

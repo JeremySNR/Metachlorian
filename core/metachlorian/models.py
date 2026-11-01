@@ -103,7 +103,8 @@ def require(models_root: Path, name: str) -> Path:
     return model_dir(models_root, name)
 
 
-def fetch(models_root: Path, name: str, progress=print) -> Path:
+def fetch(models_root: Path, name: str, progress=print, on_bytes=None) -> Path:
+    """Download a model. ``on_bytes(done, total)`` is called as each archive downloads (total is 0 if unknown)."""
     spec = SPECS[name]
     d = model_dir(models_root, name)
     if installed(models_root, name):
@@ -113,7 +114,12 @@ def fetch(models_root: Path, name: str, progress=print) -> Path:
         tmp = d / (".download-" + hashlib.sha1(url.encode()).hexdigest()[:8])
         progress(f"downloading {url}")
         with urllib.request.urlopen(url) as r, open(tmp, "wb") as f:
-            shutil.copyfileobj(r, f, 1 << 20)
+            total, done = int(r.headers.get("Content-Length") or 0), 0
+            while chunk := r.read(1 << 20):
+                f.write(chunk)
+                done += len(chunk)
+                if on_bytes:
+                    on_bytes(done, total)
         if url.endswith((".tar.bz2", ".tar.gz", ".tgz")):
             with tarfile.open(tmp) as tf:
                 for m in tf.getmembers():
@@ -156,6 +162,8 @@ def ort_providers() -> list[str]:
     """Prepare optional CUDA DLLs before constructing any inference engines."""
     import onnxruntime as ort
 
+    if os.environ.get("METACHLORIAN_ACCELERATORS", "").lower() in ("0", "false", "no", "off"):
+        return ["CPUExecutionProvider"]
     available = ort.get_available_providers()
     if "CUDAExecutionProvider" in available and hasattr(ort, "preload_dlls"):
         try:
@@ -163,7 +171,8 @@ def ort_providers() -> list[str]:
         except Exception as exc:
             logging.getLogger(__name__).warning("CUDA DLL preloading failed: %s", exc)
         available = ort.get_available_providers()
-    return [p for p in ("CUDAExecutionProvider", "CoreMLExecutionProvider", "DmlExecutionProvider")
+    wanted = ("CUDAExecutionProvider", "DmlExecutionProvider") + (("CoreMLExecutionProvider",) if os.environ.get("METACHLORIAN_COREML") == "1" else ())
+    return [p for p in wanted
             if p in available] + ["CPUExecutionProvider"]
 
 
