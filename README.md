@@ -116,6 +116,11 @@ Lightroom plug-in connects to Adobe's catalogue and renderer; your chosen agent 
 | Edit and review | Adjust supported tone, white balance, curves, HSL, colour grading, crop, perspective, detail and simple masks on owned virtual copies. Inspect fresh Lightroom renders, refine up to three times, then save a collection. |
 | Recover a change | Revision checks, durable jobs, operation receipts and Lightroom snapshots protect against stale edits and interrupted connections. |
 
+The **Photos** workspace opens to your gallery, with separate **Library**, **Edits** and **Activity** views. Select a few
+favourites, compare them and choose **Create edit brief** to copy a brief with photo references to your agent. Review
+rendered virtual copies alongside their source photographs in Edits. Setup, analysis coverage and storage details remain
+available without taking over the browsing space. See the [Photos guide](docs/photos.md#start) for the complete flow.
+
 **Designed for large libraries:** originals stay where they are. The preview and temporary-render cache defaults to
 **256 MiB**; the shared photo models download about **947 MB once**. A synthetic 100,000-photo index measured about
 **650 MiB**, excluding models, previews and Lightroom-owned files; real libraries vary. Virtual copies, snapshots and

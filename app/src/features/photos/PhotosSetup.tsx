@@ -8,23 +8,23 @@ import { TextField } from '../../components/Field'
 import { Ic } from '../../components/Icon'
 import s from './Photos.module.css'
 
+export type PhotoSetupStep = 'source' | 'connect' | 'agent'
 export type PhotoAction = (task: () => Promise<unknown>, success: string) => Promise<void>
 export const exampleBrief = 'Find a lovely candid family photo with a nostalgic holiday feel. Compare the strongest candidates visually, then create a warm Kodak Gold-inspired edit in Lightroom on a virtual copy. Review the rendered result and tell me what changed.'
 
-export function PhotosSetup({ status, canAdmin, canIngest, busy, action, enqueue, onCheck, onClose }: {
+export function PhotosSetup({ status, canAdmin, canIngest, busy, action, enqueue, onCheck, onClose, step, onStepChange: setStep, embedded = false }: {
   status: PhotoStatus; canAdmin: boolean; canIngest: boolean; busy: boolean; action: PhotoAction
   enqueue: (path: string, body?: Record<string, unknown>) => Promise<unknown>
-  onCheck: () => void; onClose: () => void
+  onCheck: () => void; onClose: () => void; step: PhotoSetupStep; onStepChange: (step: PhotoSetupStep) => void; embedded?: boolean
 }) {
-  const [step, setStep] = useState<'source' | 'connect' | 'agent'>(status.coverage.total ? 'connect' : 'source')
   const [source, setSource] = useState<'lightroom' | 'folder'>('lightroom')
   const [folder, setFolder] = useState('')
   const lr = status.lightroom
   const copied = status.connector.files_current
   const config = `[mcp_servers.metachlorian]\nurl = "${status.agent.endpoint}"\nbearer_token_env_var = "METACHLORIAN_TOKEN"`
   const copy = (value: string, message: string) => void action(() => navigator.clipboard.writeText(value), message)
-  return <section className={`${s.panel} ${s.onboarding}`} aria-label="Photo setup">
-    <div className={s.row}><div className={s.grow}><p className={s.eyebrow}>GET STARTED</p><h2>Connect your library and your agent.</h2></div><IconButton icon={X} label="Close photo setup" onPress={onClose} /></div>
+  return <section className={`${s.panel} ${s.onboarding}`} aria-label="Photo setup" data-embedded={embedded || undefined}>
+    <div className={s.row}><div className={s.grow}><p className={s.eyebrow}>GET STARTED</p><h2>Connect your library and your agent.</h2></div>{!embedded ? <IconButton icon={X} label="Close photo setup" onPress={onClose} /> : null}</div>
     <nav className={s.steps} aria-label="Photo setup steps">
       {([['source', 'Choose your photos'], ['connect', 'Connect Lightroom'], ['agent', 'Use your agent']] as const).map(([id, title], index) => <button key={id} aria-current={step === id ? 'step' : undefined} onClick={() => setStep(id)}><span>{id === 'source' && status.coverage.total > 0 || id === 'connect' && lr.can_edit ? <Ic icon={Check} size={14} /> : index + 1}</span>{title}</button>)}
     </nav>
@@ -52,7 +52,7 @@ export function PhotosSetup({ status, canAdmin, canIngest, busy, action, enqueue
     </> : null}
     {step === 'agent' ? <div className={s.agentSetup}>
       <div><h3>Connect Codex or your preferred MCP agent</h3><p>Create a token in <Link to="/settings/$section" params={{ section: 'tokens' }}>Settings → API tokens for agents</Link> with <code>library:read</code>, <code>photos:edit</code> and <code>collections:write</code>. Add <code>ingest:write</code> if the agent should add sources.</p><p>For Codex on this computer, add this to <code>~/.codex/config.toml</code>. Set <code>METACHLORIAN_TOKEN</code> in the environment that launches Codex to your token, then restart or reconnect it.</p><pre className={s.code}>{config}</pre><Button icon={Copy} size="sm" onPress={() => copy(config, 'Codex configuration copied.')}>Copy Codex configuration</Button><p className={s.muted}>Other agents: use <code>{status.agent.endpoint}</code> with your token as a Bearer authorization header.</p></div>
-      <div className={s.promptCard}><p className={s.eyebrow}>YOUR FIRST EDIT</p><h3>Start with the feeling you want.</h3><blockquote>{exampleBrief}</blockquote><Button icon={Copy} size="sm" onPress={() => copy(exampleBrief, 'Photo brief copied.')}>Copy example brief</Button><p>The agent should check the connection, look at previews, edit a virtual copy and review Lightroom’s rendered result. You can follow its jobs in Activity and review the copies here.</p><p className={s.muted}>Indexing runs locally. Previews requested by your agent go to that agent’s model provider.</p></div>
+      <div className={s.promptCard}><p className={s.eyebrow}>YOUR FIRST EDIT</p><h3>Start with the feeling you want.</h3><blockquote>{exampleBrief}</blockquote><Button icon={Copy} size="sm" onPress={() => copy(exampleBrief, 'Photo brief copied.')}>Copy example brief</Button><p>The agent should check the connection, look at previews, edit a virtual copy and review Lightroom’s rendered result. Review its rendered copies in Edits and follow all jobs in Activity.</p>{!status.models.some(model => model.name === 'siglip-base-multilingual' && model.installed) ? <p className={s.hint}>For searches such as “family at the beach”, install the local photo models in Library details. You can browse and search metadata without them.</p> : null}<p className={s.muted}>Indexing runs locally. Previews requested by your agent go to that agent’s model provider.</p></div>
     </div> : null}
     <div className={s.setupFooter}><span>{status.coverage.total.toLocaleString()} photos indexed · {lr.can_edit ? 'Lightroom editing ready for this account' : 'Lightroom editing needs setup'}</span><Button size="sm" onPress={onClose}>{status.coverage.total ? 'Browse photos' : 'Close setup'}</Button></div>
   </section>

@@ -185,6 +185,11 @@
   flex: none;
 }
 
+.searchSlot[data-photos] {
+  order: 0;
+  flex: 1 1 0;
+}
+
 /* ---------------------------------------------------------------- egress */
 .egress {
   display: inline-flex;

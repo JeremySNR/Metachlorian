@@ -9,10 +9,11 @@ import { Dialog } from '../../components/Dialog'
 import { PhotoAnalysis } from './PhotoAnalysis'
 import s from './Photos.module.css'
 
-export function PhotoInspector({ uid, canName, onClose, onBurst, onPrevious, onNext, position }: { uid: string; canName: boolean; onClose: () => void; onBurst: (id: string) => void; onPrevious?: () => void; onNext?: () => void; position: string }) {
+export type PhotoInspectorTab = 'overview' | 'analysis' | 'people' | 'metadata'
+
+export function PhotoInspector({ uid, canName, onClose, onBurst, onPrevious, onNext, position, tab, onTabChange }: { uid: string; canName: boolean; onClose: () => void; onBurst: (id: string) => void; onPrevious?: () => void; onNext?: () => void; position: string; tab: PhotoInspectorTab; onTabChange: (tab: PhotoInspectorTab) => void }) {
   const detail = usePhoto(uid)
   const qc = useQueryClient()
-  const [tab, setTab] = useState<'overview' | 'analysis' | 'people' | 'metadata'>('overview')
   const [large, setLarge] = useState(false)
   const [name, setName] = useState('')
   const [error, setError] = useState('')
@@ -42,7 +43,7 @@ export function PhotoInspector({ uid, canName, onClose, onBurst, onPrevious, onN
       <PhotoImage key={`${uid}-${detailFace}`} uid={uid} label={face ? 'Original face detail' : photo.filename} edge={1600} region={face?.box} native={Boolean(face)} />
       {face ? <Button size="sm" onPress={() => setDetailFace(null)}>Show full photograph</Button> : null}
       <Button size="sm" icon={Maximize2} onPress={() => setLarge(true)}>Open large preview</Button>
-      <nav className={s.inspectorTabs} aria-label="Photograph information">{(['overview', 'analysis', 'people', 'metadata'] as const).map(value => <button key={value} aria-pressed={tab === value} onClick={() => setTab(value)}>{value === 'people' ? `People (${photo.faces.length})` : value[0].toUpperCase() + value.slice(1)}</button>)}</nav>
+      <nav className={s.inspectorTabs} aria-label="Photograph information">{(['overview', 'analysis', 'people', 'metadata'] as const).map(value => <button key={value} aria-pressed={tab === value} onClick={() => onTabChange(value)}>{value === 'people' ? `People (${photo.faces.length})` : value[0].toUpperCase() + value.slice(1)}</button>)}</nav>
       {tab === 'overview' ? <><dl className={s.facts}>
         <dt>Captured</dt><dd>{photo.capture_time?.replace('T', ' ') ?? 'Unknown'}</dd>
         <dt>Dimensions</dt><dd>{photo.width && photo.height ? `${photo.width} × ${photo.height}` : 'Unknown'}</dd>

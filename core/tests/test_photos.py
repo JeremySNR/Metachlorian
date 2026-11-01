@@ -192,6 +192,7 @@ def test_complete_edit_loop_and_retry(photos):
     result = run(service, job)
     assert result['status'] == 'done', result
     assert service.apply(*args)['uid'] == job['uid']
+    assert result['result']['source_photo_id'] == uid
     assert bridge.apply_count == 1
     data, info = service.preview(LOCAL_ADMIN, session['photo_id'])
     assert data.startswith(b'\xff\xd8') and info['revision'] == result['result']['revision']

@@ -10,6 +10,7 @@ still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
 
 ### Added
 
+- Photos opens to the gallery after import, with compact connection status, separate Library/Edits/Activity views, adjustable thumbnails and a persistent selection bar. Setup and model/storage details open on demand. Create edit brief copies selected photo references and a Natural, Warm film or Black & white starting point to your agent; Edits reviews rendered virtual copies alongside their sources. Photo search shortcuts stay within Photos.
 - Photos now uses independently scrolling library and inspector panes, persistent previous/next navigation, a large preview, and Overview/Analysis/People/Metadata views. Analysis exposes measured exposure, focus, framing and actual model coverage with explicit limitations.
 - Guided Photos setup with verified Lightroom connection status, actionable errors, Codex configuration, selection briefs and a dedicated Activity view. The plug-in shows authenticated requests and its version; copied files are distinguished from a working connection.
 - Folder-indexed files now match existing Lightroom masters by path for current settings and previews, including RAWs without a local decoder. Agents can check readiness with `get_photo_workflow_status`.

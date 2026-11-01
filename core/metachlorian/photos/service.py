@@ -535,7 +535,8 @@ class PhotoLibrary:
         self.jobs.checkpoint(job['uid'])
         data, info = self.preview(p, row['uid'], fresh=True, expected_revision=prior['revision'])
         evidence = analysis.measure(Image.open(io.BytesIO(data)), info['provenance'])
-        return {**prior, 'session_id': session['uid'], 'preview': info, 'checks': evidence,
+        return {**prior, 'session_id': session['uid'],
+                'source_photo_id': self._session_result(session)['source_photo_id'], 'preview': info, 'checks': evidence,
                 'preview_url': f"/api/photos/{row['uid']}/preview?revision={prior['revision']}",
                 'visual_review_required': True}
 
