@@ -6,6 +6,15 @@ image tags are on the [releases page](https://github.com/JeremySNR/Metachlorian/
 This project uses [semantic versioning](https://semver.org/), loosely: while
 still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
 
+## [Unreleased]
+
+### Added
+
+- Install Metachlorian in Codex or Claude Code directly from desktop agent-token settings.
+
+### Improved
+
+- Desktop MCP connections now keep a stable local endpoint and reuse only a server for the selected library.
 ## [0.3.0] - 2026-11-01
 
 Photos and the Lightroom Classic editing preview are now included in the desktop installers. Open **Photos → Enable Photos** to get started.
