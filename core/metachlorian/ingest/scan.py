@@ -184,20 +184,23 @@ def add_source(db: Database, uri: str, watch: bool = True, priority: int = 0, op
     kind = "s3" if uri.startswith("s3://") else "folder"
     if kind == "folder":
         uri = str(Path(uri).expanduser().resolve())
-    row = db.q1("SELECT id,kind FROM sources WHERE uri=?", (uri,))
-    if row:
-        if row["kind"] == "photos" and kind == "folder":
-            # A folder can contain both photographs and videos. An explicit
-            # video import enables video watching without replacing photo records.
-            db.x("UPDATE sources SET kind='folder',watch=?,priority=? WHERE id=?",
-                 (int(watch), priority, row["id"]))
-        if options is not None:
-            existing = loads(db.q1("SELECT options FROM sources WHERE id=?", (row["id"],))["options"], {})
-            db.x("UPDATE sources SET options=? WHERE id=?", (dumps({**existing, **options}), row["id"]))
-        return row["id"]
-    cur = db.x("INSERT INTO sources(uri, kind, watch, priority, options, created_at) VALUES(?,?,?,?,?,?)",
-               (uri, kind, int(watch), priority, dumps(options or {}), now()))
-    return cur.lastrowid
+    # Import workers can reach the same new folder together. Keep lookup,
+    # creation and option merging in one write transaction across connections.
+    with db.tx() as c:
+        row = c.execute("SELECT id,kind,options FROM sources WHERE uri=?", (uri,)).fetchone()
+        if row:
+            if row["kind"] == "photos" and kind == "folder":
+                # A folder can contain both photographs and videos. An explicit
+                # video import enables video watching without replacing photo records.
+                c.execute("UPDATE sources SET kind='folder',watch=?,priority=? WHERE id=?",
+                          (int(watch), priority, row["id"]))
+            if options is not None:
+                existing = loads(row["options"], {})
+                c.execute("UPDATE sources SET options=? WHERE id=?", (dumps({**existing, **options}), row["id"]))
+            return row["id"]
+        cur = c.execute("INSERT INTO sources(uri, kind, watch, priority, options, created_at) VALUES(?,?,?,?,?,?)",
+                        (uri, kind, int(watch), priority, dumps(options or {}), now()))
+        return cur.lastrowid
 
 
 def scan_lock(db: Database, source_id: int) -> FileLock:

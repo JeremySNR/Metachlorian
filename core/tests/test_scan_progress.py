@@ -1,11 +1,34 @@
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
 
 import pytest
 
 from metachlorian.auth import LOCAL_ADMIN
-from metachlorian.db import Database
+from metachlorian.db import Database, loads
 from metachlorian.ingest import scan
 from metachlorian.service import Library
+
+
+def test_concurrent_source_registration_reuses_folder_and_keeps_options(lib, tmp_path):
+    settings, db = lib
+    start = Barrier(8)
+    folder = tmp_path / 'shared-imports'
+
+    def register(index):
+        connection = Database(settings.db_path)
+        try:
+            start.wait(timeout=10)
+            return scan.add_source(connection, str(folder), options={f'worker_{index}': index})
+        finally:
+            connection.close()
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        ids = list(pool.map(register, range(8)))
+    assert len(set(ids)) == 1
+    rows = db.q('SELECT id,options FROM sources WHERE uri=?', (str(folder.resolve()),))
+    assert len(rows) == 1 and rows[0]['id'] == ids[0]
+    assert loads(rows[0]['options'], {}) == {f'worker_{i}': i for i in range(8)}
 
 
 def test_nested_scan_progress_dedupe_and_incremental_planning(lib, tmp_path):

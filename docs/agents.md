@@ -19,7 +19,7 @@ never get more than a person with the same scopes would.
 }
 ```
 
-Create the token in **Settings → Agents** or with `metachlorian token my-agent --scopes library:read,media:export`.
+Create the token in **Settings → API tokens for agents** or with `metachlorian token my-agent --scopes library:read,media:export`.
 
 **stdio (same machine):**
 
@@ -170,7 +170,7 @@ for example `Forbidden: 'bot' (agent) lacks the 'media:export' scope` or `NotFou
 
 ## Photo tools
 
-The same MCP endpoint also exposes photo search, image previews, editing context and resumable Lightroom Classic jobs. `library:read` permits searching and inspection; `photos:edit` permits owned virtual-copy edits; delivery also requires `collections:write`. Tools and the complete visual-review protocol are documented in [Photos and Lightroom Classic](photos.md#connect-codex). Read `metachlorian://photos/editing-guide` for photographic guidance and check runtime capabilities before editing. Real Lightroom platform certification is still pending for this preview release.
+The same MCP endpoint also exposes photo search, image previews, editing context and resumable Lightroom Classic jobs. `library:read` permits searching and inspection; `photos:edit` permits owned virtual-copy edits; delivery also requires `collections:write`. Tools and the complete visual-review protocol are documented in [Photos and Lightroom Classic](photos.md#connect-codex). Start with `get_photo_workflow_status` to verify the connector, active catalogue and token permissions. Folder files already in Lightroom link by path when previews or editing context are requested. Report the blocker and next step if editing is unavailable; disclose any manual Lightroom fallback. Read `metachlorian://photos/editing-guide` for photographic guidance and check runtime capabilities before editing. Real Lightroom platform certification is still pending for this preview release.
 
 ## Install in Codex or Claude Code
 

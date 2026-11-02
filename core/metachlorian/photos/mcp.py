@@ -13,6 +13,8 @@ from ..auth import Forbidden
 
 INSTRUCTIONS = """
 Photos: Codex/the connected agent is the editor; Metachlorian indexes locally and Lightroom renders.
+Start Lightroom requests with get_photo_workflow_status. It verifies the connector, installed version, decoder
+availability and your permissions. A copied plug-in folder does not mean Lightroom has loaded or connected it.
 Use search_photos with person/date/folder filters, then get_photo and get_photo_previews to compare a shortlist.
 Expand a burst with filters.burst_id and diverse=false. Prefer meaningful expressions and varied moments; never
 treat closed eyes during laughter/sleep, wide aperture or a blurred background as automatic defects.
@@ -22,6 +24,11 @@ get_photo_job -> get_photo_previews for visual comparison -> finish_photo_edits 
 Use natural style unless creative changes were requested. The context includes available controls, units and
 editing guidance. Only use advertised capabilities. Three refinement rounds per session; restore_photo_edit
 can recover an earlier owned snapshot. Never claim a job succeeded until it is done and the render was inspected.
+Folder-indexed photos are matched to existing Lightroom masters by path when inspected. If an import is needed,
+begin_photo_edits imports only selected originals in place; read the new virtual copy's context for its controls.
+If previews or editing are blocked, report the concrete reason and next step from workflow status/context.
+Do not silently treat metadata-only search as visual selection or imply that a direct UI edit used Metachlorian.
+Report the selected filename, virtual copy/session, visible changes, render review and any unverified detail.
 Use stable idempotency keys for retries. Resume waiting jobs after Lightroom reconnects; conflicts require a fresh
 context and a new request. Editing needs photos:edit; delivery also needs collections:write. Originals remain in place.
 Use Streamable HTTP /mcp on the running desktop core so all agents share one Lightroom connection and queue.
@@ -34,6 +41,13 @@ def register(server, lib, principal, ro, write):
             return getattr(lib.photos, method)(principal(lib, ctx), *args, **kwargs)
         except (ValueError, KeyError, Forbidden) as exc:
             raise ToolError(f'{type(exc).__name__}: {exc}') from exc
+
+    @server.tool(annotations=ro)
+    def get_photo_workflow_status(ctx: Context | None = None) -> dict:
+        """Check Lightroom connection, version compatibility, RAW/HEIC support, indexing and agent scopes.
+        Call this before photo editing and after a preview/connection failure. Does not edit/import photographs.
+        """
+        return call(ctx, 'check_connection')
 
     @server.tool(annotations=ro)
     def search_photos(query: str = '', filters: dict[str, Any] | None = None, limit: int = 40,
@@ -68,7 +82,9 @@ def register(server, lib, principal, ro, write):
     @server.tool(annotations=ro)
     def get_photo_edit_context(photo_id: str, families: list[str] | None = None, ctx: Context | None = None) -> dict:
         """Current develop revision/settings, exact supported control ranges, capability limits and editing guidance.
-        Read this before edits. A folder-only photo is added in place to the active catalogue when editing begins.
+        Read this before edits. Existing catalogue masters are matched by path, preserving their Lightroom look.
+        For a file not yet in the catalogue, import_required means begin_photo_edits can import it in place;
+        exact controls become available on the new virtual copy. A blocked workflow includes a reason.
         """
         return call(ctx, 'context', photo_id, families)
 

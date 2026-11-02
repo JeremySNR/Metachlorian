@@ -7,7 +7,7 @@
 <p align="center">
   <strong>Free, open-source video and photo search for your own library.</strong><br>
   Find B-roll, search spoken words, and connect an AI agent through MCP.<br>
-  New in source: photo selection and Lightroom Classic editing on virtual copies.
+  New in v0.3.0: photo selection and Lightroom Classic editing on virtual copies.
 </p>
 
 <p align="center">
@@ -44,13 +44,13 @@ The desktop app bundles Python, the Metachlorian engine, FFmpeg and the web app.
 | Windows | macOS | Linux |
 | :---: | :---: | :---: |
 | **x64** | **Apple Silicon** | **x64** |
-| [**Download .exe**](https://github.com/JeremySNR/Metachlorian/releases/download/v0.2.0/Metachlorian-Setup-0.2.0.exe) | [**Download .dmg**](https://github.com/JeremySNR/Metachlorian/releases/download/v0.2.0/Metachlorian-0.2.0-arm64.dmg) | [**Download AppImage**](https://github.com/JeremySNR/Metachlorian/releases/download/v0.2.0/Metachlorian-0.2.0.AppImage) |
+| [**Download .exe**](https://github.com/JeremySNR/Metachlorian/releases/download/v0.3.0/Metachlorian-Setup-0.3.0.exe) | [**Download .dmg**](https://github.com/JeremySNR/Metachlorian/releases/download/v0.3.0/Metachlorian-0.3.0-arm64.dmg) | [**Download AppImage**](https://github.com/JeremySNR/Metachlorian/releases/download/v0.3.0/Metachlorian-0.3.0.AppImage) |
 
-**Current installers: v0.2.0.** [Release notes and all downloads](https://github.com/JeremySNR/Metachlorian/releases/latest)
+**Current installers: v0.3.0.** [Release notes and all downloads](https://github.com/JeremySNR/Metachlorian/releases/latest)
 · [Docker and source installation](#quick-start)
 
-The **Photos and Lightroom Classic preview** is available from the current source checkout; it is **not included in
-the v0.2.0 installers**. Follow the [photo setup guide](docs/photos.md#start) to try it.
+The **Photos and Lightroom Classic preview** is included in the **v0.3.0 installers**. Open **Photos → Enable Photos**
+and follow the [photo setup guide](docs/photos.md#start). Lightroom itself still needs live platform certification.
 
 The first launch downloads about **1.7 GB of analysis models**, once. Local analysis needs no paid API key; processing
 time depends on your hardware and footage. Windows builds are unsigned; macOS builds are ad-hoc signed and not notarised.
@@ -109,11 +109,17 @@ Lightroom plug-in connects to Adobe's catalogue and renderer; your chosen agent 
 
 | Stage | What it does |
 |---|---|
+| Get connected | Guided source, Lightroom and agent setup. **Check connection** verifies the running plug-in and shows the catalogue, version, available editing and next steps. |
 | Index your images | Read folders in place, or sync catalogue metadata and available renditions through Lightroom, including existing Smart Previews. No duplicate originals or bulk Smart Preview generation. |
 | Find a shortlist | Combine visual search with people, dates, camera, lens, folder, catalogue and ratings. Compare similar frames and capture bursts. |
 | Judge the photograph | Give the agent actual previews, detail crops, capture metadata and qualified evidence about sharpness, clipping, framing and faces. Expression, composition, light, colour and your preferences guide selection; there is no universal beauty score. |
 | Edit and review | Adjust supported tone, white balance, curves, HSL, colour grading, crop, perspective, detail and simple masks on owned virtual copies. Inspect fresh Lightroom renders, refine up to three times, then save a collection. |
 | Recover a change | Revision checks, durable jobs, operation receipts and Lightroom snapshots protect against stale edits and interrupted connections. |
+
+The **Photos** workspace opens to your gallery, with separate **Library**, **Edits** and **Activity** views. Select a few
+favourites, compare them and choose **Create edit brief** to copy a brief with photo references to your agent. Review
+rendered virtual copies alongside their source photographs in Edits. Setup, analysis coverage and storage details remain
+available without taking over the browsing space. See the [Photos guide](docs/photos.md#start) for the complete flow.
 
 **Designed for large libraries:** originals stay where they are. The preview and temporary-render cache defaults to
 **256 MiB**; the shared photo models download about **947 MB once**. A synthetic 100,000-photo index measured about
@@ -123,17 +129,21 @@ Adobe AI data can grow Lightroom's catalogue. This avoids copying your photo lib
 Photo analysis runs locally. Previews requested through MCP are sent to your chosen agent, which may be hosted.
 Editing needs the `photos:edit` token scope; read-only agents can search and inspect.
 
-**Availability:** enable Photos in a current source build. Lightroom editing targets **Classic 15.6**, on the same
-computer and OS account as Metachlorian. Live macOS/Windows Lightroom certification and real-photo preference evaluation
+**Availability:** enable Photos in v0.3.0 or later, using a desktop installer or source build. Global Lightroom edits are enabled for **Classic 14.2–15.6**, on the same
+computer and OS account as Metachlorian; AI masks require 15.6. Live macOS/Windows Lightroom certification and real-photo preference evaluation
 are still pending. Advanced operations such as Generative Remove, Lens Blur, Enhance/Denoise and complex mask geometry
 require a manual handoff. Smart Previews cannot establish original-resolution eye focus or RAW highlight recovery.
+
+**Folder-first workflow:** matching files automatically link to existing Lightroom masters when previewed or inspected.
+RAW photos already in Lightroom can use Adobe’s previews without a local RAW decoder. After updating, copy the connector
+files again and **Reload Plug-in** in Lightroom, then **Check connection** in Photos.
 
 Read the [setup and Codex configuration](docs/photos.md), [supported controls and limitations](docs/photos.md#what-it-measures-and-edits),
 [storage measurements](docs/photos.md#storage-and-privacy) and [research and Lightroom learning resources](docs/research/lightroom-classic.md).
 
 ## Connect your agent (MCP)
 
-Start the server, create a token in **Settings → Agents** (or `metachlorian token my-agent`), then add it to your MCP
+Start the server, create a token in **Settings → API tokens for agents** (or `metachlorian token my-agent`), then add it to your MCP
 client:
 
 ```json
@@ -161,7 +171,7 @@ Exporting requires the `media:export` scope and recorded rights that permit the 
 editing, not a finished video. Tools for search, shot and file records, similar shots, rights checks, clip export, packages,
 folders, collections, people and vocabularies are listed with their scopes in [docs/agents.md](docs/agents.md).
 
-For photographs, the same MCP server exposes `search_photos`, `get_photo_previews`, `get_photo_edit_context`,
+For photographs, the same MCP server exposes `get_photo_workflow_status`, `search_photos`, `get_photo_previews`, `get_photo_edit_context`,
 `begin_photo_edits`, `apply_photo_edit` and `finish_photo_edits`, plus job and recovery tools. Follow the
 [photo agent workflow](docs/photos.md#connect-codex) to review actual images before delivering edits.
 
@@ -252,7 +262,7 @@ Capture metadata preserves named Log profiles (including LogC3/4 and S-Log2/3), 
 when available. File and shot records expose the profile and its metadata evidence for grading tools.
 An image-based Log/flat estimate is labelled separately and must not be treated as a confirmed input transform.
 
-**Agents (MCP):** create a token in Settings → Agents (or `metachlorian token my-agent`), then point your MCP client at
+**Agents (MCP):** create a token in Settings → API tokens for agents (or `metachlorian token my-agent`), then point your MCP client at
 `http://<host>:8765/mcp/` with `Authorization: Bearer <token>`, or run `metachlorian mcp` over stdio (read-only by default).
 See [docs/agents.md](docs/agents.md).
 

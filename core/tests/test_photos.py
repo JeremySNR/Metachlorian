@@ -45,8 +45,9 @@ class FakeLightroom:
         data['revision'] = hashlib.sha256(json.dumps(data['settings'], sort_keys=True).encode()).hexdigest()
         return data
 
-    def status(self):
-        return {'connected': self.online, 'catalog': self.catalog}
+    def status(self, *, force=False):
+        return {'connected': self.online, 'catalog': self.catalog, 'connector_version': '0.2.0',
+                'features': {'find_by_path': True}, 'capabilities': {'editing': True}}
 
     def close(self):
         pass
@@ -56,16 +57,19 @@ class FakeLightroom:
             raise LightroomUnavailable('Lightroom is offline')
         args = args or {}
         if action == 'mc_status':
-            return {'catalog': self.catalog, 'protocol': 1}
+            return {**self.status(), 'protocol': 1}
         if args.get('catalog_uid') != self.catalog['uid']:
             raise PhotoConflict('Wrong catalogue')
         if action == 'mc_catalog_page':
             return {'catalog': self.catalog, 'photos': [self.meta(k) for k in self.photos], 'cursor': len(self.photos), 'total': len(self.photos), 'complete': True}
+        if action == 'mc_find_photo':
+            found = next((k for k, v in self.photos.items() if v['path'] == args['path'] and not v['is_virtual']), None)
+            return {'catalog': self.catalog, 'photo': self.meta(found) if found else None}
         uid = str(args.get('photo_id', '1'))
         if action == 'mc_import':
             return {'catalog': self.catalog, 'photo': self.meta('1')}
         if action == 'mc_context':
-            return {'catalog': self.catalog, 'photo': self.meta(uid), 'capabilities': {'controls': CONTROLS, 'mask_types': ['subject','sky','background'], 'auto': True}}
+            return {'catalog': self.catalog, 'photo': self.meta(uid), 'capabilities': {'editing': True, 'controls': CONTROLS, 'mask_types': ['subject','sky','background'], 'auto': True}}
         if action in {'mc_preview', 'mc_render'}:
             im = Image.open(self.photos[uid]['path']).convert('RGB')
             im = ImageEnhance.Brightness(im).enhance(2**self.photos[uid]['settings']['Exposure2012'])
@@ -188,6 +192,7 @@ def test_complete_edit_loop_and_retry(photos):
     result = run(service, job)
     assert result['status'] == 'done', result
     assert service.apply(*args)['uid'] == job['uid']
+    assert result['result']['source_photo_id'] == uid
     assert bridge.apply_count == 1
     data, info = service.preview(LOCAL_ADMIN, session['photo_id'])
     assert data.startswith(b'\xff\xd8') and info['revision'] == result['result']['revision']

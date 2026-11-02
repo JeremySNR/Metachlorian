@@ -19,7 +19,16 @@ export type Photo = {
 export type PhotoDetail = Photo & {
   metadata: Record<string, unknown>
   keywords: string[]
-  evidence: { uncertainty?: string[]; exposure?: { render_highlights_fraction: number; render_shadows_fraction: number } }
+  evidence: {
+    uncertainty?: string[]; width?: number; height?: number
+    provenance?: { source?: string; native_resolution?: boolean }
+    exposure?: { render_highlights_fraction: number; render_shadows_fraction: number }
+    global_sharpness?: { gradient_energy?: number }
+    composition?: { bright_border_fraction?: number; horizontal_line_angles?: number[] }
+    crop_candidates?: { reason: string }[]
+    models?: Record<string, string>
+    faces?: { evidence?: { eyes?: { available: boolean }[] } }[]
+  }
   faces: { id: number; box: number[]; name: string | null; identity_id: number | null; stale?: boolean }[]
   variants: { uid: string; is_virtual: boolean; copy_name: string }[]
 }
@@ -29,11 +38,19 @@ export type PhotoStatus = {
   cache: { bytes: number; budget_bytes: number; files: number }
   database_bytes: number
   catalogs: { uid: string; name: string; last_sync: number | null }[]
-  lightroom: { connected: boolean; catalog?: { name: string }; message?: string }
+  lightroom: {
+    connected: boolean; can_edit: boolean; editing_supported: boolean; busy?: boolean
+    catalog?: { name: string; version: string }; message: string; label: string
+    connector_version?: string; update_available: boolean; checked_at?: number; last_connected_at?: number
+  }
+  coverage: { total: number; analysed: number; needs_attention: number; linked: number; folder_only: number }
+  connector: { path: string; files_copied: boolean; files_current: boolean; bundled_version: string; ports: number[] }
+  decoders: { raw: { available: boolean }; heic: { available: boolean } }
+  agent: { endpoint: string; can_edit: boolean; can_save_collection: boolean; required_scopes: string[] }
   models: { name: string; installed: boolean; size_mb: number }[]
   validation: string
 }
-export type PhotoContext = { photo_id: string; revision: string; availability?: string; import_on_edit?: boolean }
+export type PhotoContext = { photo_id: string; revision: string; availability?: string; import_on_edit?: boolean; workflow: { state: string; reason?: string }; capabilities: { editing: boolean; reason?: string } }
 export type PhotoSession = { session_id: string; photo_id: string; source_photo_id?: string; revision: string; baseline_snapshot?: string }
 export type PhotoJob = {
   uid: string
@@ -44,7 +61,7 @@ export type PhotoJob = {
     processed?: number; total?: number; unavailable?: number; collection?: string
     current_model?: string; downloaded_bytes?: number; total_bytes?: number
     sessions?: PhotoSession[]; accepted?: { photo_id: string; session_id: string }[]
-    session_id?: string; photo_id?: string; revision?: string
+    session_id?: string; photo_id?: string; source_photo_id?: string; revision?: string
   }
 }
 type PhotoResults = { results: Photo[]; total: number; next_cursor: string | null; semantic_available: boolean }

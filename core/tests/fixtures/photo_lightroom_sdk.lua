@@ -26,6 +26,9 @@ function photo:getDevelopSnapshots() return self.snapshots end
 local catalog = {}
 function catalog:getPropertyForPlugin() return 'catalog' end
 function catalog:getPath() return '/pictures/Family.lrcat' end
+function catalog:findPhotoByPath(path)
+    if path == '/pictures/family.raw' then return photo end
+end
 function catalog:withWriteAccessDo(_, fn) return fn() end
 local imports = {
     LrApplication = { activeCatalog = function() return catalog end, versionTable = function() return fixture.version end },

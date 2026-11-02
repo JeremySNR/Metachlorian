@@ -52,6 +52,10 @@ def router(lib, principal) -> APIRouter:
     def install(p=Depends(principal)):
         return lib.photos.install_connector(p)
 
+    @r.post('/connector/check')
+    def check_connection(p=Depends(principal)):
+        return lib.photos.check_connection(p)
+
     @r.post('/sources/folder')
     def folder(body: dict = Body(...), p=Depends(principal)):
         return lib.photos.scan_folder(p, body['path'], body['idempotency_key'])
