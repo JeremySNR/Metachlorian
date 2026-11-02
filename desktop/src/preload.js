@@ -4,6 +4,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('metachlorian', {
   desktop: true,
+  installMcp: (client, token) => ipcRenderer.invoke('mc:installMcp', { client, token }),
   info: () => ipcRenderer.invoke('mc:info'),
   retry: () => ipcRenderer.invoke('mc:retry'),
   setServer: (mode, serverUrl) => ipcRenderer.invoke('mc:setServer', { mode, serverUrl }),

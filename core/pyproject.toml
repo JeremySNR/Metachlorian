@@ -25,6 +25,7 @@ dependencies = [
   "sentencepiece>=0.2",
   "mcp>=1.10",
   "filelock>=3.16",
+  "tomlkit>=0.13",
 ]
 
 [project.optional-dependencies]

@@ -272,8 +272,8 @@ function Users() {
 function mcpSnippets(token: string, dataDir: string) {
   const origin = window.location.origin
   const stdio = JSON.stringify({ mcpServers: { metachlorian: { command: 'metachlorian', args: ['--data', dataDir, 'mcp'], env: { METACHLORIAN_TOKEN: token } } } }, null, 2)
-  const http = JSON.stringify({ mcpServers: { metachlorian: { type: 'http', url: `${origin}/mcp`, headers: { Authorization: `Bearer ${token}` } } } }, null, 2)
-  const cli = `claude mcp add --transport http metachlorian ${origin}/mcp --header "Authorization: Bearer ${token}"`
+  const http = JSON.stringify({ mcpServers: { metachlorian: { type: 'http', url: `${origin}/mcp/`, headers: { Authorization: `Bearer ${token}` } } } }, null, 2)
+  const cli = `claude mcp add --transport http metachlorian ${origin}/mcp/ --header "Authorization: Bearer ${token}"`
   return { stdio, http, cli }
 }
 
@@ -297,7 +297,8 @@ function Tokens() {
   const [name, setName] = useState('Claude Desktop')
   const [username, setUsername] = useState('agent')
   const [scopes, setScopes] = useState<Scope[]>(['library:read'])
-  const [ttl, setTtl] = useState(90)
+  const [ttl, setTtl] = useState(0)
+  const [installing, setInstalling] = useState(false)
   const [created, setCreated] = useState<string | null>(null)
   if (tokens.isError) return <AdminOnly error={tokens.error} />
   const create = async () => {
@@ -308,6 +309,16 @@ function Tokens() {
     } catch (e) {
       toast({ title: "Couldn't create the token", description: e instanceof ApiError ? e.detail : String(e), tone: 'error' })
     }
+  }
+  const install = async (client: 'codex' | 'claude-code') => {
+    const desktop = bridge()
+    if (!created || !desktop?.installMcp) return
+    setInstalling(true)
+    try {
+      const result = await desktop.installMcp(client, created)
+      toast({ title: result.ok ? 'Connection installed' : 'Installation failed', description: result.ok ? 'Restart the client to load Metachlorian. Keep Metachlorian running while using it.' : result.error, tone: result.ok ? 'info' : 'error' })
+    } catch { toast({ title: 'Installation failed', description: 'Please try again.', tone: 'error' }) }
+    finally { setInstalling(false) }
   }
   const snippets = mcpSnippets(created ?? '<token>', settings.data?.settings.data_dir ?? '~/.local/share/metachlorian')
   const allScopes = tokens.data?.scopes ?? ({} as Record<Scope, string>)
@@ -347,8 +358,8 @@ function Tokens() {
         </tbody>
       </table>
       <h2>Connect an agent</h2>
-      <CodeBlock title="Local agents (stdio)" code={snippets.stdio} />
-      <CodeBlock title="Remote agents (HTTP)" code={snippets.http} />
+      <p>Keep Metachlorian running. Create a token to install it in Codex or Claude Code from the desktop app. Keys stay valid until revoked or their chosen expiry.</p>
+      <CodeBlock title="Agent connection (HTTP)" code={snippets.http} />
       <Dialog
         isOpen={open}
         onOpenChange={setOpen}
@@ -363,7 +374,11 @@ function Tokens() {
             <div><Button variant="secondary" icon={Copy} onPress={() => { navigator.clipboard?.writeText(created); toast({ title: 'Copied the token', tone: 'info' }) }}>Copy token</Button></div>
             <p className={s.muted}>Agents using this token only see cleared shots.</p>
             <CodeBlock title="Claude Code" code={snippets.cli} />
-            <CodeBlock title="MCP config (stdio)" code={snippets.stdio} />
+            {bridge()?.installMcp && window.location.origin === 'http://127.0.0.1:8765' && <>
+              <p>Install on this computer. Existing Metachlorian configuration will be replaced and backed up; other connections are preserved.</p>
+              <Button variant="primary" isDisabled={installing} onPress={() => install('codex')}>Install in Codex</Button>
+              <Button variant="secondary" isDisabled={installing} onPress={() => install('claude-code')}>Install in Claude Code</Button>
+            </>}
             <CodeBlock title="MCP config (HTTP)" code={snippets.http} />
           </div>
         ) : (

@@ -97,3 +97,22 @@ def test_agents_cannot_log_in_with_a_password(lib):
     assert A.login(db, "bot", PW) is None
     assert A.login(db, "vera", "wrong password") is None and A.login(db, "nobody", PW) is None
     assert A.login(db, "vera", PW).startswith("mc_")
+
+@pytest.mark.parametrize('path', ['/api/library/stats', '/mcp'])
+@pytest.mark.parametrize('token', ['mc_invalid_key', ''])
+def test_solo_invalid_bearer_never_falls_back_to_admin(lib, path, token):
+    s, db = lib
+    with _app(s, db, require_auth=False, base_url='http://127.0.0.1', client=('127.0.0.1', 50000)) as c:
+        response = c.post(path, headers={'Authorization': f'Bearer {token}', 'X-Metachlorian': '1'})
+        assert response.status_code == 401
+
+def test_solo_valid_bearer_needs_no_browser_header_and_revoked_is_401(lib):
+    s, db = lib
+    token = A.create_token(db, A.create_user(db, 'local-agent', 'agent'), 'connection')
+    with _app(s, db, require_auth=False, base_url='http://127.0.0.1', client=('127.0.0.1', 50000)) as c:
+        headers = {'Authorization': f'Bearer {token}'}
+        assert c.get('/api/library/stats', headers=headers).status_code == 200
+        # A protocol error is acceptable here; the CSRF middleware must not intercept MCP.
+        assert c.post('/mcp', headers=headers, follow_redirects=True).status_code != 403
+        A.revoke(db, db.q1("SELECT id FROM tokens WHERE name='connection'")['id'])
+        assert c.post('/mcp', headers=headers).status_code == 401

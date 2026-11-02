@@ -138,7 +138,7 @@ def create_app(settings: Settings, db: Database | None = None, start_workers: bo
             elif request.query_params.get("token") and path.startswith("/media/"):
                 token = request.query_params.get("token")
             p = A.authenticate_token(db, token, via="api") if token else None
-            if p is None and not settings.require_auth:
+            if p is None and not authz and not token and not settings.require_auth:
                 if _is_loopback(client) and (host in LOOPBACK_HOSTS or _is_loopback(host)):
                     p = Principal(None, "local", "admin", set(A.SCOPES), "ui")
                     via_cookie = True  # browser-originated: apply the CSRF header rule

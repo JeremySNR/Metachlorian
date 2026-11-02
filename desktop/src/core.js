@@ -7,12 +7,9 @@ const fs = require('node:fs');
 const os = require('node:os');
 
 function freePort(preferred = 8765) {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const srv = net.createServer();
-    srv.once('error', () => {
-      const s2 = net.createServer();
-      s2.listen(0, '127.0.0.1', () => { const p = s2.address().port; s2.close(() => resolve(p)); });
-    });
+    srv.once('error', () => reject(new Error(`Port ${preferred} is occupied. Close the other server or connect to it in Settings. Metachlorian keeps a fixed port so agent connections stay valid.`)));
     srv.listen(preferred, '127.0.0.1', () => { const p = srv.address().port; srv.close(() => resolve(p)); });
   });
 }
@@ -63,10 +60,10 @@ function findCoreCommand(resourcesPath) {
   return { cmd, prefix: [], env: {} };
 }
 
-function runCore(core, args) {
+function runCore(core, args, input = false) {
   const env = { ...process.env, ...core.env };
   for (const k of Object.keys(env)) if (env[k] === '') delete env[k];
-  return spawn(core.cmd, [...core.prefix, ...args], { stdio: ['ignore', 'pipe', 'pipe'], env, windowsHide: true });
+  return spawn(core.cmd, [...core.prefix, ...args], { stdio: [input ? 'pipe' : 'ignore', 'pipe', 'pipe'], env, windowsHide: true });
 }
 
 // First-run setup: download any missing analysis models, reporting progress.
@@ -99,11 +96,17 @@ function ensureModels({ resourcesPath, dataDir, onEvent, onLog, pack = 'default'
   });
 }
 
-async function startSoloCore({ resourcesPath, dataDir, onLog } = {}) {
-  const port = await freePort(8765);
+async function startSoloCore({ resourcesPath, dataDir = process.env.METACHLORIAN_DATA || path.join(process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share'), 'metachlorian'), onLog, port = 8765 } = {}) {
   const baseUrl = `http://127.0.0.1:${port}`;
   const existing = await health(baseUrl);
-  if (existing) return { baseUrl, child: null, reused: true };
+  if (existing) {
+    const resolved = fs.existsSync(dataDir) ? fs.realpathSync(dataDir) : path.resolve(dataDir);
+    const normalized = process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+    const id = require('node:crypto').createHash('sha256').update(normalized).digest('hex');
+    if (existing.library_id !== id) throw new Error(`A different or older Metachlorian library is running at ${baseUrl}. Close it before opening this library.`);
+    return { baseUrl, child: null, reused: true };
+  }
+  await freePort(port);
   const core = findCoreCommand(resourcesPath);
   const args = [];
   if (dataDir) args.push('--data', dataDir);
@@ -125,4 +128,4 @@ async function startSoloCore({ resourcesPath, dataDir, onLog } = {}) {
   throw new Error('The Metachlorian engine did not start within 3 minutes.');
 }
 
-module.exports = { freePort, health, findCoreCommand, ensureModels, startSoloCore };
+module.exports = { runCore, freePort, health, findCoreCommand, ensureModels, startSoloCore };

@@ -171,3 +171,32 @@ for example `Forbidden: 'bot' (agent) lacks the 'media:export' scope` or `NotFou
 ## Photo tools
 
 The same MCP endpoint also exposes photo search, image previews, editing context and resumable Lightroom Classic jobs. `library:read` permits searching and inspection; `photos:edit` permits owned virtual-copy edits; delivery also requires `collections:write`. Tools and the complete visual-review protocol are documented in [Photos and Lightroom Classic](photos.md#connect-codex). Start with `get_photo_workflow_status` to verify the connector, active catalogue and token permissions. Folder files already in Lightroom link by path when previews or editing context are requested. Report the blocker and next step if editing is unavailable; disclose any manual Lightroom fallback. Read `metachlorian://photos/editing-guide` for photographic guidance and check runtime capabilities before editing. Real Lightroom platform certification is still pending for this preview release.
+
+## Install in Codex or Claude Code
+
+In the local desktop app, open **Settings → API tokens for agents**, create a token
+with the scopes you need, then select **Install in Codex** or **Install in Claude Code**.
+The installer replaces only the `metachlorian` entry, backs up an existing configuration,
+and preserves other servers and settings. Restart the client after installing.
+Keep Metachlorian running while using its tools.
+
+Codex uses `$CODEX_HOME/config.toml` (or `~/.codex/config.toml`); Claude Code uses
+its user-scoped `~/.claude.json`. This does not install either client application.
+Claude Desktop is a separate product and is not configured by the Claude Code button.
+Browser users can still copy the HTTP configuration shown in Settings.
+The token is stored in the selected client's local configuration; backups may contain
+previous credentials. Revoke unused tokens in Metachlorian.
+
+New tokens default to no expiry; choose an expiry if desired. Existing tokens retain
+their original expiry. Restarting the app does not rotate tokens. A token belongs to
+one library database: opening another library requires a token from that library.
+
+The desktop endpoint stays at `http://127.0.0.1:8765/mcp`. If that port is occupied,
+Metachlorian reuses the server only when its library identity matches; otherwise it
+reports a conflict instead of selecting a random port. Close an older server once
+when upgrading so it can publish its library identity. The selected data directory
+is saved in desktop settings; `METACHLORIAN_DATA` explicitly overrides and updates it.
+
+Client format references:
+- https://developers.openai.com/codex/mcp
+- https://code.claude.com/docs/en/mcp
