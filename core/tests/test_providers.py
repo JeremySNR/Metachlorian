@@ -4,6 +4,7 @@ import os
 import stat
 import sys
 import textwrap
+from pathlib import Path
 
 import httpx
 import pytest
@@ -152,3 +153,24 @@ def test_codex_adapter_uses_the_subscription_caches_and_caps(tmp_path, monkeypat
     assert llm.codex_remaining(s, ep) == 0
     with pytest.raises(llm.LimitReached):
         client.structured([{"role": "user", "content": "a third"}], SCHEMA)
+
+
+def test_codex_adapter_handles_unicode_prompt_response_and_cache(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(llm, "find_codex", lambda _: "codex")
+    monkeypatch.setattr(llm, "codex_status", lambda _: {"ok": True})
+    llm._codex_login_ok.clear()
+    def run(args, **kwargs):
+        assert kwargs["encoding"] == "utf-8"
+        assert "文字 →" in kwargs["input"]
+        Path(args[args.index("--output-last-message") + 1]).write_text(
+            '{"caption":"文字 →","tags":[]}', encoding="utf-8")
+        return SimpleNamespace(returncode=0, stderr="", stdout="")
+    monkeypatch.setattr(llm.subprocess, "run", run)
+    ep = ModelEndpoint(provider="codex", model="test", codex_path="codex")
+    client = llm.CodexClient(ep, _settings(tmp_path, allow_remote=True))
+    messages = [{"role": "user", "content": "文字 →"}]
+    assert client.chat(messages, SCHEMA)[0] == '{"caption":"文字 →","tags":[]}'
+    assert client.chat(messages, SCHEMA)[1] == {"cached": 1}
+
