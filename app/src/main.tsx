@@ -1,5 +1,6 @@
 import '@fontsource-variable/instrument-sans/wdth.css'
 import '@fontsource-variable/jetbrains-mono'
+import './styles/family-foundations.css'
 import './styles/tokens.css'
 import './styles/global.css'
 import { StrictMode } from 'react'
