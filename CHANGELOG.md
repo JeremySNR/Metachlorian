@@ -15,6 +15,10 @@ still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
 ### Improved
 
 - Desktop MCP connections now keep a stable local endpoint and reuse only a server for the selected library.
+### Fixed
+
+- Codex-backed analysis handles Unicode transcripts and responses on Windows.
+
 ## [0.3.0] - 2026-11-01
 
 Photos and the Lightroom Classic editing preview are now included in the desktop installers. Open **Photos → Enable Photos** to get started.
