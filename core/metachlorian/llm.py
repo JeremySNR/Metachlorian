@@ -272,7 +272,7 @@ def codex_status(ep: ModelEndpoint, timeout: float = 15.0) -> dict[str, Any]:
     if not exe:
         return {"ok": False, "installed": False, "reason": "Codex CLI not found. Install it (npm i -g @openai/codex) or set its full path."}
     try:
-        out = subprocess.run([exe, "login", "status"], capture_output=True, text=True, timeout=timeout, env=_codex_env())
+        out = subprocess.run([exe, "login", "status"], capture_output=True, text=True, encoding="utf-8", timeout=timeout, env=_codex_env())
     except (OSError, subprocess.TimeoutExpired) as e:
         return {"ok": False, "installed": True, "path": exe, "reason": f"could not run codex: {e}"}
     text = (out.stdout + out.stderr).strip()
@@ -343,7 +343,7 @@ class CodexClient(_Base):
         key = hashlib.sha256(json.dumps({"v": 1, "model": self.ep.model, "m": messages, "s": schema}, sort_keys=True).encode()).hexdigest()
         cached = self.cache / f"{key}.json"
         if cached.exists():
-            return cached.read_text(), {"cached": 1}
+            return cached.read_text(encoding="utf-8"), {"cached": 1}
         self.ledger.take(self.ep.effective_daily_limit)
         self.cache.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(dir=self.cache, prefix="request-") as d:
@@ -373,16 +373,16 @@ class CodexClient(_Base):
                     "--cd", d, "--output-schema", str(dpath / "schema.json"), "--output-last-message", str(dpath / "response.json"),
                     "--json", *[a for img in images for a in ("--image", img)], "-"]
             try:
-                p = subprocess.run(args, input="\n\n".join(sections), capture_output=True, text=True,
+                p = subprocess.run(args, input="\n\n".join(sections), capture_output=True, text=True, encoding="utf-8",
                                    timeout=min(self.ep.timeout_s, 300), env=_codex_env())
             except subprocess.TimeoutExpired as e:
                 raise LLMError("Codex did not answer within 5 minutes") from e
             if p.returncode != 0:
                 err = re.sub(r"(?:sk-|Bearer\s+)\S+", "[redacted]", p.stderr[-4000:])
                 raise LLMError(f"Codex exited with {p.returncode}: {err.strip()[-500:]}")
-            out = (dpath / "response.json").read_text() if (dpath / "response.json").exists() else ""
+            out = (dpath / "response.json").read_text(encoding="utf-8") if (dpath / "response.json").exists() else ""
         if out:
-            cached.write_text(out)
+            cached.write_text(out, encoding="utf-8")
         return out, {"requests": 1}
 
 
@@ -446,3 +446,4 @@ def openrouter_models(timeout: float = 12.0) -> list[dict[str, Any]]:
 
 
 _ = PROVIDERS
+
